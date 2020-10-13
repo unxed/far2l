@@ -376,6 +376,7 @@ extern "C" {
 
             // dst too small?
             if (done_bytes/2 > dstlen) {
+                free(out_buf_orig);
                 WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
                 return 0;
             }
