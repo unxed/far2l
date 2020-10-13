@@ -322,71 +322,77 @@ extern "C" {
 		LPCSTR src, int srclen, LPWSTR dst, int dstlen))
 	{
 
-        int trcp = TranslateCodepage(page);
-        if (true)
+        if ((page == CP_MACCP) ||
+            (page == CP_THREAD_ACP) ||
+            (page == CP_SYMBOL))
         {
-        	//fprintf(stderr, "\n\n\nMultiByteToWideChar for page %d (translated %d)\n\n\n", page, trcp);
+            WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
+            return 0;
+        }
 
-            // calculating source length
-            size_t source_len;
-            if (srclen == -1) {
-                source_len = strlen(src) + 1;
-            } else {
-                source_len = srclen;
-            }
+        int trcp = TranslateCodepage(page);
 
-            // calculating destination buffer size, saving for futher use
-            size_t dest_bytes = source_len * 4; // maximum possible for "from something to utf32le"
-            size_t dest_bytes_orig = dest_bytes;
+    	//fprintf(stderr, "MultiByteToWideChar for page %d (translated %d)\n", page, trcp);
 
-            // creating output buffer, saving original pointer
-            char *out_buf = (char*)malloc(dest_bytes);
-            char *out_buf_orig = out_buf;
+        // calculating source length
+        size_t source_len;
+        if (srclen == -1) {
+            source_len = strlen(src) + 1;
+        } else {
+            source_len = srclen;
+        }
 
-            // iconv init
-            char *cp_in = (char*)malloc(20);
-            if      (trcp == CP_KOI8R)       { sprintf(cp_in, "KOI8-R"); }
-            else if (trcp == CP_UTF7)        { sprintf(cp_in, "UTF-7"); }
-            else if (trcp == CP_UTF8)        { sprintf(cp_in, "UTF-8"); }
-            else if (trcp == CP_UTF16LE)     { sprintf(cp_in, "UTF-16LE"); }
-            else if (trcp == CP_UTF16BE)     { sprintf(cp_in, "UTF-16BE"); }
-            else if (trcp == CP_UTF32LE)     { sprintf(cp_in, "UTF-32LE"); }
-            else if (trcp == CP_UTF32BE)     { sprintf(cp_in, "UTF-32BE"); }
-            else                             { sprintf(cp_in, "CP%d", trcp); }
-            iconv_t cd = iconv_open("UTF-32LE", cp_in);
-            free(cp_in);
+        // calculating destination buffer size, saving for futher use
+        size_t dest_bytes = source_len * 4; // maximum possible for "from something to utf32le"
+        size_t dest_bytes_orig = dest_bytes;
 
-            // performing conversion
-            int res = iconv(cd, (char**)&src, &source_len, &out_buf, &dest_bytes);
-            iconv_close(cd);
-            if (res < 0) {
-                free(out_buf_orig);
-                WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-                return 0;
-            }
+        // creating output buffer, saving original pointer
+        char *out_buf = (char*)malloc(dest_bytes);
+        char *out_buf_orig = out_buf;
 
-            // calculating actually written bytes
-            size_t done_bytes = dest_bytes_orig - dest_bytes;
+        // iconv init
+        char *cp_in = (char*)malloc(20);
+        if      (trcp == CP_KOI8R)       { sprintf(cp_in, "KOI8-R"); }
+        else if (trcp == CP_UTF7)        { sprintf(cp_in, "UTF-7"); }
+        else if (trcp == CP_UTF8)        { sprintf(cp_in, "UTF-8"); }
+        else if (trcp == CP_UTF16LE)     { sprintf(cp_in, "UTF-16LE"); }
+        else if (trcp == CP_UTF16BE)     { sprintf(cp_in, "UTF-16BE"); }
+        else if (trcp == CP_UTF32LE)     { sprintf(cp_in, "UTF-32LE"); }
+        else if (trcp == CP_UTF32BE)     { sprintf(cp_in, "UTF-32BE"); }
+        else                             { sprintf(cp_in, "CP%d", trcp); }
+        iconv_t cd = iconv_open("UTF-32LE", cp_in);
+        free(cp_in);
 
-            // it's size detection mode?
-            if (dstlen == 0) {
-                free(out_buf_orig);
-                return done_bytes/4; // counted in utf32le chars, not bytes!
-            }
+        // performing conversion
+        int res = iconv(cd, (char**)&src, &source_len, &out_buf, &dest_bytes);
+        iconv_close(cd);
+        if (res < 0) {
+            free(out_buf_orig);
+            WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
+            return 0;
+        }
 
-            // dst too small?
-            if (done_bytes/4 > dstlen) {
-                free(out_buf_orig);
-                WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
-                return 0;
-            }
+        // calculating actually written bytes
+        size_t done_bytes = dest_bytes_orig - dest_bytes;
 
-            memcpy(dst, out_buf_orig, done_bytes);
-
-            free(out_buf_orig); // out_buf can not be used, it was modified by iconv
-
+        // it's size detection mode?
+        if (dstlen == 0) {
+            free(out_buf_orig);
             return done_bytes/4; // counted in utf32le chars, not bytes!
         }
+
+        // dst too small?
+        if (done_bytes/4 > dstlen) {
+            free(out_buf_orig);
+            WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
+            return 0;
+        }
+
+        memcpy(dst, out_buf_orig, done_bytes);
+
+        free(out_buf_orig); // out_buf can not be used, it was modified by iconv
+
+        return done_bytes/4; // counted in utf32le chars, not bytes!
 	}
 
 
@@ -419,77 +425,81 @@ extern "C" {
 		int srclen, LPSTR dst, int dstlen, LPCSTR defchar, LPBOOL used))
 	{
 
-        //fprintf(stderr, "\n\n\n WC->MB src: %s \n\n\n", src);
+        if ((page == CP_MACCP) ||
+            (page == CP_THREAD_ACP) ||
+            (page == CP_SYMBOL))
+        {
+            WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
+            return 0;
+        }
 
         int trcp = TranslateCodepage(page);
-        if (true)
-        {
-        	//fprintf(stderr, "\n\n\nWideCharToMultiByte for page %d (translated %d)\n\n\n", page, trcp);
 
-            // calculating source length
-            size_t source_len;
-            if (srclen == -1) {
-                source_len = wcslen(src) + 1;
-            } else {
-                source_len = srclen;
-            }
+    	//fprintf(stderr, "WideCharToMultiByte for page %d (translated %d)\n", page, trcp);
 
-            // source size in bytes
-            size_t source_len_bytes = source_len * 4;
+        // calculating source length
+        size_t source_len;
+        if (srclen == -1) {
+            source_len = wcslen(src) + 1;
+        } else {
+            source_len = srclen;
+        }
 
-            // calculating destination buffer size, saving for futher use
-            size_t dest_bytes = source_len_bytes; // "from 32 bit wchar_t[] to something" can't grow in size
-            size_t dest_bytes_orig = dest_bytes;
+        // source size in bytes
+        size_t source_len_bytes = source_len * 4;
 
-            // allocating conversion output buffer, saving original pointer
-            char *out_buf = (char*)malloc(dest_bytes);
-            char *out_buf_orig = out_buf;
+        // calculating destination buffer size, saving for futher use
+        size_t dest_bytes = source_len_bytes; // "from 32 bit wchar_t[] to something" can't grow in size
+        size_t dest_bytes_orig = dest_bytes;
 
-            // iconv init
-            char *cp_out = (char*)malloc(20);
-            if      (trcp == CP_KOI8R)       { sprintf(cp_out, "KOI8-R"); }
-            else if (trcp == CP_UTF7)        { sprintf(cp_out, "UTF-7"); }
-            else if (trcp == CP_UTF8)        { sprintf(cp_out, "UTF-8"); }
-            else if (trcp == CP_UTF16LE)     { sprintf(cp_out, "UTF-16LE"); }
-            else if (trcp == CP_UTF16BE)     { sprintf(cp_out, "UTF-16BE"); }
-            else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE"); }
-            else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE"); }
-            else                             { sprintf(cp_out, "CP%d", trcp); }
-            iconv_t cd = iconv_open(cp_out, "UTF-32LE");
-            free(cp_out);
+        // allocating conversion output buffer, saving original pointer
+        char *out_buf = (char*)malloc(dest_bytes);
+        char *out_buf_orig = out_buf;
 
-            // performing conversion
-            int res = iconv(cd, (char**)&src, &source_len_bytes, &out_buf, &dest_bytes);
-            iconv_close(cd);
-            if (res < 0) {
-                free(out_buf_orig);
-                WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-                return 0;
-            }
+        // iconv init
+        char *cp_out = (char*)malloc(20);
+        if      (trcp == CP_KOI8R)       { sprintf(cp_out, "KOI8-R"); }
+        else if (trcp == CP_UTF7)        { sprintf(cp_out, "UTF-7"); }
+        else if (trcp == CP_UTF8)        { sprintf(cp_out, "UTF-8"); }
+        else if (trcp == CP_UTF16LE)     { sprintf(cp_out, "UTF-16LE"); }
+        else if (trcp == CP_UTF16BE)     { sprintf(cp_out, "UTF-16BE"); }
+        else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE"); }
+        else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE"); }
+        else                             { sprintf(cp_out, "CP%d", trcp); }
+        iconv_t cd = iconv_open(cp_out, "UTF-32LE");
+        free(cp_out);
 
-            // calculating actually written bytes
-            size_t done_bytes = dest_bytes_orig - dest_bytes;
+        // performing conversion
+        int res = iconv(cd, (char**)&src, &source_len_bytes, &out_buf, &dest_bytes);
+        iconv_close(cd);
+        if (res < 0) {
+            free(out_buf_orig);
+            WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
+            return 0;
+        }
 
-            // it's size detection mode?
-            if (dstlen == 0) {
-                free(out_buf_orig);
-                return done_bytes;
-            }
+        // calculating actually written bytes
+        size_t done_bytes = dest_bytes_orig - dest_bytes;
 
-            // dst too small?
-            if (done_bytes > dstlen) {
-                free(out_buf_orig);
-                WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
-                return 0;
-            }
-
-            // saving conversion result to destination buffer
-            memcpy(dst, out_buf_orig, done_bytes);
-
-            free(out_buf_orig); // out_buf can not be used, it was modified by iconv
-
+        // it's size detection mode?
+        if (dstlen == 0) {
+            free(out_buf_orig);
             return done_bytes;
         }
+
+        // dst too small?
+        if (done_bytes > dstlen) {
+            free(out_buf_orig);
+            WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
+            return 0;
+        }
+
+        // saving conversion result to destination buffer
+        memcpy(dst, out_buf_orig, done_bytes);
+
+        free(out_buf_orig); // out_buf can not be used, it was modified by iconv
+
+        return done_bytes;
 	}
 
 	WINPORT_DECL(GetOEMCP, UINT, ())
@@ -544,9 +554,16 @@ extern "C" {
 				cpinfo->MaxCharSize = 4;
 				return TRUE;
 			}
-			fprintf(stderr, "GetCPInfo: bad codepage %u\n", codepage);
+
+			cpinfo->DefaultChar[3] = 0x3f;
+			cpinfo->MaxCharSize = 1;
+    		return TRUE;
+
+		    /*	
+            fprintf(stderr, "GetCPInfo: bad codepage %u\n", codepage);
 			WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
 			return FALSE;
+            */
 		}
         /*
 		if (table->info.def_char & 0xff00)
@@ -563,9 +580,9 @@ extern "C" {
 			memcpy( cpinfo->LeadByte, table->dbcs.lead_bytes, sizeof(cpinfo->LeadByte) );
 		else
 			cpinfo->LeadByte[0] = cpinfo->LeadByte[1] = 0;
+        */
 
 		return TRUE;
-        */
 	}
 	
 	WINPORT_DECL(GetCPInfoEx, BOOL, (UINT codepage, DWORD dwFlags, LPCPINFOEX cpinfo))
@@ -628,7 +645,7 @@ extern "C" {
 
 			default:
 			{
-                return FALSE;
+                return TRUE;
 				/*
                 const union cptable *table = get_codepage_table( codepage );
 				if (!table)
