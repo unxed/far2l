@@ -429,7 +429,7 @@ extern "C" {
 
                             } else if (errno == EILSEQ) {
 
-                                if (count_bak > 1) {
+                                if ((count_bak > 1) || (src == src_bak)) {
 
                                     // wrong char in sequence longer then 1 byte?
                                     // retry from the next byte
