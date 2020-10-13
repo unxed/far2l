@@ -346,7 +346,7 @@ extern "C" {
         size_t source_len_orig = source_len;
 
         // calculating destination buffer size, saving for futher use
-        size_t dest_bytes = source_len * 4; // maximum possible for "from something to utf32le"
+        size_t dest_bytes = source_len * 4 * 10; // maximum possible for "from something to utf32le"
         size_t dest_bytes_orig = dest_bytes;
 
         // creating output buffer, saving original pointer
@@ -393,17 +393,68 @@ extern "C" {
                     bzero(out_buf, dest_bytes);
                     // reset iconv state
                     iconv(cd, NULL, NULL, NULL, NULL);
-                    size_t count = 1;
-                    unsigned char c;
+                    size_t count = 1; // bytes to process per iteration
                     do {
+                        // backup vars for retry attempts
+                        size_t count_bak = count;
+                        LPCSTR src_bak = src;
+                        size_t dest_bak = dest_bytes;
+                        char *out_buf_bak = out_buf;
+                        // reset errno
+                        errno = 0;
+                        // try iconv
                         res = iconv(cd, (char**)&src, &count, &out_buf, &dest_bytes);
-                        if (res < 0) {                  // faulty char?
-                            if (count == 1) { src++; }  // source pointer don't moved? move it
-                            *out_buf = '?';             // default char
-                            out_buf += 4;               // move dest pointer
-                            dest_bytes -= 4;            // update processed chars count
+
+                        if (res < 0) {
+
+                            // ops, faulty or incomplete symbol[s] found
+
+                            // how many symbols were read from input, but not written to output?
+                            int wrong = (count_bak - count) - (dest_bak - dest_bytes) / 4;
+
+                            // write "?" placeholders instead
+                            for (int i = 0; i < wrong; i++) {
+                                *out_buf = '?';
+                                out_buf += 4;
+                                dest_bytes -= 4;
+                            }
+
+                            if (errno == EINVAL) {
+
+                                if (src == src_bak) {
+                                    // incomplete char, nothing done?
+                                    // retrying with greater buffer
+                                    count++;
+                                }        
+
+                            } else if (errno == EILSEQ) {
+
+                                if (count_bak > 1) {
+
+                                    // wrong char in sequence longer then 1 byte?
+                                    // retry from the next byte
+                                    src = src_bak + 1;
+                                    out_buf = out_buf_bak;
+                                    dest_bytes = dest_bak;
+
+                                    // and don't forget to write "?" placeholder
+                                    *out_buf = '?';
+                                    // it' retry, so let's clear stuff three bytes
+                                    bzero(out_buf+1, 3);
+                                    out_buf += 4;
+                                    dest_bytes -= 4;
+                                }
+
+                                count = 1;
+
+                            } else {
+                                //fprintf(stderr, "ops, buffer is full, why?\n");
+                                break;
+                            }
+                        } else {
+                            // reset buffer size do default 1 byte
+                            count = 1;
                         }
-                        count = 1; // reset "bytes-to-process" value
                     } while (src < (src_orig + source_len));
                 }
             }
