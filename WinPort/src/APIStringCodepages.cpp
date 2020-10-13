@@ -332,7 +332,7 @@ extern "C" {
 
         int trcp = TranslateCodepage(page);
 
-    	//fprintf(stderr, "MultiByteToWideChar for page %d (translated %d)\n", page, trcp);
+    	//fprintf(stderr, "MultiByteToWideChar, %d --> wchar_t\n", trcp);
 
         // calculating source length
         size_t source_len;
@@ -360,16 +360,19 @@ extern "C" {
         else if (trcp == CP_UTF32LE)     { sprintf(cp_in, "UTF-32LE"); }
         else if (trcp == CP_UTF32BE)     { sprintf(cp_in, "UTF-32BE"); }
         else                             { sprintf(cp_in, "CP%d", trcp); }
-        iconv_t cd = iconv_open("UTF-32LE", cp_in);
+        iconv_t cd = iconv_open("UTF-32LE//IGNORE", cp_in);
         free(cp_in);
 
         // performing conversion
         int res = iconv(cd, (char**)&src, &source_len, &out_buf, &dest_bytes);
         iconv_close(cd);
         if (res < 0) {
-            free(out_buf_orig);
-            WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-            return 0;
+            //fprintf("m2w iconv err %d: %s\n", errno, strerror(errno));
+            if (((errno == EILSEQ) || (errno == EINVAL)) && (flags & MB_ERR_INVALID_CHARS)) {
+                free(out_buf_orig);
+                WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
+                return 0;
+            }
         }
 
         // calculating actually written bytes
@@ -435,7 +438,7 @@ extern "C" {
 
         int trcp = TranslateCodepage(page);
 
-    	//fprintf(stderr, "WideCharToMultiByte for page %d (translated %d)\n", page, trcp);
+    	//fprintf(stderr, "WideCharToMultiByte, wchar_t --> %d\n", trcp);
 
         // calculating source length
         size_t source_len;
@@ -458,14 +461,14 @@ extern "C" {
 
         // iconv init
         char *cp_out = (char*)malloc(20);
-        if      (trcp == CP_KOI8R)       { sprintf(cp_out, "KOI8-R"); }
-        else if (trcp == CP_UTF7)        { sprintf(cp_out, "UTF-7"); }
-        else if (trcp == CP_UTF8)        { sprintf(cp_out, "UTF-8"); }
-        else if (trcp == CP_UTF16LE)     { sprintf(cp_out, "UTF-16LE"); }
-        else if (trcp == CP_UTF16BE)     { sprintf(cp_out, "UTF-16BE"); }
-        else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE"); }
-        else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE"); }
-        else                             { sprintf(cp_out, "CP%d", trcp); }
+        if      (trcp == CP_KOI8R)       { sprintf(cp_out, "KOI8-R//IGNORE"); }
+        else if (trcp == CP_UTF7)        { sprintf(cp_out, "UTF-7//IGNORE"); }
+        else if (trcp == CP_UTF8)        { sprintf(cp_out, "UTF-8//IGNORE"); }
+        else if (trcp == CP_UTF16LE)     { sprintf(cp_out, "UTF-16LE//IGNORE"); }
+        else if (trcp == CP_UTF16BE)     { sprintf(cp_out, "UTF-16BE//IGNORE"); }
+        else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE//IGNORE"); }
+        else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE//IGNORE"); }
+        else                             { sprintf(cp_out, "CP%d//IGNORE", trcp); }
         iconv_t cd = iconv_open(cp_out, "UTF-32LE");
         free(cp_out);
 
@@ -473,9 +476,12 @@ extern "C" {
         int res = iconv(cd, (char**)&src, &source_len_bytes, &out_buf, &dest_bytes);
         iconv_close(cd);
         if (res < 0) {
-            free(out_buf_orig);
-            WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-            return 0;
+            //fprintf("w2m iconv err %d: %s\n", errno, strerror(errno));
+            if (((errno == EILSEQ) || (errno == EINVAL)) && (flags & MB_ERR_INVALID_CHARS)) {
+                free(out_buf_orig);
+                WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
+                return 0;
+            }
         }
 
         // calculating actually written bytes
