@@ -80,8 +80,8 @@ union cptable
     struct dbcs_table dbcs;
 };
 
-extern const union cptable *wine_cp_get_table( unsigned int codepage );
-extern const union cptable *wine_cp_enum_table( unsigned int index );
+//extern const union cptable *wine_cp_get_table( unsigned int codepage );
+//extern const union cptable *wine_cp_enum_table( unsigned int index );
 
 extern int wine_cp_mbstowcs( const union cptable *table, int flags,
                              const char *src, int srclen,
