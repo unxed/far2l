@@ -336,7 +336,7 @@ extern "C" {
             }
 
             // calculating destination buffer size, saving for futher use
-            size_t dest_bytes = source_len * 2; // maximum possible for "from something to utf16le"
+            size_t dest_bytes = source_len * 4; // maximum possible for "from something to utf32le"
             size_t dest_bytes_orig = dest_bytes;
 
             // creating output buffer, saving original pointer
@@ -353,7 +353,7 @@ extern "C" {
             else if (trcp == CP_UTF32LE)     { sprintf(cp_in, "UTF-32LE"); }
             else if (trcp == CP_UTF32BE)     { sprintf(cp_in, "UTF-32BE"); }
             else                             { sprintf(cp_in, "CP%d", trcp); }
-            iconv_t cd = iconv_open("UTF-16LE", cp_in);
+            iconv_t cd = iconv_open("UTF-32LE", cp_in);
             free(cp_in);
 
             // performing conversion
@@ -371,27 +371,21 @@ extern "C" {
             // it's size detection mode?
             if (dstlen == 0) {
                 free(out_buf_orig);
-                return done_bytes/2; // counted in utf16le chars, not bytes!
+                return done_bytes/4; // counted in utf32le chars, not bytes!
             }
 
             // dst too small?
-            if (done_bytes/2 > dstlen) {
+            if (done_bytes/4 > dstlen) {
                 free(out_buf_orig);
                 WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
                 return 0;
             }
 
-            // converting from utf16le to far2l's "utf16le-inside-32bit-wchar_t"
-            char *dst2 = (char*)dst;
-            for (int i=0;i<done_bytes*2;i+=4) {
-                memcpy(dst2 + i, out_buf_orig + i/2, 2);
-                dst2[i+2] = 0;
-                dst2[i+3] = 0;
-            }
+            memcpy(dst, out_buf_orig, done_bytes);
 
             free(out_buf_orig); // out_buf can not be used, it was modified by iconv
 
-            return done_bytes/2; // counted in utf16le chars, not bytes!
+            return done_bytes/4; // counted in utf32le chars, not bytes!
         }
 	}
 
@@ -440,21 +434,12 @@ extern "C" {
                 source_len = srclen;
             }
 
+            // source size in bytes
+            size_t source_len_bytes = source_len * 4;
+
             // calculating destination buffer size, saving for futher use
-            size_t dest_bytes = source_len * 4; // maximum possible for "from 32 bit wchar_t[] to something"
+            size_t dest_bytes = source_len_bytes; // "from 32 bit wchar_t[] to something" can't grow in size
             size_t dest_bytes_orig = dest_bytes;
-
-            // converting from far2l's "utf16le-inside-32bit-wchar_t" to utf16le
-            char *in_buf = (char*)malloc(source_len * 2);
-            char *in_buf_orig = in_buf;
-            char *src2 = (char*)src;
-            for (int i=0;i<source_len*2;i+=2) {
-                in_buf[i] = src2[i*2];
-                in_buf[i+1] = src2[i*2+1];
-            }
-
-            // calculating size of utf16le string in bytes
-            size_t in_buf_size = source_len * 2;
 
             // allocating conversion output buffer, saving original pointer
             char *out_buf = (char*)malloc(dest_bytes);
@@ -470,12 +455,11 @@ extern "C" {
             else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE"); }
             else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE"); }
             else                             { sprintf(cp_out, "CP%d", trcp); }
-            iconv_t cd = iconv_open(cp_out, "UTF-16LE");
+            iconv_t cd = iconv_open(cp_out, "UTF-32LE");
             free(cp_out);
 
             // performing conversion
-            int res = iconv(cd, (char**)&in_buf, &in_buf_size, &out_buf, &dest_bytes);
-            free(in_buf_orig); // in_buf can not be used, it was modified by iconv
+            int res = iconv(cd, (char**)&src, &source_len_bytes, &out_buf, &dest_bytes);
             iconv_close(cd);
             if (res < 0) {
                 free(out_buf_orig);
