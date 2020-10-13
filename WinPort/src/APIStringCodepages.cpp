@@ -346,7 +346,7 @@ extern "C" {
         size_t source_len_orig = source_len;
 
         // calculating destination buffer size, saving for futher use
-        size_t dest_bytes = source_len * 4 * 10; // maximum possible for "from something to utf32le"
+        size_t dest_bytes = source_len * 4; // maximum possible for "from something to utf32le"
         size_t dest_bytes_orig = dest_bytes;
 
         // creating output buffer, saving original pointer
