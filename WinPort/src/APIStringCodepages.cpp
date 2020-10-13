@@ -327,20 +327,23 @@ extern "C" {
         {
         	//fprintf(stderr, "\n\n\nMultiByteToWideChar for page %d (translated %d)\n\n\n", page, trcp);
 
+            // calculating source length
             size_t source_len;
             if (srclen == -1) {
-                source_len = strlen(src);
+                source_len = strlen(src) + 1;
             } else {
                 source_len = srclen;
             }
-            size_t source_len_orig = source_len;
 
-            size_t dest_bytes = source_len * 2 + 2; // dest buf size: maximum possible from something to utf16le
+            // calculating destination buffer size, saving for futher use
+            size_t dest_bytes = source_len * 2; // maximum possible for "from something to utf16le"
             size_t dest_bytes_orig = dest_bytes;
 
+            // creating output buffer, saving original pointer
             char *out_buf = (char*)malloc(dest_bytes);
             char *out_buf_orig = out_buf;
 
+            // iconv init
             char *cp_in = (char*)malloc(20);
             if      (trcp == CP_KOI8R)       { sprintf(cp_in, "KOI8-R"); }
             else if (trcp == CP_UTF7)        { sprintf(cp_in, "UTF-7"); }
@@ -353,58 +356,41 @@ extern "C" {
             iconv_t cd = iconv_open("UTF-16LE", cp_in);
             free(cp_in);
 
-            char *src_copy = (char*)src;
-
-            int res = iconv(cd, (char**)&src_copy, &source_len, &out_buf, &dest_bytes);
+            // performing conversion
+            int res = iconv(cd, (char**)&src, &source_len, &out_buf, &dest_bytes);
             iconv_close(cd);
             if (res < 0) {
                 free(out_buf_orig);
-                //fprintf(stderr, "\n\niconv err: %d\n", errno);
-                //fprintf(stderr, "strerror: %s\n", strerror(errno));
                 WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-                //WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
                 return 0;
             }
 
+            // calculating actually written bytes
             size_t done_bytes = dest_bytes_orig - dest_bytes;
 
+            // it's size detection mode?
             if (dstlen == 0) {
-                // needed size detection mode
                 free(out_buf_orig);
-                //fprintf(stderr, "calc: %d\n", done_bytes/2 + 1);
-                return done_bytes/2 + 1; // in utf16le chars, not bytes! + zero terminator
+                return done_bytes/2; // counted in utf16le chars, not bytes!
             }
 
-            // dst is 4-byte wchar_t here, but iconv gives us double byte utf16l,
-            // so converting to far2l's "utf16le-inside-32bit-wchar_t"
-            char *dst2 = (char*)dst;
-
+            // dst too small?
             if (done_bytes/2 > dstlen) {
                 WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
                 return 0;
             }
 
+            // converting from utf16le to far2l's "utf16le-inside-32bit-wchar_t"
+            char *dst2 = (char*)dst;
             for (int i=0;i<done_bytes*2;i+=4) {
                 memcpy(dst2 + i, out_buf_orig + i/2, 2);
                 dst2[i+2] = 0;
                 dst2[i+3] = 0;
             }
 
-            // zero terminate
-            // but this breaks multiarc
-            //bzero(dst2 + done_bytes*2, 4);
+            free(out_buf_orig); // out_buf can not be used, it was modified by iconv
 
-            free(out_buf_orig);
-
-            /*
-            fprintf(stderr, "source_len_orig: %d\n", source_len_orig);
-            fprintf(stderr, "dstlen: %d\n", dstlen);
-            fprintf(stderr, "source: %s\n", src);
-            fprintf(stderr, "decoded as: %ls\n", dst);
-            fprintf(stderr, "done: %d\n", done_bytes/2);
-            */
-
-            return done_bytes/2; // in utf16le chars, not bytes!
+            return done_bytes/2; // counted in utf16le chars, not bytes!
         }
 	}
 
@@ -445,85 +431,77 @@ extern "C" {
         {
         	//fprintf(stderr, "\n\n\nWideCharToMultiByte for page %d (translated %d)\n\n\n", page, trcp);
 
+            // calculating source length
             size_t source_len;
             if (srclen == -1) {
-                source_len = wcslen(src);
+                source_len = wcslen(src) + 1;
             } else {
                 source_len = srclen;
             }
 
-            size_t dest_bytes = source_len * 4 + 4; // dest buf size: maximum possible from utf16le to something
+            // calculating destination buffer size, saving for futher use
+            size_t dest_bytes = source_len * 4; // maximum possible for "from 32 bit wchar_t[] to something"
             size_t dest_bytes_orig = dest_bytes;
 
-            int zsize;
-
-            char *cp_out = (char*)malloc(20);
-            if      (trcp == CP_KOI8R)       { sprintf(cp_out, "KOI8-R");     zsize = 1; }
-            else if (trcp == CP_UTF7)        { sprintf(cp_out, "UTF-7");      zsize = 1; }
-            else if (trcp == CP_UTF8)        { sprintf(cp_out, "UTF-8");      zsize = 1; }
-            else if (trcp == CP_UTF16LE)     { sprintf(cp_out, "UTF-16LE");   zsize = 2; }
-            else if (trcp == CP_UTF16BE)     { sprintf(cp_out, "UTF-16BE");   zsize = 2; }
-            else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE");   zsize = 4; }
-            else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE");   zsize = 4; }
-            else                             { sprintf(cp_out, "CP%d", trcp); zsize = 1; }
-            iconv_t cd = iconv_open(cp_out, "UTF-16LE");
-            free(cp_out);
-
-            // src is 4-byte wchar_t here, but iconv requires double byte utf16l,
-            // so converting from far2l's "utf16le-inside-32bit-wchar_t"
-            char *in_buf = (char*)malloc(source_len * 2 + 2);
+            // converting from far2l's "utf16le-inside-32bit-wchar_t" to utf16le
+            char *in_buf = (char*)malloc(source_len * 2);
             char *in_buf_orig = in_buf;
             char *src2 = (char*)src;
             for (int i=0;i<source_len*2;i+=2) {
                 in_buf[i] = src2[i*2];
                 in_buf[i+1] = src2[i*2+1];
             }
-            bzero(in_buf + source_len*2, 2);
 
+            // calculating size of utf16le string in bytes
             size_t in_buf_size = source_len * 2;
-            size_t in_buf_size_orig = in_buf_size;
 
-            char *out_buf = (char*)malloc(source_len * 4 + 4); // maximum possible
+            // allocating conversion output buffer, saving original pointer
+            char *out_buf = (char*)malloc(dest_bytes);
             char *out_buf_orig = out_buf;
+
+            // iconv init
+            char *cp_out = (char*)malloc(20);
+            if      (trcp == CP_KOI8R)       { sprintf(cp_out, "KOI8-R"); }
+            else if (trcp == CP_UTF7)        { sprintf(cp_out, "UTF-7"); }
+            else if (trcp == CP_UTF8)        { sprintf(cp_out, "UTF-8"); }
+            else if (trcp == CP_UTF16LE)     { sprintf(cp_out, "UTF-16LE"); }
+            else if (trcp == CP_UTF16BE)     { sprintf(cp_out, "UTF-16BE"); }
+            else if (trcp == CP_UTF32LE)     { sprintf(cp_out, "UTF-32LE"); }
+            else if (trcp == CP_UTF32BE)     { sprintf(cp_out, "UTF-32BE"); }
+            else                             { sprintf(cp_out, "CP%d", trcp); }
+            iconv_t cd = iconv_open(cp_out, "UTF-16LE");
+            free(cp_out);
+
+            // performing conversion
             int res = iconv(cd, (char**)&in_buf, &in_buf_size, &out_buf, &dest_bytes);
-            free(in_buf_orig);
+            free(in_buf_orig); // in_buf can not be used, it was modified by iconv
             iconv_close(cd);
             if (res < 0) {
-                //fprintf(stderr, "\n\nwc2mb iconv err (detect size): %d\n", errno);
-                //fprintf(stderr, "strerror: %s\n", strerror(errno));
+                free(out_buf_orig);
                 WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-                //WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
                 return 0;
             }
 
+            // calculating actually written bytes
             size_t done_bytes = dest_bytes_orig - dest_bytes;
 
+            // it's size detection mode?
             if (dstlen == 0) {
                 free(out_buf_orig);
-                // size detection mode
-                //fprintf(stderr, "calc: %d\n", done_bytes);
-                return done_bytes + zsize;
+                return done_bytes;
             }
 
+            // dst too small?
             if (done_bytes > dstlen) {
                 free(out_buf_orig);
                 WINPORT(SetLastError)( ERROR_INSUFFICIENT_BUFFER );
                 return 0;
             }
 
+            // saving conversion result to destination buffer
             memcpy(dst, out_buf_orig, done_bytes);
-            bzero(dst + done_bytes, zsize);
-            free(out_buf_orig);
-            
-            /*
-            fprintf(stderr, "\n\done: %d\n", done_bytes);
-            fprintf(stderr, "dstlen: %d\n", dstlen);
-            fprintf(stderr, "ibso: %d\n", in_buf_size_orig);
-            fprintf(stderr, "dbo: %d\n", dest_bytes_orig);
-            fprintf(stderr, "res: %d\n", res);
-            fprintf(stderr, "source: %ls\n", src);
-            fprintf(stderr, "decoded as: %s\n", (char*)dst);
-            */
+
+            free(out_buf_orig); // out_buf can not be used, it was modified by iconv
 
             return done_bytes;
         }
