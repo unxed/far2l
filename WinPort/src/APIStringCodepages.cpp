@@ -363,6 +363,12 @@ extern "C" {
         iconv_t cd = iconv_open("UTF-32LE//IGNORE", cp_in);
         free(cp_in);
 
+        if (cd < 0) {
+            free(out_buf_orig);
+            WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
+            return 0;
+        }
+
         // performing conversion
         int res = iconv(cd, (char**)&src, &source_len, &out_buf, &dest_bytes);
         iconv_close(cd);
@@ -471,6 +477,12 @@ extern "C" {
         else                             { sprintf(cp_out, "CP%d//IGNORE", trcp); }
         iconv_t cd = iconv_open(cp_out, "UTF-32LE");
         free(cp_out);
+
+        if (cd < 0) {
+            free(out_buf_orig);
+            WINPORT(SetLastError)( ERROR_INVALID_PARAMETER );
+            return 0;
+        }
 
         // performing conversion
         int res = iconv(cd, (char**)&src, &source_len_bytes, &out_buf, &dest_bytes);
