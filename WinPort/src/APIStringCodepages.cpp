@@ -342,6 +342,9 @@ extern "C" {
             source_len = srclen;
         }
 
+        LPCSTR src_orig = src;
+        size_t source_len_orig = source_len;
+
         // calculating destination buffer size, saving for futher use
         size_t dest_bytes = source_len * 4; // maximum possible for "from something to utf32le"
         size_t dest_bytes_orig = dest_bytes;
@@ -371,15 +374,42 @@ extern "C" {
 
         // performing conversion
         int res = iconv(cd, (char**)&src, &source_len, &out_buf, &dest_bytes);
-        iconv_close(cd);
         if (res < 0) {
-            //fprintf("m2w iconv err %d: %s\n", errno, strerror(errno));
-            if (((errno == EILSEQ) || (errno == EINVAL)) && (flags & MB_ERR_INVALID_CHARS)) {
-                free(out_buf_orig);
-                WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-                return 0;
+            //fprintf(stderr, "m2w iconv err %d: %s\n", errno, strerror(errno));
+            if ((errno == EILSEQ) || (errno == EINVAL)) {
+                if (flags & MB_ERR_INVALID_CHARS) {
+                    iconv_close(cd);
+                    free(out_buf_orig);
+                    WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
+                    return 0;
+                } else {
+                    // performing another, fault tolerant conversion attempt, byte by byte
+                    //fprintf(stderr, "fault-falerant m2w \n\n\n");
+                    src = src_orig;
+                    source_len = source_len_orig;
+                    out_buf = out_buf_orig;
+                    dest_bytes = dest_bytes_orig;
+                    // discarding prev conversion attempt
+                    bzero(out_buf, dest_bytes);
+                    // reset iconv state
+                    iconv(cd, NULL, NULL, NULL, NULL);
+                    size_t count = 1;
+                    unsigned char c;
+                    do {
+                        res = iconv(cd, (char**)&src, &count, &out_buf, &dest_bytes);
+                        if (res < 0) {                  // faulty char?
+                            if (count == 1) { src++; }  // source pointer don't moved? move it
+                            *out_buf = '?';             // default char
+                            out_buf += 4;               // move dest pointer
+                            dest_bytes -= 4;            // update processed chars count
+                        }
+                        count = 1; // reset "bytes-to-process" value
+                    } while (src < (src_orig + source_len));
+                }
             }
         }
+
+        iconv_close(cd);
 
         // calculating actually written bytes
         size_t done_bytes = dest_bytes_orig - dest_bytes;
@@ -454,8 +484,11 @@ extern "C" {
             source_len = srclen;
         }
 
+        LPCWSTR src_orig = src;
+
         // source size in bytes
         size_t source_len_bytes = source_len * 4;
+        size_t source_len_bytes_orig = source_len_bytes;
 
         // calculating destination buffer size, saving for futher use
         size_t dest_bytes = source_len_bytes; // "from 32 bit wchar_t[] to something" can't grow in size
@@ -486,15 +519,43 @@ extern "C" {
 
         // performing conversion
         int res = iconv(cd, (char**)&src, &source_len_bytes, &out_buf, &dest_bytes);
-        iconv_close(cd);
         if (res < 0) {
-            //fprintf("w2m iconv err %d: %s\n", errno, strerror(errno));
-            if (((errno == EILSEQ) || (errno == EINVAL)) && (flags & MB_ERR_INVALID_CHARS)) {
-                free(out_buf_orig);
-                WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
-                return 0;
+            //fprintf(stderr, "w2m iconv err %d: %s\n", errno, strerror(errno));
+            if ((errno == EILSEQ) || (errno == EINVAL)) {
+                if (flags & MB_ERR_INVALID_CHARS) {
+                    iconv_close(cd);
+                    free(out_buf_orig);
+                    WINPORT(SetLastError)( ERROR_NO_UNICODE_TRANSLATION );
+                    return 0;
+                } else {
+                    // performing another, fault tolerant conversion attempt, char by char
+                    /*
+                    fprintf(stderr, "fault-falerant w2m \n\n\n");
+                    src = src_orig;
+                    source_len_bytes = source_len_bytes_orig;
+                    out_buf = out_buf_orig;
+                    dest_bytes = dest_bytes_orig;
+                    // discarding prev conversion attempt
+                    bzero(out_buf, dest_bytes);
+                    // reset iconv state
+                    iconv(cd, NULL, NULL, NULL, NULL);
+                    size_t count = 4;
+                    do {
+                        res = iconv(cd, (char**)&src, &count, &out_buf, &dest_bytes);
+                        if (res < 0) {                     // faulty char?
+                            if (count == 1) { src += 4; }  // source pointer don't moved? move it
+                            *out_buf = '?';                // default char
+                            out_buf += 1;                  // move dest pointer
+                            dest_bytes -= 1;               // update processed chars count
+                        }
+                        count = 4; // reset "bytes-to-process" value
+                    } while (src < (src_orig + source_len_bytes));
+                    */
+                }
             }
         }
+
+        iconv_close(cd);
 
         // calculating actually written bytes
         size_t done_bytes = dest_bytes_orig - dest_bytes;
