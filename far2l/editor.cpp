@@ -2493,6 +2493,9 @@ int Editor::ProcessKey(int Key)
 		}
 		case KEY_CTRLQ:
 		{
+		    // Ctrl-Q disabled by unxed
+			return TRUE;
+
 			if (!Flags.Check(FEDITOR_LOCKMODE))
 			{
 				Flags.Set(FEDITOR_PROCESSCTRLQ);

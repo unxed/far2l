@@ -1480,6 +1480,9 @@ int Edit::ProcessKey(int Key)
 // обработка Ctrl-Q
 int Edit::ProcessCtrlQ()
 {
+    // Ctrl-Q disabled by unxed
+	return TRUE;
+
 	INPUT_RECORD rec;
 	DWORD Key;
 
