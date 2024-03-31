@@ -16,6 +16,7 @@ set(SOURCES
     src/InMy.cpp
     src/ZombieControl.cpp
     src/base64.cpp
+    src/dlfcn.c
     src/Event.cpp
     src/StackSerializer.cpp
     src/ScopeHelpers.cpp

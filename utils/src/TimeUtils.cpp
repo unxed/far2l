@@ -2,6 +2,10 @@
 #include "debug.h"
 #include <stdlib.h>
 
+#ifdef __MINGW32__
+#   define localtime_r(T,Tm) (localtime_s(Tm,T) ? NULL : Tm)
+#endif
+
 std::chrono::milliseconds TimeMSNow()
 {
 	return std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch());

@@ -1,6 +1,10 @@
 #include <set>
 #include <mutex>
+#ifndef __MINGW32__
 #include <sys/wait.h>
+#else
+typedef int pid_t;
+#endif
 
 class ZombieControl : std::set<pid_t>
 {

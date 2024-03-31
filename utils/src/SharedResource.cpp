@@ -13,6 +13,66 @@
 
 #define SR_ROOT_DIR "sr"
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+#ifdef __MINGW32__
+
+typedef unsigned int uid_t;
+uid_t geteuid() { return 1; }
+
+// from /usr/include/asm-generic/fcntl.h
+
+/* operations for bsd flock(), also used by the kernel implementation */
+#define LOCK_SH		1	/* shared lock */
+#define LOCK_EX		2	/* exclusive lock */
+#define LOCK_NB		4	/* or'd with one of the above to prevent
+				   blocking */
+#define LOCK_UN		8	/* remove lock */
+
+#define LOCK_MAND	32	/* This is a mandatory flock ... */
+#define LOCK_READ	64	/* which allows concurrent read operations */
+#define LOCK_WRITE	128	/* which allows concurrent write operations */
+#define LOCK_RW		192	/* which allows concurrent read & write ops */
+
+
+ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset) {
+    off_t original_offset = lseek(fd, 0, SEEK_CUR);
+    off_t new_offset = lseek(fd, offset, SEEK_SET);
+    if (new_offset == -1) {
+        return -1;
+    }
+
+    ssize_t bytes_written = write(fd, buf, count);
+
+    off_t restore_offset = lseek(fd, original_offset, SEEK_SET);
+    if (restore_offset == -1) {
+        return -1;
+    }
+
+    return bytes_written;
+}
+
+ssize_t pread(int fd, void *buf, size_t count, off_t offset) {
+    off_t current_offset = lseek(fd, 0, SEEK_CUR);
+    if (lseek(fd, offset, SEEK_SET) == -1) {
+        perror("lseek");
+        return -1;
+    }
+    ssize_t bytes_read = read(fd, buf, count);
+    lseek(fd, current_offset, SEEK_SET);
+    return bytes_read;
+}
+
+int flock(int fd, int operation) {
+    fprintf(stderr, "flock() function is not available on this system.\n");
+    errno = ENOSYS;
+    return -1;
+}
+
+#endif
+
 bool SharedResource::sEnum(const char *group, std::vector<uint64_t> &ids) noexcept
 {
 	char buf[128];

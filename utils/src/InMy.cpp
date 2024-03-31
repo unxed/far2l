@@ -3,7 +3,46 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+
+#ifndef __MINGW32__
 #include <pwd.h>
+#else
+
+typedef unsigned int __uid_t;
+typedef unsigned int __gid_t;
+
+/* A record in the user database.  */
+struct passwd
+{
+  char *pw_name;		/* Username.  */
+  char *pw_passwd;		/* Hashed passphrase, if shadow database
+                                   not in use (see shadow.h).  */
+  __uid_t pw_uid;		/* User ID.  */
+  __gid_t pw_gid;		/* Group ID.  */
+  char *pw_gecos;		/* Real name.  */
+  char *pw_dir;			/* Home directory.  */
+  char *pw_shell;		/* Shell program.  */
+};
+
+struct passwd *getpwuid(__uid_t __uid) {
+    static struct passwd empty_passwd;
+    memset(&empty_passwd, 0, sizeof(struct passwd));
+    return &empty_passwd;
+}
+
+const unsigned long long geteuid() { return 1; }
+int setenv(const char *name, const char *value, int overwrite) {
+	std::string out = "";
+	out += name;
+	out += "=";
+	out += value;
+	int err = putenv(out.c_str());
+
+	// error processing not supported yet
+	// overwrite not supported yet
+}
+#endif
+
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>

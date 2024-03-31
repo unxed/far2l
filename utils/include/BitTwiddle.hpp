@@ -4,7 +4,7 @@
 # include <machine/endian.h>  // __BYTE_ORDER
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
 # include <sys/endian.h>  // __BYTE_ORDER
-#else
+#elif !defined(__MINGW32__)
 # include <endian.h>  // __BYTE_ORDER
 #endif
 

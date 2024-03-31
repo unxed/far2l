@@ -9,6 +9,12 @@
 #include <wctype.h>
 #include <limits.h>
 
+#ifdef __MINGW32__
+#define NAME_MAX 255
+typedef unsigned int uid_t;
+typedef unsigned int gid_t;
+#endif
+
 #ifdef __linux__
 // for PATH_MAX
 # include <linux/limits.h>

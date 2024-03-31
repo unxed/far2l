@@ -2,7 +2,11 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <fcntl.h>
+#if defined(__MINGW32__)
+#include <dlfcn-win32.h>
+#else
 #include <dlfcn.h>
+#endif
 #include <errno.h>
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)

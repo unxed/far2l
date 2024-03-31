@@ -1,3 +1,21 @@
+set(CMAKE_GENERATOR "MinGW Makefiles")
+
+#set(CMAKE_C_COMPILER "i686-w64-mingw32-gcc")
+#set(CMAKE_CXX_COMPILER "i686-w64-mingw32-g++")
+
+# https://stackoverflow.com/questions/65466946/specify-thread-model-on-ubuntu-mingw-if-possible
+# https://stackoverflow.com/questions/76794453/namespace-std-has-no-member-mutex
+
+#set(CMAKE_C_COMPILER "x86_64-w64-mingw32-gcc-win32")
+#set(CMAKE_CXX_COMPILER "x86_64-w64-mingw32-g++-win3")
+
+set(CMAKE_C_COMPILER "x86_64-w64-mingw32-gcc-posix")
+set(CMAKE_CXX_COMPILER "x86_64-w64-mingw32-g++-posix")
+
+set(CMAKE_SYSTEM_NAME "Windows")
+set(CMAKE_SYSTEM_PROCESSOR "x86-64")
+
+
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
 cmake_minimum_required (VERSION 3.0.2)
