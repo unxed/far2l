@@ -432,7 +432,11 @@ static bool LoadKeyFileContent(const std::string &filename, struct stat &filesta
 			return false;
 		}
 
+#ifdef __MINGW32__
+		FDScope fd(filename.c_str(), O_RDONLY);
+#else
 		FDScope fd(filename.c_str(), O_RDONLY | O_CLOEXEC);
+#endif
 		if (!fd.Valid()) {
 			fprintf(stderr, "%s: error=%d opening '%s'\n", __FUNCTION__, errno, filename.c_str());
 			return false;
@@ -725,6 +729,7 @@ KeyFileHelper::KeyFileHelper(const std::string &filename, bool load, bool case_i
 	_filename(filename),
 	_dirty(!load)
 {
+#ifndef __MINGW32__
 	// for symlinks need to save later into final destination path to avoid symlink disruption
 	// also relative path should be translated to absolute to avoid wrong file saving if current directory changed in a way
 	char *real_filename = realpath(_filename.c_str(), NULL);
@@ -734,6 +739,7 @@ KeyFileHelper::KeyFileHelper(const std::string &filename, bool load, bool case_i
 		}
 		free(real_filename);
 	}
+#endif
 }
 
 KeyFileHelper::~KeyFileHelper()
@@ -751,7 +757,11 @@ bool KeyFileHelper::Save(bool only_if_dirty)
 	unsigned int  tmp_uniq = ++s_tmp_uniq;
 	tmp+= StrPrintf(".%u-%u", getpid(), tmp_uniq);
 	try {
+#ifdef __MINGW32__
+		FDScope fd(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC, MakeFileMode(_filestat));
+#else
 		FDScope fd(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, MakeFileMode(_filestat));
+#endif
 		if (!fd.Valid()) {
 			throw std::runtime_error("create file failed");
 		}

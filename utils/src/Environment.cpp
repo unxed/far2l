@@ -9,11 +9,15 @@ namespace Environment
 static char *GetHostNameCached()
 {
 	static char s_out[0x100] = {0};
+#ifdef __MINGW32__
+	return &s_out[0];
+#else
 	if (!s_out[0]) {
 		gethostname(&s_out[1], sizeof(s_out) - 1);
 		s_out[0] = 1;
 	}
 	return &s_out[1];
+#endif
 }
 
 const char *GetVariable(const char *name)

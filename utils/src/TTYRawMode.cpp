@@ -16,7 +16,10 @@ TTYRawMode::TTYRawMode(int std_in, int std_out)
 	}
 
 	struct termios ts_ne = _ts;
+#ifndef __MINGW32__
 	cfmakeraw(&ts_ne);
+	// fixme: hackfix by unxed
+#endif
 	if (tcsetattr( _fd, TCSADRAIN, &ts_ne ) != 0) {
 		_fd = -1;
 	}

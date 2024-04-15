@@ -3,7 +3,14 @@
 #ifndef __MINGW32__
 #include <sys/wait.h>
 #else
-typedef int pid_t;
+#define WNOHANG 1
+
+pid_t waitpid(pid_t pid, int *status, int options)
+{
+	// fixme: hackfix by unxed
+	return -1;
+}
+
 #endif
 
 class ZombieControl : std::set<pid_t>
