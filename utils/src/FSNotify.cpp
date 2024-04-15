@@ -7,7 +7,9 @@
 # include <sys/time.h>
 #elif defined(__HAIKU__)
 #elif !defined(__CYGWIN__)
+#ifndef __MINGW32__
 # include <sys/inotify.h>
+#endif
 #endif
 #include <pthread.h>
 #include <limits.h>
@@ -64,7 +66,9 @@ class FSNotify : public IFSNotify
 		if (_what == FSNW_NAMES_AND_STATS)
 			mask|= IN_MODIFY | IN_ATTRIB;
 
+#ifndef __MINGW32__
 		w = inotify_add_watch(_fd, path, mask);
+#endif
 #endif
 		if (w != -1)
 			_watches.emplace_back(w);
@@ -126,7 +130,9 @@ class FSNotify : public IFSNotify
 		}
 #else
 		union {
+#ifndef __MINGW32__
 			struct inotify_event ie;
+#endif
 			char space[ sizeof(struct inotify_event) + NAME_MAX + 10 ];
 		} buf = {};
 
@@ -172,7 +178,9 @@ public:
 		if (_fd == -1)
 			return;
 #else
+#ifndef __MINGW32__
 		_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
+#endif
 		if (_fd == -1)
 			return;
 #endif
@@ -229,8 +237,10 @@ public:
 		}
 #else
 		if (_fd != -1) {
+#ifndef __MINGW32__
 			for (auto w : _watches)
 				inotify_rm_watch(_fd, w);
+#endif
 			close(_fd);
 			_fd = -1;
 		}

@@ -45,7 +45,9 @@ void PipeIPCSender::SetFD(int fd)
 void PipeIPCSender::Send(const void *data, size_t len)
 {
 	if (len) for (;;) {
+#ifndef __MINGW32__
 		ssize_t rv = os_call_ssize(write, _fd, data, len);
+#endif
 //		fprintf(stderr, "[%d] SENT: %lx/%lx {0x%x... }\n", getpid(), rv, len, *(const unsigned char *)data);
 		if (rv <= 0)
 			throw PipeIPCError("PipeIPCSender: write", errno);

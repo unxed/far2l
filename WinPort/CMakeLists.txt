@@ -20,12 +20,13 @@ src/WinPortHandle.cpp
 src/CustomPanic.cpp
 src/PathHelpers.cpp
 src/SavedScreen.cpp
-src/sudo/sudo_common.cpp
-src/sudo/sudo_client.cpp
-src/sudo/sudo_client_api.cpp
-src/sudo/sudo_dispatcher.cpp
-src/sudo/sudo_askpass.cpp
-src/sudo/sudo_askpass_ipc.cpp
+#fixme: hackfix by unxed. temporary disabled in mingw build
+#src/sudo/sudo_common.cpp
+#src/sudo/sudo_client.cpp
+#src/sudo/sudo_client_api.cpp
+#src/sudo/sudo_dispatcher.cpp
+#src/sudo/sudo_askpass.cpp
+#src/sudo/sudo_askpass_ipc.cpp
 src/Backend/WinPortMain.cpp
 src/Backend/WinPortRGB.cpp
 src/Backend/SudoAskpassImpl.cpp

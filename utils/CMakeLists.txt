@@ -22,7 +22,8 @@ set(SOURCES
     src/ScopeHelpers.cpp
     src/crc64.c
     src/TTYRawMode.cpp
-    src/LocalSocket.cpp
+#fixme: hackfix by unxed. temporary disabled in mingw build
+#    src/LocalSocket.cpp
     src/FilePathHashSuffix.cpp
     src/Environment.cpp
     src/Escaping.cpp

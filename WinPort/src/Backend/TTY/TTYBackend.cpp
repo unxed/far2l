@@ -22,7 +22,9 @@
 #include "WinPortHandle.h"
 #include "Backend.h"
 #include "TTYBackend.h"
+#ifndef __MINGW32__
 #include "TTYRevive.h"
+#endif
 #include "TTYFar2lClipboardBackend.h"
 #include "TTYNegotiateFar2l.h"
 #include "FarTTY.h"
@@ -282,7 +284,9 @@ void TTYBackend::ReaderThread()
 
 		while (!_exiting) {
 			const std::string &info = StrWide2MB(g_winport_con_out->GetTitle());
+#ifndef __MINGW32__
 			_notify_pipe = TTYReviveMe(_stdin, _stdout, _far2l_tty, _kickass[0], info);
+#endif
 			if (_notify_pipe != -1) {
 				break;
 			}
