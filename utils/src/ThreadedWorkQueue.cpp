@@ -4,6 +4,21 @@
 #include <stdio.h>
 #include <stdexcept>
 
+#ifdef __MINGW32__
+
+#include <mutex>
+
+/*
+class std::mutex {
+public:
+    void lock() override {}
+    bool try_lock() override { return true; }
+    void unlock() override {}
+};
+*/
+
+#endif
+
 class ThreadedWorker : public Threaded
 {
 	ThreadedWorkQueue *_twq;

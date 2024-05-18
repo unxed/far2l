@@ -107,11 +107,16 @@ void *Threaded::GetThreadResult()
 
 static unsigned int BestThreadsCountUncached()
 {
+#ifdef __MINGW32__
+	return 2; // fixme: hackfix by unxed
+#else
 	constexpr int ReasonableLimit = 32;
 
 	int out = sysconf(_SC_NPROCESSORS_ONLN);
 	fprintf(stderr, "_SC_NPROCESSORS_ONLN=%d\n", out);
+
 	return (out > 0) ? (unsigned int)std::min(out, ReasonableLimit) : 1;
+#endif
 }
 
 unsigned int BestThreadsCount()

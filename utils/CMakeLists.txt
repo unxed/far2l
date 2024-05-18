@@ -16,12 +16,14 @@ set(SOURCES
     src/InMy.cpp
     src/ZombieControl.cpp
     src/base64.cpp
+    src/dlfcn.c
     src/Event.cpp
     src/StackSerializer.cpp
     src/ScopeHelpers.cpp
     src/crc64.c
     src/TTYRawMode.cpp
-    src/LocalSocket.cpp
+#fixme: hackfix by unxed. temporary disabled in mingw build
+#    src/LocalSocket.cpp
     src/FilePathHashSuffix.cpp
     src/Environment.cpp
     src/Escaping.cpp
