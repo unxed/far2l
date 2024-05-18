@@ -1,43 +1,48 @@
-#ifndef COLORER_CATALOGPARSER_H
-#define COLORER_CATALOGPARSER_H
+#ifndef _COLORER_CATALOGPARSER_H_
+#define _COLORER_CATALOGPARSER_H_
 
+#include <list>
 #include <vector>
+#include <colorer/Common.h>
+#include <colorer/parsers/HRDNode.h>
 #include <xercesc/dom/DOM.hpp>
-#include "colorer/Common.h"
-#include "colorer/Exception.h"
-#include "colorer/parsers/HrdNode.h"
 
 class CatalogParser
 {
- public:
-  CatalogParser() = default;
-  ~CatalogParser() = default;
+public:
+  CatalogParser() {};
+  ~CatalogParser() {};
 
-  void parse(const UnicodeString* path);
-  static std::unique_ptr<HrdNode> parseHRDSetsChild(const xercesc::DOMElement* elem);
+  void parse(const String* path);
+  static std::unique_ptr<HRDNode> parseHRDSetsChild(const xercesc::DOMElement* elem);
 
-  std::vector<UnicodeString> hrc_locations;
-  std::vector<std::unique_ptr<HrdNode>> hrd_nodes;
+  std::vector<SString> hrc_locations;
+  std::list<std::unique_ptr<HRDNode>> hrd_nodes;
+private:
 
-  CatalogParser(CatalogParser const&) = delete;
-  CatalogParser& operator=(CatalogParser const&) = delete;
-  CatalogParser(CatalogParser&&) = delete;
-  CatalogParser& operator=(CatalogParser&&) = delete;
+  void parseCatalogBlock(const xercesc::DOMElement* elem);
+  void parseHrcSetsBlock(const xercesc::DOMElement* elem);
+  void addHrcSetsLocation(const xercesc::DOMElement* elem);
+  void parseHrdSetsBlock(const xercesc::DOMElement* elem);
 
- private:
-  void parseCatalogBlock(const xercesc::DOMNode* elem);
-  void parseHrcSetsBlock(const xercesc::DOMNode* elem);
-  void addHrcSetsLocation(const xercesc::DOMNode* elem);
-  void parseHrdSetsBlock(const xercesc::DOMNode* elem);
+  CatalogParser(CatalogParser const &) = delete;
+  CatalogParser &operator=(CatalogParser const &) = delete;
+  CatalogParser(CatalogParser &&) = delete;
+  CatalogParser &operator=(CatalogParser &&) = delete;
 };
 
 class CatalogParserException : public Exception
 {
- public:
-  explicit CatalogParserException(const UnicodeString& msg) noexcept
-      : Exception("[CatalogParserException] " + msg)
+public:
+  CatalogParserException() noexcept : Exception("[CatalogParserException] ") {};
+
+  CatalogParserException(const String &msg) noexcept : CatalogParserException()
   {
+    what_str.append(msg);
   }
 };
 
-#endif  // COLORER_CATALOGPARSER_H
+
+#endif //_COLORER_CATALOGPARSER_H_
+
+

@@ -125,7 +125,7 @@ int GetDirInfo(const wchar_t *Title, const wchar_t *DirName, uint32_t &DirCount,
 	}
 
 	while (ScTree.GetNextName(&FindData, strFullName)) {
-		if (!CtrlObject->Macro.IsExecuting() && !WinPortTesting()) {
+		if (!CtrlObject->Macro.IsExecuting()) {
 			INPUT_RECORD rec;
 
 			switch (PeekInputRecord(&rec)) {

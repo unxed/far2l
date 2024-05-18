@@ -126,10 +126,7 @@ void DizList::Read(const wchar_t *Path, const wchar_t *DizName)
 		}
 
 		File DizFile;
-        FAR_FIND_DATA_EX FindData;
-        if (apiGetFindDataEx(strDizFileName, FindData, FIND_FILE_FLAG_CASE_INSENSITIVE) &&
-            DizFile.Open(FindData.strFileName, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING)) {
-            strDizFileName=FindData.strFileName;
+		if (DizFile.Open(strDizFileName, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING)) {
 			GetFileString GetStr(DizFile);
 			wchar_t *DizText;
 			int DizLength;

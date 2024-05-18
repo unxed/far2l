@@ -243,12 +243,12 @@ void OpXfer::Rename(const std::set<std::string> &items)
 			}
 
 			WhatOnErrorWrap<WEK_RENAME>(_wea_state, _state, _base_host.get(), original_path + " -> " + new_path,
-				[&] () mutable
+				[&] () mutable 
 				{
 					_base_host->Rename(original_path, new_path);
 				}
 		);
-
+		
 	}
 }
 
@@ -271,7 +271,7 @@ void OpXfer::EnsureDstDirExists()
 		if (i == _dst_dir.size() || _dst_dir[i] == '/') {
 			const std::string &part_dir = _dst_dir.substr(0, i);
 			WhatOnErrorWrap<WEK_MAKEDIR>(_wea_state, _state, _dst_host.get(), part_dir,
-				[&] () mutable
+				[&] () mutable 
 				{
 					if (!IsDstPathExists(part_dir)) {
 						_dst_host->DirectoryCreate(part_dir, 0751);
@@ -305,21 +305,18 @@ void OpXfer::Transfer()
 		try {
 			_dst_host->GetInformation(existing_file_info, path_dst);
 			existing = true;
-		} catch (std::exception &ex) { (void)ex; } // FIXME: distinguish unexistence of file from IO failure
+		} catch (std::exception &ex) { ; } // FIXME: distinguish unexistence of file from IO failure
 
 
 		if (S_ISLNK(e.second.mode)) {
 			if (existing || SymlinkCopy(e.first, path_dst)) {
-				if (_kind == XK_MOVE && !existing) {
-					FileDelete(e.first);
-				}
 				ProgressStateUpdate psu(_state);
 				_state.stats.count_complete++;
 				continue;
 			}
 			// if symlink copy failed then fallback to target's content copy
 			WhatOnErrorWrap<WEK_QUERYINFO>(_wea_state, _state, _base_host.get(), e.first,
-				[&] () mutable
+				[&] () mutable 
 				{
 					_base_host->GetInformation(e.second, e.first, true);
 				}
@@ -403,7 +400,12 @@ void OpXfer::Transfer()
 			if (FileCopyLoop(e.first, path_dst, e.second)) {
 				CopyAttributes(path_dst, e.second);
 				if (_kind == XK_MOVE) {
-					FileDelete(e.first);
+					WhatOnErrorWrap<WEK_REMOVE>(_wea_state, _state, _base_host.get(), e.first,
+						[&] () mutable
+						{
+							_base_host->FileDelete(e.first);
+						}
+					);
 				}
 			}
 		}
@@ -422,7 +424,7 @@ void OpXfer::Transfer()
 		if (_kind == XK_MOVE) {
 			if (S_ISDIR(rev_i->second.mode)) {
 				WhatOnErrorWrap<WEK_REMOVE>(_wea_state, _state, _base_host.get(), rev_i->first,
-					[&] () mutable
+					[&] () mutable 
 					{
 						_base_host->DirectoryDelete(rev_i->first);
 					}
@@ -430,16 +432,6 @@ void OpXfer::Transfer()
 			}
 		}
 	}
-}
-
-void OpXfer::FileDelete(const std::string &path)
-{
-	WhatOnErrorWrap<WEK_REMOVE>(_wea_state, _state, _base_host.get(), path,
-		[&] () mutable
-		{
-			_base_host->FileDelete(path);
-		}
-	);
 }
 
 void OpXfer::CopyAttributes(const std::string &path_dst, const FileInformation &info)

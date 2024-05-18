@@ -1,29 +1,29 @@
 #ifndef _COLORER_FILEINPUTSOURCE_H_
 #define _COLORER_FILEINPUTSOURCE_H_
 
-#include "colorer/io/InputSource.h"
+#include<colorer/io/InputSource.h>
 
 /** Reads data from file with OS services.
     @ingroup common_io
 */
 class FileInputSource : public colorer::InputSource
 {
- public:
-  FileInputSource(const UnicodeString* basePath, FileInputSource* base);
-  ~FileInputSource() override;
+public:
+  FileInputSource(const String *basePath, FileInputSource *base);
+  ~FileInputSource();
 
-  [[nodiscard]] const UnicodeString* getLocation() const override;
+  const String *getLocation() const;
 
-  const byte* openStream() override;
-  void closeStream() override;
-  [[nodiscard]] int length() const override;
+  const byte *openStream();
+  void closeStream();
+  int length() const;
+protected:
+  colorer::InputSource *createRelative(const String *relPath);
 
- protected:
-  colorer::InputSource* createRelative(const UnicodeString* relPath) override;
-
-  UnicodeString* baseLocation = nullptr;
-  byte* stream = nullptr;
-  int len = 0;
+  String *baseLocation;
+  byte *stream;
+  int len;
 };
 
 #endif
+

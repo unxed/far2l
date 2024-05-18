@@ -249,7 +249,7 @@ private:
 ////////////////////////////////////////////////////////
 
 std::shared_ptr<IProtocol> CreateProtocol(const std::string &protocol, const std::string &host, unsigned int port,
-		const std::string &username, const std::string &password, const std::string &options, int fd_ipc_recv)
+		const std::string &username, const std::string &password, const std::string &options)
 {
 	if (protocol == "davs") {
 		return std::make_shared<ProtocolWebDAV>("https", host, port, username, password, options);
@@ -309,6 +309,7 @@ ProtocolWebDAV::ProtocolWebDAV(const char *scheme, const std::string &host, unsi
 	EnsureInitNEON();
 
 	StringConfig protocol_options(options);
+
 	_useragent = protocol_options.GetString("UserAgent");
 	_known_server_identity = protocol_options.GetString("ServerIdentity");
 
@@ -442,7 +443,7 @@ static void ProtocolWebDAV_ChangeExecutable(ne_session *sess, const std::string 
 	ne_proppatch_operation ops[] = { { &PROP_EXECUTABLE, ne_propset, executable ? "T" : "F"}, {} };
 	int rc = ne_proppatch(sess, path.c_str(), ops);
 	if (rc != NE_OK) {
-		fprintf(stderr, "ProtocolWebDAV_ChangeExecutable('%s', %d) error %d - '%s'\n",
+		fprintf(stderr, "ProtocolWebDAV_ChangeExecutable('%s', %d) error %d - '%s'\n", 
 			path.c_str(), executable, rc, ne_get_error(sess));
 	}
 }
@@ -556,7 +557,6 @@ class DavFileIO : public IFileReader, public IFileWriter, protected Threaded
 			memcpy(&_buf[prev_size], data, len);
 
 		} catch (std::exception &ex) {
-			(void)ex;
 			return false;
 		}
 

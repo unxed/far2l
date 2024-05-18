@@ -42,11 +42,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ConfigRW.hpp"
 #include "FSNotify.h"
 #include <memory>
-#include <map>
 #include <vector>
 #include <deque>
 
-extern const HighlightDataColor ZeroColors;
+extern const HighlightDataColor DefaultStartingColors;
 
 struct FileListItem
 {
@@ -73,7 +72,7 @@ struct FileListItem
 
 	DWORD_PTR UserData{};
 
-	const HighlightDataColor *ColorsPtr = &ZeroColors;
+	const HighlightDataColor *ColorsPtr = &DefaultStartingColors;
 
 	DWORD NumberOfLinks{};
 	DWORD UserFlags{};
@@ -181,7 +180,6 @@ private:
 	FARString strOriginalCurDir;
 	FARString strPluginDizName;
 	ListDataVec ListData;
-	std::map<std::wstring, FARString> SymlinksCache;
 	HANDLE hPlugin;
 	DList<PrevDataItem *> PrevDataList;
 	DList<PluginsListItem *> PluginsList;
@@ -228,9 +226,7 @@ private:
 	DWORD64 GetShowColor(int Position, int ColorType);
 	void ShowSelectedSize();
 	void ShowTotalSize(OpenPluginInfo &Info);
-	bool ResolveSymlink(FARString &target_path, const wchar_t *link_name, FileListItem *fi);
-	int ConvertName(FARString &strDest, const wchar_t *SrcName,
-		int MaxLength, int RightAlign, int ShowStatus, DWORD dwFileAttr, FileListItem *fi);
+	int ConvertName(const wchar_t *SrcName, FARString &strDest, int MaxLength, int RightAlign, int ShowStatus, DWORD dwFileAttr);
 
 	void Select(FileListItem *SelPtr, bool Selection);
 	long SelectFiles(int Mode, const wchar_t *Mask = nullptr);
@@ -283,7 +279,7 @@ private:
 	int PluginPutFilesToAnother(int Move, Panel *AnotherPanel);
 	void ProcessPluginCommand();
 	void PluginClearSelection(PluginPanelItem *ItemList, int ItemNumber);
-	void ProcessCopyKeys(FarKey Key);
+	void ProcessCopyKeys(int Key);
 	void ReadSortGroups(bool UpdateFilterCurrentTime = true);
 	int ProcessOneHostFile(int Idx);
 	bool TrySymlinkTraverse();
@@ -297,9 +293,9 @@ public:
 	virtual ~FileList();
 
 public:
-	virtual int ProcessKey(FarKey Key);
+	virtual int ProcessKey(int Key);
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent);
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0);
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0);
 	virtual void MoveToMouse(MOUSE_EVENT_RECORD *MouseEvent);
 	virtual void SetFocus();
 	virtual void Update(int Mode);

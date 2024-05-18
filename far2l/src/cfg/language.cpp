@@ -91,10 +91,8 @@ static FILE *TryOpenLangFile(const wchar_t *Path, const wchar_t *Mask, const wch
 	}
 
 	if (!LangFile) {
-		if (!strEngFileName.IsEmpty()) {
+		if (!strEngFileName.IsEmpty())
 			strFileName = std::move(strEngFileName);
-			strLangName = L"English";
-		}
 
 		if (!strFileName.IsEmpty()) {
 			LangFile = fopen(Wide2MB(strFileName).c_str(), FOPEN_READ);
@@ -184,11 +182,8 @@ int Select(int HelpLanguage, VMenu **MenuPtr)
 		strDest = &Opt.strLanguage;
 	}
 
-	struct Less {
-		bool operator()(const FARString& A, const FARString& B) const { return StrCmpI(A,B) < 0; }
-	};
-	std::map<FARString, FARString, Less> Map;
-
+	MenuItemEx LangMenuItem;
+	LangMenuItem.Clear();
 	VMenu *LangMenu = new VMenu(Title, nullptr, 0, ScrY - 4);
 	*MenuPtr = LangMenu;
 	LangMenu->SetFlags(VMENU_WRAPMODE);
@@ -215,30 +210,23 @@ int Select(int HelpLanguage, VMenu **MenuPtr)
 					|| (!GetLangParam(LangFile, L"PluginContents", &strEntryName, nullptr, nCodePage)
 							&& !GetLangParam(LangFile, L"DocumentContents", &strEntryName, nullptr,
 									nCodePage))) {
+				LangMenuItem.strName.Format(L"%.40ls",
+						!strLangDescr.IsEmpty() ? strLangDescr.CPtr() : strLangName.CPtr());
+
 				/*
 					$ 01.08.2001 SVS
 					Не допускаем дубликатов!
 					Если в каталог с ФАРом положить еще один HLF с одноименным
 					языком, то... фигня получается при выборе языка.
 				*/
-				if (0 == Map.count(strLangName))
-				{
-					FARString strItemText;
-					strItemText.Format(L"%.40ls", !strLangDescr.IsEmpty() ? strLangDescr.CPtr():strLangName.CPtr());
-					Map[strLangName] = strItemText;
+				if (LangMenu->FindItem(0, LangMenuItem.strName, LIFIND_EXACTMATCH) == -1) {
+					LangMenuItem.SetSelect(!StrCmpI(*strDest, strLangName));
+					LangMenu->SetUserData(strLangName.CPtr(), 0, LangMenu->AddItem(&LangMenuItem));
 				}
 			}
 		}
 
 		fclose(LangFile);
-	}
-
-	MenuItemEx LangMenuItem;
-	for (auto it = Map.cbegin(); it != Map.cend(); ++it)
-	{
-		LangMenuItem.strName = it->second;
-		LangMenuItem.SetSelect(!StrCmpI(*strDest, it->first));
-		LangMenu->SetUserData(it->first.CPtr(), 0, LangMenu->AddItem(&LangMenuItem));
 	}
 
 	LangMenu->AssignHighlights(FALSE);

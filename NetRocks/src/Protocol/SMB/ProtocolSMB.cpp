@@ -13,7 +13,7 @@
 #include "NMBEnum.h"
 
 std::shared_ptr<IProtocol> CreateProtocol(const std::string &protocol, const std::string &host, unsigned int port,
-	const std::string &username, const std::string &password, const std::string &options, int fd_ipc_recv)
+	const std::string &username, const std::string &password, const std::string &options)
 {
 	return std::make_shared<ProtocolSMB>(host, port, username, password, options);
 }

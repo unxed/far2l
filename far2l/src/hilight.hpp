@@ -36,8 +36,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "CFileMask.hpp"
 #include "array.hpp"
 
-#define	HIGHLIGHT_MAX_MARK_LENGTH	8
-
 class VMenu;
 class FileFilterParams;
 struct FileListItem;
@@ -50,17 +48,15 @@ enum enumHighlightDataColor
 	HIGHLIGHTCOLOR_SELECTEDUNDERCURSOR,
 
 	HIGHLIGHTCOLORTYPE_FILE     = 0,
-	HIGHLIGHTCOLORTYPE_MARKSTR  = 1,
+	HIGHLIGHTCOLORTYPE_MARKCHAR = 1,
 };
 
 struct HighlightDataColor
 {
-	uint64_t Color[2][4];	// [0=file, 1=mark][0=normal,1=selected,2=undercursor,3=selectedundercursor];
+	DWORD64 Color[2][4];	// [0=file, 1=mark][0=normal,1=selected,2=undercursor,3=selectedundercursor];
+							// if HIBYTE == 0xFF then transparent
 							// nonzero upper 3 bytes meaning foreground RGB, nonzero lower 3 bytes meaning background RGB
-	uint64_t Mask[2][4];	// transparency mask, 0 = fully transparent
-	wchar_t	 Mark[HIGHLIGHT_MAX_MARK_LENGTH + 1]; 	// + null terminator
-	uint32_t MarkLen;
-	bool	 bMarkInherit;
+	DWORD MarkChar;
 };
 
 class HighlightFiles

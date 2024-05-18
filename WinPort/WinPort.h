@@ -21,18 +21,13 @@ extern "C" {
 	void WinPortHelp();
 	const wchar_t *WinPortBackend();
 
-	// true means far2l runs under smoke testing and code must
-	// not skip events from input queue that sometimes used to make UX smoother
-	BOOL WinPortTesting();
+	WINPORT_DECL(WinPortViewImg, VOID, (const char *path));
 
 	///console API
-	WINPORT_DECL(ForkConsole,HANDLE,());
-	WINPORT_DECL(JoinConsole,VOID,(HANDLE hConsole));
-
 	WINPORT_DECL(GetLargestConsoleWindowSize,COORD,(HANDLE hConsoleOutput));
 	WINPORT_DECL(SetConsoleWindowInfo,BOOL,(HANDLE hConsoleOutput, BOOL bAbsolute, const SMALL_RECT *lpConsoleWindow));
-	WINPORT_DECL(SetConsoleTitle,BOOL,(HANDLE hConsoleOutput, const WCHAR *title));
-	WINPORT_DECL(GetConsoleTitle,DWORD,(HANDLE hConsoleOutput, WCHAR *title, DWORD max_size));
+	WINPORT_DECL(SetConsoleTitle,BOOL,(const WCHAR *title));
+	WINPORT_DECL(GetConsoleTitle,DWORD,(WCHAR *title, DWORD max_size));
 	WINPORT_DECL(SetConsoleScreenBufferSize,BOOL,(HANDLE hConsoleOutput,COORD dwSize));
 	WINPORT_DECL(GetConsoleScreenBufferInfo,BOOL,(HANDLE hConsoleOutput,CONSOLE_SCREEN_BUFFER_INFO *lpConsoleScreenBufferInfo));
 	WINPORT_DECL(SetConsoleCursorPosition,BOOL,(HANDLE hConsoleOutput,COORD dwCursorPosition));
@@ -47,12 +42,11 @@ extern "C" {
 	WINPORT_DECL(WriteConsole,BOOL,(HANDLE hConsoleOutput, const WCHAR *lpBuffer, DWORD nNumberOfCharsToWrite, LPDWORD lpNumberOfCharsWritten, LPVOID lpReserved));
 	WINPORT_DECL(WriteConsoleOutput,BOOL,(HANDLE hConsoleOutput,const CHAR_INFO *lpBuffer,COORD dwBufferSize,COORD dwBufferCoord,PSMALL_RECT lpScreenRegion));
 	WINPORT_DECL(WriteConsoleOutputCharacter,BOOL,(HANDLE hConsoleOutput, const WCHAR *lpCharacter, DWORD nLength, COORD dwWriteCoord, LPDWORD lpNumberOfCharsWritten));
-	WINPORT_DECL(WaitConsoleInput, BOOL,(HANDLE hConsoleInput, DWORD dwTimeout));
+	WINPORT_DECL(WaitConsoleInput, BOOL,(DWORD dwTimeout));
 	WINPORT_DECL(ReadConsoleOutput, BOOL, (HANDLE hConsoleOutput, CHAR_INFO *lpBuffer, COORD dwBufferSize, COORD dwBufferCoord, PSMALL_RECT lpScreenRegion));
 	WINPORT_DECL(FillConsoleOutputAttribute, BOOL, (HANDLE hConsoleOutput, DWORD64 qAttributes, DWORD nLength, COORD dwWriteCoord, LPDWORD lpNumberOfAttrsWritten));
 	WINPORT_DECL(FillConsoleOutputCharacter, BOOL, (HANDLE hConsoleOutput, WCHAR cCharacter, DWORD nLength, COORD dwWriteCoord, LPDWORD lpNumberOfCharsWritten));
 	WINPORT_DECL(SetConsoleActiveScreenBuffer, BOOL,(HANDLE hConsoleOutput));
-	WINPORT_DECL(SetConsoleCursorBlinkTime,VOID,(HANDLE hConsoleOutput, DWORD dwMilliseconds ));
 
 	WINPORT_DECL(FlushConsoleInputBuffer,BOOL,(HANDLE hConsoleInput));
 	WINPORT_DECL(GetNumberOfConsoleInputEvents,BOOL,(HANDLE hConsoleInput, LPDWORD lpcNumberOfEvents));
@@ -72,7 +66,7 @@ extern "C" {
 	WINPORT_DECL(SetConsoleDisplayMode,BOOL,(DWORD ModeFlags));
 	WINPORT_DECL(GetConsoleDisplayMode,BOOL,(LPDWORD lpModeFlags));
 	WINPORT_DECL(SetConsoleWindowMaximized,VOID,(BOOL Maximized));
-	WINPORT_DECL(GetConsoleColorPalette,BYTE,(HANDLE hConsoleOutput)); // Returns current color resolution: 4, 8, 24
+	WINPORT_DECL(GetConsoleColorPalette,BYTE,()); // Returns current color resolution: 4, 8, 24
 
 	WINPORT_DECL(GenerateConsoleCtrlEvent, BOOL, (DWORD dwCtrlEvent, DWORD dwProcessGroupId ));
 	WINPORT_DECL(SetConsoleCtrlHandler, BOOL, (PHANDLER_ROUTINE HandlerRoutine, BOOL Add ));
@@ -100,16 +94,15 @@ extern "C" {
 #define TWEAK_STATUS_SUPPORT_OSC52CLIP_SET	0x04
 #define TWEAK_STATUS_SUPPORT_CHANGE_FONT	0x08
 #define TWEAK_STATUS_SUPPORT_TTY_PALETTE	0x10
-#define TWEAK_STATUS_SUPPORT_BLINK_RATE		0x20
 
 	WINPORT_DECL(SaveConsoleWindowState,VOID,());
 	WINPORT_DECL(ConsoleChangeFont, VOID, ());
 	WINPORT_DECL(IsConsoleActive, BOOL, ());
 	WINPORT_DECL(ConsoleDisplayNotification, VOID, (const WCHAR *title, const WCHAR *text));
 	WINPORT_DECL(ConsoleBackgroundMode, BOOL, (BOOL TryEnterBackgroundMode));
-	WINPORT_DECL(SetConsoleFKeyTitles, BOOL, (HANDLE hConsoleOutput, const CHAR **titles));
-	WINPORT_DECL(OverrideConsoleColor, VOID, (HANDLE hConsoleOutput, DWORD Index, DWORD *ColorFG, DWORD *ColorBK)); // 0xffffffff - to apply default color
-	WINPORT_DECL(SetConsoleRepaintsDefer, VOID, (HANDLE hConsoleOutput, BOOL Deferring));
+	WINPORT_DECL(SetConsoleFKeyTitles, BOOL, (const CHAR **titles));
+	WINPORT_DECL(OverrideConsoleColor, VOID, (DWORD Index, DWORD *ColorFG, DWORD *ColorBK)); // 0xffffffff - to apply default color
+	WINPORT_DECL(SetConsoleRepaintsDefer, VOID, (BOOL Deferring));
 
 #ifdef WINPORT_REGISTRY
 	///registry API
@@ -331,15 +324,13 @@ template <class CHAR_T>
 
 struct ConsoleRepaintsDeferScope
 {
-	HANDLE _con_out;
-
-	ConsoleRepaintsDeferScope(HANDLE hConOut) : _con_out(hConOut)
+	ConsoleRepaintsDeferScope()
 	{
-		WINPORT(SetConsoleRepaintsDefer)(_con_out, TRUE);
+		WINPORT(SetConsoleRepaintsDefer)(TRUE);
 	}
 	~ConsoleRepaintsDeferScope()
 	{
-		WINPORT(SetConsoleRepaintsDefer)(_con_out, FALSE);
+		WINPORT(SetConsoleRepaintsDefer)(FALSE);
 	}
 };
 

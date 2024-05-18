@@ -48,9 +48,6 @@ struct DialogItemEx;
 Поддерживает automation (изменение флагов одного элемента в зависимости от состояния
 другого). Реализуется при помощи метода LinkFlags().
 */
-
-#include "../../WinPort/windows.h"
-
 class DialogBuilder : public DialogBuilderBase<DialogItemEx>
 {
 private:

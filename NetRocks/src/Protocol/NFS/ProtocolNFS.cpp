@@ -9,7 +9,7 @@
 
 
 std::shared_ptr<IProtocol> CreateProtocol(const std::string &protocol, const std::string &host, unsigned int port,
-	const std::string &username, const std::string &password, const std::string &options, int fd_ipc_recv)
+	const std::string &username, const std::string &password, const std::string &options)
 {
 	return std::make_shared<ProtocolNFS>(host, port, username, password, options);
 }
@@ -22,11 +22,12 @@ ProtocolNFS::ProtocolNFS(const std::string &host, unsigned int port,
 	_nfs(std::make_shared<NFSConnection>()),
 	_host(host)
 {
-	StringConfig protocol_options(options);
 	_nfs->ctx = nfs_init_context();
 	if (!_nfs->ctx) {
 		throw ProtocolError("Create context error", errno);
 	}
+
+	StringConfig protocol_options(options);
 
 	if (protocol_options.GetInt("Override", 0) != 0) {
 #ifdef LIBNFS_FEATURE_READAHEAD

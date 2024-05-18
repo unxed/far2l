@@ -69,7 +69,7 @@ LPCSTR StdCommands[] = {
 
 		NULL};
 
-/** Wrapper for localtime rtl function
+/** Wraper for localtime rtl function
 
 	RTL function may return NULL
 */

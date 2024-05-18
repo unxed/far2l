@@ -211,7 +211,7 @@ void QuickView::DisplayObject()
 	Flags.Clear(FSCROBJ_ISREDRAWING);
 }
 
-int64_t QuickView::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t QuickView::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	if (!Directory && QView)
 		return QView->VMProcess(OpCode, vParam, iParam);
@@ -224,7 +224,7 @@ int64_t QuickView::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
 	return 0;
 }
 
-int QuickView::ProcessKey(FarKey Key)
+int QuickView::ProcessKey(int Key)
 {
 	if (!IsVisible())
 		return FALSE;
@@ -372,7 +372,7 @@ void QuickView::ShowFile(const wchar_t *FileName, int TempFile, HANDLE hDirPlugi
 			OldWrapType = QView->GetWrapType();
 			QView->SetWrapMode(LastWrapMode);
 			QView->SetWrapType(LastWrapType);
-			QView->OpenFile(std::make_shared<FileHolder>(strCurFileName), FALSE);
+			QView->OpenFile(strCurFileName, FALSE);
 		}
 	}
 

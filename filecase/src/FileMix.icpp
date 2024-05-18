@@ -61,17 +61,17 @@ const TCHAR *GetOnlyName(const TCHAR *FullName)
 	return Name;
 }
 
-TCHAR *GetFullName(size_t DestLen, TCHAR *Dest,const TCHAR *Dir,const TCHAR *Name)
+TCHAR *GetFullName(TCHAR *Dest,const TCHAR *Dir,const TCHAR *Name)
 {
-	lstrcpyn(Dest,Dir,DestLen);
-	int len = DestLen ? std::min(lstrlen(Dest), DestLen - 1) : 0;
+	lstrcpy(Dest,Dir);
+	int len=lstrlen(Dest);
 	if(len)
 	{
 		if(Dest[len-1]==_T('/')) --len;
 		else Dest[len]=_T('/');
-		lstrcpyn(Dest+len+1,GetOnlyName(Name),DestLen-len-1);
+		lstrcpy(Dest+len+1,GetOnlyName(Name));
 	}
-	else lstrcpyn(Dest, Name, DestLen);
+	else lstrcpy(Dest, Name);
 
 	return Dest;
 }

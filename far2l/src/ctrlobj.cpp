@@ -47,7 +47,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "syslog.hpp"
 #include "interf.hpp"
 #include "config.hpp"
-#include "ConfigOptSaveLoad.hpp"
+#include "ConfigSaveLoad.hpp"
 #include "fileowner.hpp"
 #include "dirmix.hpp"
 #include "console.hpp"
@@ -116,8 +116,10 @@ void ControlObject::Init()
 	Cp()->LeftPanel->Update(0);
 	Cp()->RightPanel->Update(0);
 
-	Cp()->LeftPanel->GoToFile(Opt.strLeftCurFile);
-	Cp()->RightPanel->GoToFile(Opt.strRightCurFile);
+	if (Opt.AutoSaveSetup) {
+		Cp()->LeftPanel->GoToFile(Opt.strLeftCurFile);
+		Cp()->RightPanel->GoToFile(Opt.strRightCurFile);
+	}
 
 	FARString strStartCurDir;
 	Cp()->ActivePanel->GetCurDir(strStartCurDir);
@@ -156,7 +158,7 @@ ControlObject::~ControlObject()
 
 	if (Cp() && Cp()->ActivePanel) {
 		if (Opt.AutoSaveSetup)
-			ConfigOptSave(false);
+			SaveConfig(0);
 
 		if (Cp()->ActivePanel->GetMode() != PLUGIN_PANEL) {
 			FARString strCurDir;
@@ -232,7 +234,9 @@ void ControlObject::ShowStartupBanner(LPCWSTR EmergencyMsg)
 		Lines.emplace_back(Msg::VTStartTipPendCmdTitle);
 		Lines.emplace_back(Msg::VTStartTipPendCmdFn);
 		Lines.emplace_back(Msg::VTStartTipPendCmdCtrlAltC);
-		Lines.emplace_back(Msg::VTStartTipPendCmdCtrlAltZ);
+		if (WINPORT(ConsoleBackgroundMode)(FALSE)) {
+			Lines.emplace_back(Msg::VTStartTipPendCmdCtrlAltZ);
+		}
 		Lines.emplace_back(Msg::VTStartTipPendCmdMouse);
 		Lines.emplace_back(Msg::VTStartTipMouseSelect);
 

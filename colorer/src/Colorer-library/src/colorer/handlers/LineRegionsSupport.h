@@ -1,23 +1,23 @@
 #ifndef _COLORER_LINEREGIONSSUPPORT_H_
 #define _COLORER_LINEREGIONSSUPPORT_H_
 
-#include "colorer/RegionHandler.h"
-#include "colorer/handlers/LineRegion.h"
-#include "colorer/handlers/RegionDefine.h"
-#include "colorer/handlers/RegionMapper.h"
 #include <vector>
+#include <colorer/RegionHandler.h>
+#include <colorer/handlers/RegionDefine.h>
+#include <colorer/handlers/RegionMapper.h>
+#include <colorer/handlers/LineRegion.h>
 
 /** Region store implementation of RegionHandler.
     @ingroup colorer_handlers
 */
 class LineRegionsSupport : public RegionHandler
 {
- public:
+public:
   LineRegionsSupport();
-  ~LineRegionsSupport() override;
+  ~LineRegionsSupport();
 
   /**
-   * Resize structures to maintain regions for @c lineCount lines.
+   * Resizes structures to mantain regions for @c lineCount lines.
    */
   void resize(size_t lineCount);
 
@@ -67,24 +67,23 @@ class LineRegionsSupport : public RegionHandler
    * Returns LineRegion object for @c lno line number.
    * This object is linked with all other stored @c LineRegion objects
    */
-  [[nodiscard]] LineRegion* getLineRegions(size_t lno) const;
+  LineRegion* getLineRegions(size_t lno) const;
 
   /**
    * RegionHandler implementation
    */
-  void startParsing(size_t lno) override;
-  void clearLine(size_t lno, UnicodeString* line) override;
-  void addRegion(size_t line_no, UnicodeString* line, int start_idx, int end_idx, const Region* region) override;
-  void enterScheme(size_t line_no, UnicodeString* line, int start_idx, int end_idx, const Region* region, const Scheme* scheme) override;
-  void leaveScheme(size_t line_no, UnicodeString* line, int start_idx, int end_idx, const Region* region, const Scheme* scheme) override;
-
- protected:
+  void startParsing(size_t lno);
+  void clearLine(size_t lno, String* line);
+  void addRegion(size_t lno, String* line, int sx, int ex, const Region* region);
+  void enterScheme(size_t lno, String* line, int sx, int ex, const Region* region, const Scheme* scheme);
+  void leaveScheme(size_t lno, String* line, int sx, int ex, const Region* region, const Scheme* scheme);
+protected:
   /**
    * Behaviour is redefined in derived classes
    */
-  virtual void addLineRegion(size_t line_no, LineRegion* lr);
-  [[nodiscard]] size_t getLineIndex(size_t lno) const;
-  [[nodiscard]] bool checkLine(size_t lno) const;
+  virtual void addLineRegion(size_t lno, LineRegion* lr);
+  size_t getLineIndex(size_t lno) const;
+  bool checkLine(size_t lno) const;
 
   std::vector<LineRegion*> lineRegions;
   std::vector<LineRegion*> schemeStack;
@@ -99,3 +98,6 @@ class LineRegionsSupport : public RegionHandler
 };
 
 #endif
+
+
+

@@ -95,6 +95,7 @@ private:
 
 	ViewerStrings Strings;
 
+	FARString strFileName;
 	FARString strFullFileName;
 
 	BufferedFileView ViewFile;
@@ -142,7 +143,7 @@ private:
 
 	UINT DefCodePage;
 
-	FileHolderPtr FHP;
+	std::shared_ptr<IFileHolder> FileHolder;
 
 private:
 	virtual void DisplayObject();
@@ -187,12 +188,12 @@ public:
 	virtual ~Viewer();
 
 public:
-	int OpenFile(FileHolderPtr NewFileHolder, int warning);
+	int OpenFile(const wchar_t *Name, int warning);
 	void SetViewKeyBar(KeyBar *ViewKeyBar);
 
-	virtual int ProcessKey(FarKey Key);
+	virtual int ProcessKey(int Key);
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent);
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0);
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0);
 
 	void SetStatusMode(int Mode);
 	void EnableHideCursor(int HideCursor);
@@ -209,7 +210,8 @@ public:
 	void SetTitle(const wchar_t *Title);
 	FARString &GetTitle(FARString &Title, int SubLen = -1, int TruncSize = 0);
 
-	FileHolderPtr &GetFileHolder() { return FHP; }
+	void SetFileHolder(std::shared_ptr<IFileHolder> Observer) { FileHolder = Observer; }
+	std::shared_ptr<IFileHolder> &GetFileHolder() { return FileHolder; }
 
 	void SetFilePos(int64_t Pos);	// $ 18.07.2000 tran - change 'long' to 'unsigned long'
 	int64_t GetFilePos() const { return FilePos; };

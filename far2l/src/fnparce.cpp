@@ -155,7 +155,7 @@ static const wchar_t *_SubstFileName(const wchar_t *CurStr, TSubstData *PSubstDa
 		int First = TRUE;
 
 		while (WPanel->GetSelNameCompat(&strFileNameL, FileAttrL)) {
-			EscapeSpace(strFileNameL); //QuoteSpaceOnly(strFileNameL);
+			QuoteSpaceOnly(strFileNameL);
 
 			// Вот здесь фиг его знает - нужно/ненужно...
 			// если будет нужно - раскомментируем :-)
@@ -186,29 +186,29 @@ static const wchar_t *_SubstFileName(const wchar_t *CurStr, TSubstData *PSubstDa
 		pListName = PSubstData->pListName;
 		pAnotherListName = PSubstData->pAnotherListName;
 
-		wchar_t Modifiers[32] = L"";
+		wchar_t Modifers[32] = L"";
 		const wchar_t *Ptr;
 
 		if ((Ptr = wcschr(CurStr + 2, L'!'))) {
 			if (Ptr[1] != L'?') {
-				far_wcsncpy(Modifiers, CurStr + 2,
-						Min(ARRAYSIZE(Modifiers), static_cast<size_t>(Ptr - (CurStr + 2) + 1)));
+				far_wcsncpy(Modifers, CurStr + 2,
+						Min(ARRAYSIZE(Modifers), static_cast<size_t>(Ptr - (CurStr + 2) + 1)));
 
 				if (pListName) {
 					if (PSubstData->PassivePanel
 							&& (!pAnotherListName->IsEmpty()
-									|| PSubstData->AnotherPanel->MakeListFile(*pAnotherListName, Modifiers))) {
+									|| PSubstData->AnotherPanel->MakeListFile(*pAnotherListName, Modifers))) {
 						strOut+= *pAnotherListName;
 					}
 
 					if (!PSubstData->PassivePanel
 							&& (!pListName->IsEmpty()
-									|| PSubstData->ActivePanel->MakeListFile(*pListName, Modifiers))) {
+									|| PSubstData->ActivePanel->MakeListFile(*pListName, Modifers))) {
 						strOut+= *pListName;
 					}
 				} else {
 					strOut+= CurStr;
-					strOut+= Modifiers;
+					strOut+= Modifers;
 					strOut+= L"!";
 				}
 
@@ -605,7 +605,7 @@ int ReplaceVariables(FARString &strStr, TSubstData *PSubstData)
 	return 1;
 }
 
-bool Panel::MakeListFile(FARString &strListFileName, const wchar_t *Modifiers)
+bool Panel::MakeListFile(FARString &strListFileName, const wchar_t *Modifers)
 {
 	bool Ret = false;
 
@@ -617,15 +617,15 @@ bool Panel::MakeListFile(FARString &strListFileName, const wchar_t *Modifiers)
 			LPCVOID Eol = NATIVE_EOL;
 			DWORD EolSize = strlen(NATIVE_EOL);
 
-			if (Modifiers && *Modifiers) {
-				if (wcschr(Modifiers, L'A'))		// ANSI
+			if (Modifers && *Modifers) {
+				if (wcschr(Modifers, L'A'))		// ANSI
 				{
 					CodePage = CP_ACP;
 				} else {
 					DWORD Signature = 0;
 					int SignatureSize = 0;
 
-					if (wcschr(Modifiers, L'W'))		// Wide
+					if (wcschr(Modifers, L'W'))		// Wide
 					{
 						CodePage = CP_UTF16LE;
 						Signature = SIGN_UTF16LE;
@@ -633,7 +633,7 @@ bool Panel::MakeListFile(FARString &strListFileName, const wchar_t *Modifiers)
 						Eol = NATIVE_EOLW;
 						EolSize = sizeof(wchar_t) * wcslen(NATIVE_EOLW);
 					} else {
-						if (wcschr(Modifiers, L'U'))		// UTF8
+						if (wcschr(Modifers, L'U'))		// UTF8
 						{
 							CodePage = CP_UTF8;
 							Signature = SIGN_UTF8;
@@ -653,8 +653,8 @@ bool Panel::MakeListFile(FARString &strListFileName, const wchar_t *Modifiers)
 			GetSelNameCompat(nullptr, FileAttr);
 
 			while (GetSelNameCompat(&strFileName, FileAttr)) {
-				if (Modifiers && *Modifiers) {
-					if (wcschr(Modifiers, L'F') && PointToName(strFileName) == strFileName.CPtr())		// 'F' - использовать полный путь; //BUGBUG ?
+				if (Modifers && *Modifers) {
+					if (wcschr(Modifers, L'F') && PointToName(strFileName) == strFileName.CPtr())		// 'F' - использовать полный путь; //BUGBUG ?
 					{
 						FARString strTempFileName = strCurDir;
 
@@ -663,7 +663,7 @@ bool Panel::MakeListFile(FARString &strListFileName, const wchar_t *Modifiers)
 						strFileName = strTempFileName;
 					}
 
-					if (wcschr(Modifiers, L'Q'))		// 'Q' - заключать имена с пробелами в кавычки;
+					if (wcschr(Modifers, L'Q'))		// 'Q' - заключать имена с пробелами в кавычки;
 						QuoteSpaceOnly(strFileName);
 				}
 
@@ -751,7 +751,7 @@ static int IsReplaceVariable(const wchar_t *str, int *scr, int *end, int *beg_sc
 		return -1;
 
 	//
-	for (;;)	// analyze from !? to ?
+	for (;;)	// analize from !? to ?
 	{
 		if (!*s)
 			return -1;
@@ -790,7 +790,7 @@ static int IsReplaceVariable(const wchar_t *str, int *scr, int *end, int *beg_sc
 
 	scrtxt = s - 1;		// remember s for return
 
-	for (;;)			// analyze from ? or !
+	for (;;)			// analize from ? or !
 	{
 		if (!*s)
 			return -1;

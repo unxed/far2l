@@ -28,23 +28,23 @@ static bool IsBinFile(const char *name)
 }
 
 
-PluginImplELF::PluginImplELF(const char *name, uint8_t bitness, uint8_t endianness)
+PluginImplELF::PluginImplELF(const char *name, uint8_t bitness, uint8_t endianess)
 	: PluginImpl(name), _elf_info(new ELFInfo)
 {
 	if (bitness == 2) {
-		if (endianness == 2) {
-			FillELFInfo<ELF_EndiannessBig, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr>(*_elf_info, name);
+		if (endianess == 2) {
+			FillELFInfo<ELF_EndianessBig, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr>(*_elf_info, name);
 		} else {
-			FillELFInfo<ELF_EndiannessLittle, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr>(*_elf_info, name);
+			FillELFInfo<ELF_EndianessLittle, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr>(*_elf_info, name);
 		}
 	} else {
-		if (endianness== 2) {
-			FillELFInfo<ELF_EndiannessBig, Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr>(*_elf_info, name);
+		if (endianess== 2) {
+			FillELFInfo<ELF_EndianessBig, Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr>(*_elf_info, name);
 		} else {
-			FillELFInfo<ELF_EndiannessLittle, Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr>(*_elf_info, name);
+			FillELFInfo<ELF_EndianessLittle, Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr>(*_elf_info, name);
 		}
 	}
-	fprintf(stderr, "Inside::PluginImplELF('%s', %d, %d)\n", name, bitness, endianness);
+	fprintf(stderr, "Inside::PluginImplELF('%s', %d, %d)\n", name, bitness, endianess);
 }
 
 bool PluginImplELF::GetFindData_ROOT(FP_SizeItemList &il, int OpMode)

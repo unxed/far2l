@@ -1,33 +1,39 @@
-#ifndef COLORER_EXCEPTION_H
-#define COLORER_EXCEPTION_H
+#ifndef _COLORER_EXCEPTION_H__
+#define _COLORER_EXCEPTION_H__
 
 #include <exception>
-#include <string>
-#include "colorer/Common.h"
+#include <colorer/unicode/SString.h>
 
 /** Exception class.
     Defines throwable exception.
     @ingroup common
 */
-class Exception : public std::exception
+class Exception: public std::exception
 {
- public:
-  explicit Exception(const char* msg) noexcept;
-  explicit Exception(const UnicodeString& msg) noexcept;
-
-  ~Exception() noexcept override = default;
-
-  Exception(const Exception&) = default;
-  Exception& operator=(const Exception& e) = default;
-  Exception(Exception&&) = default;
-  Exception& operator=(Exception&&) = default;
+public:
+  /** Default constructor
+      Creates exception with empty message
+  */
+  Exception() noexcept;
+  Exception(const char* msg) noexcept;
+  /** Creates exception with string message
+  */
+  Exception(const String &msg) noexcept;
+  /** Creates exception with included exception information
+  */
+  Exception(const Exception &e) noexcept;
+  Exception &operator =(const Exception &e) noexcept;
+  /** Default destructor
+  */
+  virtual ~Exception() noexcept;
 
   /** Returns exception message
-   */
-  [[nodiscard]] const char* what() const noexcept override;
-
- protected:
-  std::string what_str;
+  */
+  virtual const char* what() const noexcept override;
+protected:
+  /** Internal message container
+  */
+  SString what_str;
 };
 
 /**
@@ -36,8 +42,10 @@ class Exception : public std::exception
 */
 class InputSourceException : public Exception
 {
- public:
-  explicit InputSourceException(const UnicodeString& msg) noexcept;
+public:
+  InputSourceException() noexcept;
+  InputSourceException(const String &msg) noexcept;
 };
 
-#endif  // COLORER_EXCEPTION_H
+#endif
+

@@ -13,7 +13,7 @@ struct PipeIPCError : std::runtime_error
 
 class PipeIPCSender
 {
-	int _fd{-1};
+	int _fd;
 
 protected:
 	void SetFD(int fd);

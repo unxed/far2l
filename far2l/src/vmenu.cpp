@@ -59,7 +59,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pathmix.hpp"
 #include "cmdline.hpp"
 #include "UsedChars.hpp"
-#include "help.hpp"
 
 VMenu::VMenu(const wchar_t *Title,		// заголовок меню
 		MenuDataEx *Data,				// пункты меню
@@ -123,9 +122,6 @@ VMenu::VMenu(const wchar_t *Title,		// заголовок меню
 
 	if (!CheckFlags(VMENU_LISTBOX))
 		FrameManager->ModalizeFrame(this);
-
-	if (ParentDialog)
-		SetBottomTitle(L"Ctrl-Alt-F"); // by default info about keys for toggle filtering feature
 }
 
 VMenu::~VMenu()
@@ -570,7 +566,7 @@ void VMenu::DeleteItems()
 	SetFlags(VMENU_UPDATEREQUIRED);
 }
 
-uint32_t VMenu::GetCheck(int Position)
+int VMenu::GetCheck(int Position)
 {
 	CriticalSectionLock Lock(CS);
 
@@ -585,12 +581,12 @@ uint32_t VMenu::GetCheck(int Position)
 	if (!(Item[ItemPos]->Flags & LIF_CHECKED))
 		return 0;
 
-	const uint32_t Check = Item[ItemPos]->Flags & 0xFFFF;
+	int Checked = Item[ItemPos]->Flags & 0xFFFF;
 
-	return Check ? Check : 1;
+	return Checked ? Checked : 1;
 }
 
-void VMenu::SetCheck(uint32_t Check, int Position)
+void VMenu::SetCheck(int Check, int Position)
 {
 	CriticalSectionLock Lock(CS);
 
@@ -672,12 +668,12 @@ void VMenu::FilterStringUpdated(bool bLonger)
 		SetSelectPos(0, 1);
 }
 
-bool VMenu::IsFilterEditKey(FarKey Key)
+bool VMenu::IsFilterEditKey(int Key)
 {
-	return (Key >= (int)KEY_SPACE && WCHAR_IS_VALID(Key)) || Key == KEY_BS;
+	return (Key >= (int)KEY_SPACE && Key < 0xffff) || Key == KEY_BS;
 }
 
-bool VMenu::ShouldSendKeyToFilter(FarKey Key)
+bool VMenu::ShouldSendKeyToFilter(int Key)
 {
 	if (Key == KEY_CTRLALTF)
 		return true;
@@ -693,9 +689,9 @@ bool VMenu::ShouldSendKeyToFilter(FarKey Key)
 	return false;
 }
 
-FarKey VMenu::ReadInput(INPUT_RECORD *GetReadRec)
+int VMenu::ReadInput(INPUT_RECORD *GetReadRec)
 {
-	FarKey ReadKey;
+	int ReadKey;
 
 	for (;;) {
 		ReadKey = Modal::ReadInput(GetReadRec);
@@ -711,7 +707,7 @@ FarKey VMenu::ReadInput(INPUT_RECORD *GetReadRec)
 	return ReadKey;
 }
 
-int64_t VMenu::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t VMenu::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	switch (OpCode) {
 		case MCODE_C_EMPTY:
@@ -867,7 +863,7 @@ int64_t VMenu::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
 
 bool VMenu::AddToFilter(const wchar_t *str)
 {
-	FarKey Key;
+	int Key;
 
 	if (bFilterEnabled && !bFilterLocked) {
 		while ((Key = *str)) {
@@ -885,7 +881,7 @@ bool VMenu::AddToFilter(const wchar_t *str)
 	return false;
 }
 
-int VMenu::ProcessKey(FarKey Key)
+int VMenu::ProcessKey(int Key)
 {
 	CriticalSectionLock Lock(CS);
 
@@ -953,7 +949,6 @@ int VMenu::ProcessKey(FarKey Key)
 		}
 		case KEY_ESC:
 		case KEY_F10: {
-			EnableFilter(false);
 			if (!ParentDialog || CheckFlags(VMENU_COMBOBOX)) {
 				EndLoop = TRUE;
 				Modal::ExitCode = -1;
@@ -1081,7 +1076,13 @@ int VMenu::ProcessKey(FarKey Key)
 			break;
 		}
 		case KEY_CTRLALTF: {
-			EnableFilter(!bFilterEnabled);
+			bFilterEnabled = !bFilterEnabled;
+			bFilterLocked = false;
+			strFilter.Clear();
+
+			if (!bFilterEnabled)
+				RestoreFilteredItems();
+
 			DisplayObject();
 			break;
 		}
@@ -1148,7 +1149,7 @@ int VMenu::ProcessKey(FarKey Key)
 			if (!CheckKeyHiOrAcc(Key, 0, 0)) {
 				if (Key == KEY_SHIFTF1 || Key == KEY_F1) {
 					if (ParentDialog)
-						Help::Present(L"MenuCmd",L"",FHELP_NOSHOWERROR);	// ParentDialog->ProcessKey(Key);
+						;	// ParentDialog->ProcessKey(Key);
 					else
 						ShowHelp();
 
@@ -1329,13 +1330,8 @@ int VMenu::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
 							& (FROM_LEFT_1ST_BUTTON_PRESSED | RIGHTMOST_BUTTON_PRESSED))
 					&& CheckFlags(VMENU_MOUSEDOWN)) {
 				ClearFlags(VMENU_MOUSEDOWN);
-				if (CheckFlags(VMENU_IGNORE_SINGLECLICK))
-					SetSelectPos(MsPos, 1);
-				else
-					ProcessKey(KEY_ENTER);
+				ProcessKey(KEY_ENTER);
 			}
-			if (MouseEvent->dwEventFlags==DOUBLE_CLICK) // need if VMENU_IGNORE_SINGLECLICK disable ENTER by click
-					ProcessKey(KEY_ENTER);
 		}
 
 		return TRUE;
@@ -1608,7 +1604,7 @@ void VMenu::DrawTitles()
 	int WidthTitle;
 
 	FARString strDisplayTitle = strTitle;
-	if (WrappedSeparatorIndex >= 0 && WrappedSeparatorIndex < ItemCount && !Item[WrappedSeparatorIndex]->strName.IsEmpty()) {
+	if (WrappedSeparatorIndex >= 0 && WrappedSeparatorIndex < ItemCount) {
 		if (!strDisplayTitle.IsEmpty()) {
 			strDisplayTitle+= L' ';
 			strDisplayTitle+= BoxSymbols[BS_H1];
@@ -1726,7 +1722,7 @@ void VMenu::ShowMenu(bool IsParent, bool ForceFrameRedraw)
 		if (BoxType != NO_BOX)
 			Box(X1, Y1, X2, Y2, Colors[VMenuColorBox], BoxType);
 
-		DrawTitles();
+//		DrawTitles();
 	}
 
 	wchar_t BoxChar[2] = {0};
@@ -2736,14 +2732,4 @@ void VMenu::SortItems(int Direction, int Offset, BOOL SortForDataDWORD)
 	UpdateSelectPos();
 
 	SetFlags(VMENU_UPDATEREQUIRED);
-}
-
-void VMenu::EnableFilter(bool Enable)
-{
-	bFilterEnabled = Enable;
-	bFilterLocked = false;
-	strFilter.Clear();
-
-	if (!Enable)
-		RestoreFilteredItems();
 }

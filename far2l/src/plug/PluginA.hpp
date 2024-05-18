@@ -130,7 +130,6 @@ public:
 	bool HasOpenPlugin() { return pOpenPlugin != nullptr; }
 	bool HasMakeDirectory() { return pMakeDirectory != nullptr; }
 	bool HasDeleteFiles() { return pDeleteFiles != nullptr; }
-	bool HasGetLinkTarget() { return false; }
 	bool HasPutFiles() { return pPutFiles != nullptr; }
 	bool HasGetFiles() { return pGetFiles != nullptr; }
 	bool HasSetStartupInfo() { return pSetStartupInfo != nullptr; }
@@ -187,7 +186,6 @@ public:
 	int
 	GetVirtualFindData(HANDLE hPlugin, PluginPanelItem **pPanelItem, int *pItemsNumber, const wchar_t *Path);
 	int SetDirectory(HANDLE hPlugin, const wchar_t *Dir, int OpMode);
-	bool GetLinkTarget(HANDLE hPlugin, PluginPanelItem *PanelItem, FARString &result, int OpMode);
 	int GetFiles(HANDLE hPlugin, PluginPanelItem *PanelItem, int ItemsNumber, int Move,
 			const wchar_t **DestPath, int OpMode);
 	int PutFiles(HANDLE hPlugin, PluginPanelItem *PanelItem, int ItemsNumber, int Move, int OpMode);

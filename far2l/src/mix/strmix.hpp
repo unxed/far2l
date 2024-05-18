@@ -60,7 +60,6 @@ std::string EscapeUnprintable(const std::string &str);
 std::string UnescapeUnprintable(const std::string &str);
 
 FARString &EscapeSpace(FARString &strStr);
-FARString &UnEscapeSpace(FARString &strStr);
 wchar_t *WINAPI InsertQuote(wchar_t *Str);
 FARString &InsertQuote(FARString &strStr);
 void WINAPI Unquote(FARString &strStr);
@@ -131,8 +130,6 @@ FARString FixedSizeStr(FARString str, size_t Cells, bool RAlign, bool TruncateCe
 void Transform(FARString &strBuffer, const wchar_t *ConvStr, wchar_t TransformType);
 
 wchar_t GetDecimalSeparator();
-inline const wchar_t GetDecimalSeparatorDefault() { return L'.'; };
-inline const wchar_t* GetDecimalSeparatorDefaultStr() { return L"."; };
 
 FARString
 ReplaceBrackets(const FARString &SearchStr, const FARString &ReplaceStr, RegExpMatch *Match, int Count);

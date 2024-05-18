@@ -10,14 +10,15 @@
  */
 class RegionDefine
 {
- public:
+public:
+
   /**
-   * Enumeration to distinguish different types of region mapping
-   * Do not use RTTI because of compatibility problems
-   *
-   * @ingroup colorer_handlers
-   */
-  enum class RegionDefineType {
+  * Enumeration to distinguish different types of region mapping
+  * Do not use RTTI because of compatibility problems
+  *
+  * @ingroup colorer_handlers
+  */
+  enum RegionDefineType {
     UNKNOWN_REGION = 0,
     STYLED_REGION = 1,
     TEXT_REGION = 2,
@@ -26,7 +27,7 @@ class RegionDefine
   /**
    * Class type identifier
    */
-  RegionDefineType type = RegionDefineType::UNKNOWN_REGION;
+  RegionDefineType type;
 
   /**
    * Completes region define values with it's parent values.
@@ -47,28 +48,22 @@ class RegionDefine
    * Assign operator. Clones all values.
    * Works as setValues method.
    */
-  RegionDefine& operator=(const RegionDefine& rd)
+  virtual RegionDefine &operator=(const RegionDefine &rd)
   {
-    if (this == &rd)
-      return *this;
     setValues(&rd);
     return *this;
   }
 
-  RegionDefine(const RegionDefine& rd) = delete;
   /**
    * Clones current region and creates it's duplicate.
    * To be implemented in subclasses.
    */
-  [[nodiscard]] virtual RegionDefine* clone() const = 0;
+  virtual RegionDefine* clone() const = 0;
 
   /** Default Destructor */
-  virtual ~RegionDefine() = default;
-  RegionDefine(RegionDefine&&) = delete;
-  RegionDefine& operator=(RegionDefine&&) = delete;
-
- protected:
-  RegionDefine() = default;
+  virtual ~RegionDefine() {};
 };
 
 #endif
+
+

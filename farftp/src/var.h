@@ -2,7 +2,7 @@
 #define __FAR_PLUGIN_FTP_VARS
 
 /* The following defines are from ftp.h and telnet.h from bsd.h */
-/* All relevant copyrights below apply.                         */
+/* All relevent copyrights below apply.                         */
 
 #define ffIAC  255
 #define ffDONT 254

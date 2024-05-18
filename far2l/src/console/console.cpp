@@ -55,17 +55,17 @@ bool console::Free()
 
 HANDLE console::GetInputHandle()
 {
-	return NULL;	// GetStdHandle(STD_INPUT_HANDLE);
+	return stdin;	// GetStdHandle(STD_INPUT_HANDLE);
 }
 
 HANDLE console::GetOutputHandle()
 {
-	return NULL;	// GetStdHandle(STD_OUTPUT_HANDLE);
+	return stdout;	// GetStdHandle(STD_OUTPUT_HANDLE);
 }
 
 HANDLE console::GetErrorHandle()
 {
-	return NULL;	// GetStdHandle(STD_ERROR_HANDLE);
+	return stderr;	// GetStdHandle(STD_ERROR_HANDLE);
 }
 
 bool console::GetSize(COORD &Size)
@@ -121,7 +121,7 @@ bool console::GetTitle(FARString &strTitle)
 		if (!buf.Get())
 			break;
 
-		if (WINPORT(GetConsoleTitle)(NULL, buf.Get(), Size) < Size) {
+		if (WINPORT(GetConsoleTitle)(buf.Get(), Size) < Size) {
 			strTitle = buf.Get();
 			return true;
 		}
@@ -132,7 +132,7 @@ bool console::GetTitle(FARString &strTitle)
 
 bool console::SetTitle(LPCWSTR Title)
 {
-	return WINPORT(SetConsoleTitle)(NULL, Title) != FALSE;
+	return WINPORT(SetConsoleTitle)(Title) != FALSE;
 }
 
 UINT console::GetInputCodepage()

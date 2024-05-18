@@ -1,7 +1,7 @@
-#ifndef COLORER_FILETYPECHOOSER_H
-#define COLORER_FILETYPECHOOSER_H
+#ifndef _COLORER_FILETYPECHOOSER_H_
+#define _COLORER_FILETYPECHOOSER_H_
 
-#include "colorer/cregexp/cregexp.h"
+#include <colorer/cregexp/cregexp.h>
 
 /** Stores regular expressions of filename and firstline
     elements and helps to detect file type.
@@ -9,28 +9,56 @@
 */
 class FileTypeChooser
 {
- public:
-  enum class ChooserType { CT_FILENAME, CT_FIRSTLINE };
+public:
+  enum ChooserType { CT_FILENAME, CT_FIRSTLINE };
 
   /** Creates choose entry.
       @param type If 0 - filename RE, if 1 - firstline RE
       @param prior Priority of this rule
       @param re Associated regular expression
   */
-  FileTypeChooser(ChooserType type, double priority, CRegExp* re);
+  FileTypeChooser(ChooserType type, double prior, CRegExp* re);
+  /** Default destructor */
+  ~FileTypeChooser() {};
   /** Returns type of chooser */
-  [[nodiscard]] bool isFileName() const;
+  bool isFileName() const;
   /** Returns type of chooser */
-  [[nodiscard]] bool isFileContent() const;
+  bool isFileContent() const;
   /** Returns chooser priority */
-  [[nodiscard]] double getPriority() const;
+  double getPriority() const;
   /** Returns associated regular expression */
-  [[nodiscard]] CRegExp* getRE() const;
-
- private:
-  ChooserType m_type;
-  double m_priority;
-  std::unique_ptr<CRegExp> m_reg_matcher;
+  CRegExp* getRE() const;
+private:
+  std::unique_ptr<CRegExp> reg_matcher;
+  ChooserType type;
+  double priority;
 };
 
-#endif  // COLORER_FILETYPECHOOSER_H
+inline FileTypeChooser::FileTypeChooser(ChooserType type_, double prior, CRegExp* re):
+  reg_matcher(re), type(type_), priority(prior)
+{
+}
+
+inline bool FileTypeChooser::isFileName() const
+{
+  return type == CT_FILENAME;
+}
+
+inline bool FileTypeChooser::isFileContent() const
+{
+  return type == CT_FIRSTLINE;
+}
+
+inline double FileTypeChooser::getPriority() const
+{
+  return priority;
+}
+
+inline CRegExp* FileTypeChooser::getRE() const
+{
+  return reg_matcher.get();
+}
+
+#endif //_COLORER_FILETYPECHOOSER_H_
+
+

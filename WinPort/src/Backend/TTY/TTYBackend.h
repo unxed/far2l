@@ -10,17 +10,17 @@
 #include "Backend.h"
 #include "TTYOutput.h"
 #include "TTYInput.h"
-#include "IFar2lInteractor.h"
+#include "IFar2lInterractor.h"
 #include "TTYXGlue.h"
 #include "OSC52ClipboardBackend.h"
 
-class TTYBackend : IConsoleOutputBackend, ITTYInputSpecialSequenceHandler, IFar2lInteractor, IOSC52Interactor
+class TTYBackend : IConsoleOutputBackend, ITTYInputSpecialSequenceHandler, IFar2lInterractor, IOSC52Interractor
 {
 	const char *_full_exe_path;
 	int _stdin = 0, _stdout = 1;
 	bool _ext_clipboard;
 	bool _norgb;
-	DWORD _nodetect = NODETECT_NONE;
+	const char *_nodetect = "";
 	bool _far2l_tty = false;
 	bool _osc52clip_set = false;
 
@@ -68,55 +68,53 @@ class TTYBackend : IConsoleOutputBackend, ITTYInputSpecialSequenceHandler, IFar2
 	std::atomic<bool> _flush_input_queue{false};
 
 
-	struct Far2lInteractData
+	struct Far2lInterractData
 	{
 		Event evnt;
 		StackSerializer stk_ser;
 		bool waited;
 	};
 
-	struct Far2lInteractV : std::vector<std::shared_ptr<Far2lInteractData> > {} _far2l_interacts_queued;
-	struct Far2lInteractsM : std::map<uint8_t, std::shared_ptr<Far2lInteractData> >, std::mutex
+	struct Far2lInterractV : std::vector<std::shared_ptr<Far2lInterractData> > {} _far2l_interracts_queued;
+	struct Far2lInterractsM : std::map<uint8_t, std::shared_ptr<Far2lInterractData> >, std::mutex
 	{
 		uint8_t _id_counter = 0;
-	} _far2l_interacts_sent;
+	} _far2l_interracts_sent;
 
-	struct AsyncEvent
+	union AsyncEvent
 	{
-		bool term_resized : 1;
-		bool output : 1;
-		bool title_changed : 1;
-		bool far2l_interact : 1;
-		bool go_background : 1;
-		bool osc52clip_set : 1;
-		bool palette : 1;
-
-		inline bool HasAny() const
-		{
-			return term_resized || output || title_changed || far2l_interact || go_background || osc52clip_set || palette;
-		}
-	} _ae{};
+		struct {
+			bool term_resized : 1;
+			bool output : 1;
+			bool title_changed : 1;
+			bool far2l_interract : 1;
+			bool go_background : 1;
+			bool osc52clip_set : 1;
+			bool palette : 1;
+		} flags;
+		uint32_t all;
+	} _ae {};
 
 	std::string _osc52clip;
 
 	ClipboardBackendSetter _clipboard_backend_setter;
 
-	void GetWinSize(struct winsize &w);
+	bool GetWinSize(struct winsize &w);
 	void ChooseSimpleClipboardBackend();
 	void DispatchTermResized(TTYOutput &tty_out);
 	void DispatchOutput(TTYOutput &tty_out);
-	void DispatchFar2lInteract(TTYOutput &tty_out);
+	void DispatchFar2lInterract(TTYOutput &tty_out);
 	void DispatchOSC52ClipSet(TTYOutput &tty_out);
 	void DispatchPalette(TTYOutput &tty_out);
 
 	void DetachNotifyPipe();
 
 protected:
-	// IOSC52Interactor
+	// IOSC52Interractor
 	virtual void OSC52SetClipboard(const char *text);
 
-	// IFar2lInteractor
-	virtual bool Far2lInteract(StackSerializer &stk_ser, bool wait);
+	// IFar2lInterractor
+	virtual bool Far2lInterract(StackSerializer &stk_ser, bool wait);
 
 	// IConsoleOutputBackend
 	virtual void OnConsoleOutputUpdated(const SMALL_RECT *areas, size_t count);
@@ -136,7 +134,8 @@ protected:
 	virtual bool OnConsoleSetFKeyTitles(const char **titles);
 	virtual BYTE OnConsoleGetColorPalette();
 	virtual void OnConsoleOverrideColor(DWORD Index, DWORD *ColorFG, DWORD *ColorBK);
-	virtual void OnConsoleSetCursorBlinkTime(DWORD interval);
+
+	virtual void OnWinPortViewImg(const char *path);
 
 	// ITTYInputSpecialSequenceHandler
 	virtual void OnUsingExtension(char extension);
@@ -148,7 +147,7 @@ protected:
 	DWORD QueryControlKeys();
 
 public:
-	TTYBackend(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, DWORD nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int *result);
+	TTYBackend(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, const char *nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int *result);
 	~TTYBackend();
 	void KickAss(bool flush_input_queue = false);
 	bool Startup();

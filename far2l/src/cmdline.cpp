@@ -54,8 +54,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "interf.hpp"
 #include "syslog.hpp"
 #include "config.hpp"
-#include "ConfigOptEdit.hpp"
-#include "ConfigOptSaveLoad.hpp"
+#include "ConfigSaveLoad.hpp"
 #include "usermenu.hpp"
 #include "datetime.hpp"
 #include "pathmix.hpp"
@@ -70,15 +69,11 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vtcompletor.h"
 #include <limits>
 
-#include "farversion.h"
-#include <sys/utsname.h>
-
 CommandLine::CommandLine()
 	:
 	CmdStr(CtrlObject->Cp(), 0, true, CtrlObject->CmdHistory, 0,
 			(Opt.CmdLine.AutoComplete ? EditControl::EC_ENABLEAUTOCOMPLETE : 0)
-					| EditControl::EC_ENABLEFNCOMPLETE
-					| EditControl::EC_ENABLEFNCOMPLETE_ESCAPED),
+					| EditControl::EC_ENABLEFNCOMPLETE),
 	BackgroundScreen(nullptr),
 	LastCmdPartLength(-1),
 	PushDirStackSize(0)
@@ -145,7 +140,7 @@ void CommandLine::SetCurPos(int Pos, int LeftPos)
 	CmdStr.Redraw();
 }
 
-int64_t CommandLine::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t CommandLine::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	if (OpCode >= MCODE_C_CMDLINE_BOF && OpCode <= MCODE_C_CMDLINE_SELECTED)
 		return CmdStr.VMProcess(OpCode - MCODE_C_CMDLINE_BOF + MCODE_C_BOF, vParam, iParam);
@@ -192,7 +187,7 @@ void CommandLine::ProcessTabCompletion()
 	}
 }
 
-std::string CommandLine::GetConsoleLog(HANDLE con_hnd, bool colored)
+std::string CommandLine::GetConsoleLog(bool colored)
 {
 	bool vtshell_busy = VTShell_Busy();
 	if (!vtshell_busy) {
@@ -201,7 +196,7 @@ std::string CommandLine::GetConsoleLog(HANDLE con_hnd, bool colored)
 		Redraw();
 		ScrBuf.Flush();
 	}
-	const std::string &histfile = VTLog::GetAsFile(con_hnd, colored);
+	const std::string &histfile = VTLog::GetAsFile(colored);
 	if (!vtshell_busy) {
 		--ProcessShowClock;
 		Redraw();
@@ -225,7 +220,7 @@ void CommandLine::ChangeDirFromHistory(bool PluginPath, int SelectType, FARStrin
 		if (Panel->GetMode() == PLUGIN_PANEL || CheckShortcutFolder(&strDir, FALSE)) {
 			Panel->SetCurDir(strDir, PluginPath ? FALSE : TRUE);
 			//fprintf(stderr, "=== ChangeDirFromHistory():\n  strDir=\"%ls\"\n  strFile=\"%ls\"\n", strDir.CPtr(), strFile.CPtr());
-			if ( !strFile.IsEmpty() && !strFile.Contains(LGOOD_SLASH) ) // only local file, not in another directory
+			if ( !strFile.IsEmpty() && !strFile.Contains(L'/') ) // only local file, not in another directory
 				Panel->GoToFile(strFile);
 			// restore current directory to active panel path
 			if (SelectType == 6) {
@@ -237,7 +232,7 @@ void CommandLine::ChangeDirFromHistory(bool PluginPath, int SelectType, FARStrin
 	}
 }
 
-int CommandLine::ProcessKey(FarKey Key)
+int CommandLine::ProcessKey(int Key)
 {
 	const wchar_t *PStr;
 	FARString strStr;
@@ -251,17 +246,17 @@ int CommandLine::ProcessKey(FarKey Key)
 		strLastCompletionCmdStr.Clear();
 
 	if (Key == (KEY_MSWHEEL_UP | KEY_CTRL | KEY_SHIFT)) {
-		ViewConsoleHistory(NULL, false, true);
+		ViewConsoleHistory(false, true);
 		return TRUE;
 	}
 
 	if (Key == KEY_CTRLSHIFTF3 || Key == KEY_F3) {
-		ViewConsoleHistory(NULL, false, false);
+		ViewConsoleHistory(false, false);
 		return TRUE;
 	}
 
 	if (Key == KEY_CTRLSHIFTF4 || Key == KEY_F4) {
-		EditConsoleHistory(NULL, false);
+		EditConsoleHistory(false);
 		return TRUE;
 	}
 
@@ -270,7 +265,7 @@ int CommandLine::ProcessKey(FarKey Key)
 				Msg::ClearTerminalTitle, Msg::ClearTerminalQuestion, Msg::Ok, Msg::Cancel) == 0) {
 			ClearScreen(COL_COMMANDLINEUSERSCREEN);
 			SaveBackground();
-			VTLog::Reset(NULL);
+			VTLog::Reset();
 			ShowBackground();
 			Redraw();
 			//		ShellUpdatePanels(CtrlObject->Cp()->ActivePanel, FALSE);
@@ -333,7 +328,7 @@ int CommandLine::ProcessKey(FarKey Key)
 
 	switch (Key) {
 		case KEY_CTRLE:
-		case KEY_CTRLX:
+		case KEY_CTRLX: {
 			if (Key == KEY_CTRLE) {
 				CtrlObject->CmdHistory->GetPrev(strStr);
 			} else {
@@ -342,16 +337,19 @@ int CommandLine::ProcessKey(FarKey Key)
 			CmdStr.DisableAC();
 			SetString(strStr);
 			CmdStr.RevertAC();
+		}
 			return TRUE;
 
 		case KEY_ESC:
+
 			if (Key == KEY_ESC) {
 				// $ 24.09.2000 SVS - Если задано поведение по "Несохранению при Esc", то позицию в хистори не меняем и ставим в первое положение.
 				if (Opt.CmdHistoryRule)
 					CtrlObject->CmdHistory->ResetPosition();
 
 				PStr = L"";
-			}
+			} else
+				PStr = strStr;
 
 			SetString(PStr);
 			return TRUE;
@@ -397,7 +395,7 @@ int CommandLine::ProcessKey(FarKey Key)
 		}
 			return TRUE;
 		case KEY_SHIFTF9:
-			ConfigOptSave(true);
+			SaveConfig(1);
 			return TRUE;
 		case KEY_F10:
 			FrameManager->ExitMainLoop(TRUE);
@@ -478,12 +476,6 @@ int CommandLine::ProcessKey(FarKey Key)
 				CtrlObject->CmdHistory->AddToHistoryExtra(strStr, strCurDirFromPanel);
 			}
 
-			if ( ProcessFarCommands(strStr.CPtr()) ) {
-				CmdStr.SetString(L"", FALSE);
-				Show();
-				return TRUE;
-			}
-
 			// ProcessOSAliases(strStr);
 
 			if (ActivePanel->ProcessPluginEvent(FE_COMMAND, (void *)strStr.CPtr())) {
@@ -529,7 +521,7 @@ int CommandLine::ProcessKey(FarKey Key)
 
 			// Сбрасываем выделение на некоторых клавишах
 			if (!Opt.CmdLine.EditBlock) {
-				static FarKey UnmarkKeys[] = {KEY_LEFT, KEY_NUMPAD4, KEY_CTRLS, KEY_RIGHT, KEY_NUMPAD6,
+				static int UnmarkKeys[] = {KEY_LEFT, KEY_NUMPAD4, KEY_CTRLS, KEY_RIGHT, KEY_NUMPAD6,
 						KEY_CTRLD, KEY_CTRLLEFT, KEY_CTRLNUMPAD4, KEY_CTRLRIGHT, KEY_CTRLNUMPAD6,
 						KEY_CTRLHOME, KEY_CTRLNUMPAD7, KEY_CTRLEND, KEY_CTRLNUMPAD1, KEY_HOME, KEY_NUMPAD7,
 						KEY_END, KEY_NUMPAD1};
@@ -763,7 +755,7 @@ void CommandLine::ShowViewEditHistory()
 		switch (Type) {
 			case 0:		// вьювер
 			{
-				new FileViewer(std::make_shared<FileHolder>(strStr), TRUE);
+				new FileViewer(strStr, TRUE);
 				break;
 			}
 			case 1:		// обычное открытие в редакторе
@@ -771,7 +763,7 @@ void CommandLine::ShowViewEditHistory()
 			{
 				// пусть файл создается
 				FileEditor *FEdit =
-						new FileEditor(std::make_shared<FileHolder>(strStr), CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6);
+						new FileEditor(strStr, CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6);
 
 				if (Type == 4)
 					FEdit->SetLockEditor(TRUE);
@@ -853,269 +845,4 @@ void CommandLine::RedrawWithoutComboBoxMark()
 	Redraw();
 	// erase \x2191 character...
 	DrawComboBoxMark(L' ');
-}
-
-void FarAbout(PluginManager &Plugins)
-{
-	int npl;
-	FARString fs, fs2;
-	MenuItemEx mi, mis;
-	mis.Flags = LIF_SEPARATOR;
-
-	VMenu ListAbout(L"far:about",nullptr,0,ScrY-4);
-	ListAbout.SetFlags(VMENU_SHOWAMPERSAND | VMENU_IGNORE_SINGLECLICK);
-	ListAbout.ClearFlags(VMENU_MOUSEREACTION);
-	//ListAbout.SetFlags(VMENU_WRAPMODE);
-	ListAbout.SetHelp(L"SpecCmd");//L"FarAbout");
-	ListAbout.SetBottomTitle(L"ESC or F10 to close, Ctrl-Alt-F - filtering");
-
-	fs.Format(L"         FAR2L Version: %s", FAR_BUILD);
-	ListAbout.AddItem(fs);
-	fs.Format(L"              Platform: %s", FAR_PLATFORM);
-	ListAbout.AddItem(fs);
-	fs.Format(L"               Backend: %ls", WinPortBackend());
-	ListAbout.AddItem(fs);
-	fs.Format(L"   ConsoleColorPalette: %u", WINPORT(GetConsoleColorPalette)(NULL) );
-	ListAbout.AddItem(fs);
-	fs.Format(L"                 Admin: %ls", Opt.IsUserAdmin ? Msg::FarTitleAddonsAdmin : L"-");
-	ListAbout.AddItem(fs);
-	//apiGetEnvironmentVariable("FARPID", fs2);
-	//fs = L"           PID: " + fs2;
-	fs.Format(L"                   PID: %lu", (unsigned long)getpid());
-	ListAbout.AddItem(fs);
-
-
-	ListAbout.AddItem(L"");
-	struct utsname un;
-	fs =      L"                 uname: ";
-	if (uname(&un)==0)
-		fs.AppendFormat(L"%s %s %s %s", un.sysname, un.release, un.version, un.machine);
-	ListAbout.AddItem(fs);
-	fs =      L"                  Host: " + (apiGetEnvironmentVariable("HOSTNAME", fs2) ? fs2 : L"???");
-	ListAbout.AddItem(fs);
-	fs =      L"                  User: " + (apiGetEnvironmentVariable("USER", fs2) ? fs2 : L"???");
-	ListAbout.AddItem(fs);
-	fs =      L"      XDG_SESSION_TYPE: " + (apiGetEnvironmentVariable("XDG_SESSION_TYPE", fs2) ? fs2 : L"");
-	ListAbout.AddItem(fs);
-	fs =      L"                  TERM: " + (apiGetEnvironmentVariable("TERM", fs2) ? fs2 : L"");
-	ListAbout.AddItem(fs);
-	fs =      L"             COLORTERM: " + (apiGetEnvironmentVariable("COLORTERM", fs2) ? fs2 : L"");
-	ListAbout.AddItem(fs);
-	fs =      L"           GDK_BACKEND: " + (apiGetEnvironmentVariable("GDK_BACKEND", fs2) ? fs2 : L"");
-	ListAbout.AddItem(fs);
-	fs =      L"       DESKTOP_SESSION: " + (apiGetEnvironmentVariable("DESKTOP_SESSION", fs2) ? fs2 : L"");
-	ListAbout.AddItem(fs);
-
-	ListAbout.AddItem(L"");
-
-	//apiGetEnvironmentVariable("FARLANG", fs2);
-	fs =      L" Main | Help languages: " + Opt.strLanguage + L" | " + Opt.strHelpLanguage;
-	ListAbout.AddItem(fs);
-
-	fs.Format(L"  OEM | ANSI codepages: %u | %u", WINPORT(GetOEMCP)(), WINPORT(GetACP)() );
-	ListAbout.AddItem(fs);
-
-	ListAbout.AddItem(L"");
-
-	//apiGetEnvironmentVariable("FARHOME", fs2);
-	fs =      L"         Far directory: \"" + g_strFarPath.GetMB() + L"\"";
-	ListAbout.AddItem(fs);
-
-	fs.Format(L"      Config directory: \"%s\"", InMyConfig("",FALSE).c_str() );
-	ListAbout.AddItem(fs);
-
-	fs.Format(L"       Cache directory: \"%s\"", InMyCache("",FALSE).c_str() );
-	ListAbout.AddItem(fs);
-
-	fs.Format(L"        Temp directory: \"%s\"", InMyTemp("").c_str() );
-	ListAbout.AddItem(fs);
-
-	ListAbout.AddItem(L"");
-
-	npl = Plugins.GetPluginsCount();
-	fs.Format(L"    Number of plugins: %d", npl);
-	ListAbout.AddItem(fs);
-
-	for(int i = 0; i < npl; i++)
-	{
-		fs.Format(L"Plugin#%02d ",  i+1);
-		mis.strName = fs;
-		mi.PrefixLen = fs.GetLength()-1;
-
-		Plugin *pPlugin = Plugins.GetPlugin(i);
-		if(pPlugin == nullptr) {
-			ListAbout.AddItem(&mis);
-			mi.strName = fs + L"!!! ERROR get plugin";
-			ListAbout.AddItem(&mi);
-			continue;
-		}
-		mis.strName = fs + PointToName(pPlugin->GetModuleName());
-		ListAbout.AddItem(&mis);
-
-		mi.strName = fs + pPlugin->GetModuleName();
-		ListAbout.AddItem(&mi);
-
-		mi.strName = fs + L"Settings Name: " + pPlugin->GetSettingsName();
-		ListAbout.AddItem(&mi);
-
-		int iFlags;
-		PluginInfo pInfo{};
-		KeyFileReadHelper kfh(PluginsIni());
-		FARString fsCommandPrefix = L"";
-		FARString fsDiskMenuStrings = L"";
-		FARString fsPluginMenuStrings = L"";
-		FARString fsPluginConfigStrings = L"";
-
-		if (pPlugin->CheckWorkFlags(PIWF_CACHED)) {
-			iFlags = kfh.GetUInt(pPlugin->GetSettingsName(), "Flags", 0);
-			fsCommandPrefix = kfh.GetString(pPlugin->GetSettingsName(), "CommandPrefix", L"");
-			for (int j = 0; ; j++) {
-				const auto &key_name = StrPrintf("DiskMenuString%d", j);
-				/*if (!kfh.HasKey(key_name))
-					break;*/
-				fs2 = kfh.GetString(pPlugin->GetSettingsName(), key_name, "");
-				if( fs2.IsEmpty() )
-					break;
-				fsDiskMenuStrings.AppendFormat(L" %d=\"%ls\" ", j+1, fs2.CPtr());
-			}
-			for (int j = 0; ; j++) {
-				const auto &key_name = StrPrintf("PluginMenuString%d", j);
-				/*if (!kfh.HasKey(key_name))
-					break;*/
-				fs2 = kfh.GetString(pPlugin->GetSettingsName(), key_name, "");
-				if( fs2.IsEmpty() )
-					break;
-				fsPluginMenuStrings.AppendFormat(L" %d=\"%ls\" ", j+1, fs2.CPtr());
-			}
-			for (int j = 0; ; j++) {
-				const auto &key_name = StrPrintf("PluginConfigString%d", j);
-				/*if (!kfh.HasKey(key_name))
-					break;*/
-				fs2 = kfh.GetString(pPlugin->GetSettingsName(), key_name, "");
-				if( fs2.IsEmpty() )
-					break;
-				fsPluginConfigStrings.AppendFormat(L" %d=\"%ls\" ", j+1, fs2.CPtr());
-			}
-		}
-		else {
-			if (pPlugin->GetPluginInfo(&pInfo)) {
-				iFlags = pInfo.Flags;
-				fsCommandPrefix = pInfo.CommandPrefix;
-				for (int j = 0; j < pInfo.DiskMenuStringsNumber; j++)
-					fsDiskMenuStrings.AppendFormat(L" %d=\"%ls\"", j+1, pInfo.DiskMenuStrings[j]);
-				for (int j = 0; j < pInfo.PluginMenuStringsNumber; j++)
-					fsPluginMenuStrings.AppendFormat(L" %d=\"%ls\"", j+1, pInfo.PluginMenuStrings[j]);
-				for (int j = 0; j < pInfo.PluginConfigStringsNumber; j++)
-					fsPluginConfigStrings.AppendFormat(L" %d=\"%ls\"", j+1, pInfo.PluginConfigStrings[j]);
-			}
-			else
-				iFlags = -1;
-		}
-
-		mi.strName.Format(L"%ls     %s Cached  %s Loaded ",
-			fs.CPtr(),
-			pPlugin->CheckWorkFlags(PIWF_CACHED) ? "[x]" : "[ ]",
-			pPlugin->GetFuncFlags() & PICFF_LOADED ? "[x]" : "[ ]");
-		ListAbout.AddItem(&mi);
-
-		if (iFlags >= 0) {
-			mi.strName.Format(L"%lsF11: %s Panel   %s Dialog  %s Viewer  %s Editor ",
-				fs.CPtr(),
-				iFlags & PF_DISABLEPANELS ? "[ ]" : "[x]",
-				iFlags & PF_DIALOG ? "[x]" : "[ ]",
-				iFlags & PF_VIEWER ? "[x]" : "[ ]",
-				iFlags & PF_EDITOR ? "[x]" : "[ ]");
-			ListAbout.AddItem(&mi);
-		}
-
-		mi.strName.Format(L"%ls     %s EditorInput ", fs.CPtr(), pPlugin->HasProcessEditorInput() ? "[x]" : "[ ]");
-		ListAbout.AddItem(&mi);
-
-		if ( !fsDiskMenuStrings.IsEmpty() ) {
-			mi.strName = fs + L"    DiskMenuStrings:" + fsDiskMenuStrings;
-			ListAbout.AddItem(&mi);
-		}
-		if ( !fsPluginMenuStrings.IsEmpty() ) {
-			mi.strName = fs + L"  PluginMenuStrings:" + fsPluginMenuStrings;
-			ListAbout.AddItem(&mi);
-		}
-		if ( !fsPluginConfigStrings.IsEmpty() ) {
-			mi.strName = fs + L"PluginConfigStrings:" + fsPluginConfigStrings;
-			ListAbout.AddItem(&mi);
-		}
-		if ( !fsCommandPrefix.IsEmpty() ) {
-			mi.strName.Format(L"%ls      CommandPrefix: \"%ls\"", fs.CPtr(), fsCommandPrefix.CPtr());
-			ListAbout.AddItem(&mi);
-		}
-		
-	}
-
-	ListAbout.SetPosition(-1, -1, 0, 0);
-	int iListExitCode = 0;
-	do {
-		ListAbout.Process();
-		iListExitCode = ListAbout.GetExitCode();
-		if (iListExitCode>=0)
-			ListAbout.ClearDone(); // no close after select item by ENTER or mouse click
-	} while(iListExitCode>=0);
-}
-
-bool CommandLine::ProcessFarCommands(const wchar_t *CmdLine)
-{
-	bool b_far, b_edit = false, b_view = false;
-	std::string::size_type p;
-	std::wstring str_command(CmdLine);
-
-	StrTrim(str_command);
-
-	b_far = StrStartsFrom(str_command, L"far:");
-	if (!b_far) {
-		b_edit = StrStartsFrom(str_command, L"edit:");
-		if (!b_edit) {
-			b_view = StrStartsFrom(str_command, L"view:");
-			if (!b_view) {
-				return false; // not found any available prefixes
-			}
-		}
-	}
-
-	if (b_far && str_command == L"far:config") {
-		ConfigOptEdit();
-		return true; // prefix correct and was processed
-	}
-
-	if (b_far && str_command == L"far:about") {
-		FarAbout(CtrlObject->Plugins);
-		return true; // prefix correct and was processed
-	}
-
-	p = b_edit ? 5 // wcslen(L"edit:")
-		: ( (b_far && (StrStartsFrom(str_command, L"far:edit:") || StrStartsFrom(str_command, L"far:edit ") || str_command == L"far:edit"))
-			? 9 // wcslen(L"far:edit:") or wcslen(L"far:edit ")
-			: 0 );
-	if (p > 0) {
-		p = str_command.find_first_not_of(L" \t", p);
-		if (p != std::string::npos) // after spaces found filename
-			new FileEditor(
-				std::make_shared<FileHolder>( str_command.substr(p,std::string::npos).c_str() ),
-				CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6);
-		else
-			new FileEditor(
-				std::make_shared<FileHolder>( Msg::NewFileName.CPtr() ),
-				CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6);
-		return true; // prefix correct and was processed
-	}
-
-	p = b_view ? 5 // wcslen(L"view:")
-		: ( (b_far && (StrStartsFrom(str_command, L"far:view:") || StrStartsFrom(str_command, L"far:view ")))
-			? 9 // wcslen(L"far:view:") or wcslen(L"far:view ")
-			: 0 );
-	if (p > 0) {
-		p = str_command.find_first_not_of(L" \t", p);
-		if (p != std::string::npos) // after spaces found filename
-			new FileViewer(std::make_shared<FileHolder>( str_command.substr(p,std::string::npos).c_str() ), TRUE);
-		return true; // anyway prefix correct and was processed
-	}
-
-	return false; // not found any available prefixes
 }

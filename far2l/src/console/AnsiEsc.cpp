@@ -229,44 +229,44 @@ void FontState::FromConsoleAttributes(DWORD64 qAttributes)
 
 DWORD64 FontState::ToConsoleAttributes()
 {
-	DWORD64 attribute = 0;
+	DWORD64 attribut = 0;
 
 	if (concealed) {
-		attribute = g_palette_foreground[background] | g_palette_background[background];
+		attribut = g_palette_foreground[background] | g_palette_background[background];
 
 		if (use_rgb_background) {
-			SET_RGB_BOTH(attribute, rgb_background, rgb_background);
+			SET_RGB_BOTH(attribut, rgb_background, rgb_background);
 		}
 
 	} else {
-		attribute = g_palette_foreground[foreground] | g_palette_background[background];
+		attribut = g_palette_foreground[foreground] | g_palette_background[background];
 
 		if (use_rgb_foreground) {
-			SET_RGB_FORE(attribute, rgb_foreground);
+			SET_RGB_FORE(attribut, rgb_foreground);
 		}
 
 		if (use_rgb_background) {
-			SET_RGB_BACK(attribute, rgb_background);
+			SET_RGB_BACK(attribut, rgb_background);
 		}
 	}
 
 	if (bold) {
-		attribute|= FOREGROUND_INTENSITY;
+		attribut|= FOREGROUND_INTENSITY;
 	}
 
 	if (rvideo) {
-		attribute|= COMMON_LVB_REVERSE_VIDEO;
+		attribut|= COMMON_LVB_REVERSE_VIDEO;
 	}
 
 	if (underline) {
-		attribute|= COMMON_LVB_UNDERSCORE;
+		attribut|= COMMON_LVB_UNDERSCORE;
 	}
 
 	if (strikeout) {
-		attribute|= COMMON_LVB_STRIKEOUT;
+		attribut|= COMMON_LVB_STRIKEOUT;
 	}
 
-	return attribute;
+	return attribut;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

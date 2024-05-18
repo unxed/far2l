@@ -540,7 +540,7 @@ namespace ttmath
 
 		if( PrepareSin( x, change_sign ) )
 		{
-			// x is too big, we cannot reduce the 2*PI period
+			// x is too big, we cannnot reduce the 2*PI period
 			// prior to version 0.8.5 the result was zero
 			
 			// result has NaN flag set by default
@@ -572,7 +572,7 @@ namespace ttmath
 
 	
 	/*!
-		this function calculates the Cosine
+		this function calulates the Cosine
 		we're using the formula cos(x) = sin(x + PI/2)
 	*/
 	template<class ValueType>
@@ -604,7 +604,7 @@ namespace ttmath
 	
 
 	/*!
-		this function calculates the Tangent
+		this function calulates the Tangent
 		we're using the formula tan(x) = sin(x) / cos(x)
 
 		it takes more time than calculating the Tan directly
@@ -636,7 +636,7 @@ namespace ttmath
 
 
 	/*!
-		this function calculates the Tangent
+		this function calulates the Tangent
 		look at the description of Tan(...)
 
 		(the abbreviation of Tangent can be 'tg' as well)
@@ -649,7 +649,7 @@ namespace ttmath
 
 
 	/*!
-		this function calculates the Cotangent
+		this function calulates the Cotangent
 		we're using the formula tan(x) = cos(x) / sin(x)
 
 		(why do we make it in this way? 
@@ -678,7 +678,7 @@ namespace ttmath
 
 
 	/*!
-		this function calculates the Cotangent
+		this function calulates the Cotangent
 		look at the description of Cot(...)
 
 		(the abbreviation of Cotangent can be 'ctg' as well)
@@ -1630,7 +1630,7 @@ namespace ttmath
 	ValueType DegToDeg(	const ValueType & d, const ValueType & m, const ValueType & s,
 						ErrorCode * err = 0)
 	{
-	ValueType delimiter, multiplier;
+	ValueType delimiter, multipler;
 	uint c = 0;
 
 		if( d.IsNan() || m.IsNan() || s.IsNan() || m.IsSign() || s.IsSign() )
@@ -1643,22 +1643,22 @@ namespace ttmath
 		return delimiter;
 		}
 
-		multiplier = 60;
+		multipler = 60;
 		delimiter = 3600;
 
-		c += multiplier.Mul(m);
-		c += multiplier.Add(s);
-		c += multiplier.Div(delimiter);
+		c += multipler.Mul(m);
+		c += multipler.Add(s);
+		c += multipler.Div(delimiter);
 
 		if( d.IsSign() )
-			multiplier.ChangeSign();
+			multipler.ChangeSign();
 
-		c += multiplier.Add(d);
+		c += multipler.Add(d);
 
 		if( err )
 			*err = c ? err_overflow : err_ok;
 
-	return multiplier;
+	return multipler;
 	}
 
 
@@ -2157,7 +2157,7 @@ namespace ttmath
 
 		e.g.
 		mod( 12.6 ;  3) =  0.6   because 12.6  = 3*4 + 0.6
-		mod(-12.6 ;  3) = -0.6   because -12.6 = 3*(-4) + (-0.6)
+		mod(-12.6 ;  3) = -0.6   bacause -12.6 = 3*(-4) + (-0.6)
 		mod( 12.6 ; -3) =  0.6
 		mod(-12.6 ; -3) = -0.6
 	*/

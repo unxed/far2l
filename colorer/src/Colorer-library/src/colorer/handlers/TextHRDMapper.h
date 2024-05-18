@@ -1,8 +1,10 @@
 #ifndef _COLORER_TEXTHRDMAPPER_H_
 #define _COLORER_TEXTHRDMAPPER_H_
 
-#include "colorer/handlers/RegionMapper.h"
-#include "colorer/handlers/TextRegion.h"
+#include <colorer/io/Writer.h>
+#include <colorer/handlers/RegionMapperImpl.h>
+#include <colorer/handlers/TextRegion.h>
+#include <colorer/xml/XmlInputSource.h>
 
 /** HRD files reader.
     HRD Files format contains mappings of HRC syntax regions into
@@ -12,34 +14,33 @@
 
     @ingroup colorer_handlers
 */
-class TextHRDMapper : public RegionMapper
+class TextHRDMapper : public RegionMapperImpl
 {
- public:
-  TextHRDMapper() = default;
-  ~TextHRDMapper() override;
+public:
+  TextHRDMapper();
+  ~TextHRDMapper();
 
-  /** Loads region definitions from HRD file.
-   * Multiple files could be loaded.
+  /**
+   * Loads region defines from @c is InputSource
    */
-  void loadRegionMappings(XmlInputSource& is) override;
+  void  loadRegionMappings(XmlInputSource* is);
 
   /**
    * Saves all loaded region defines into @c writer.
    * Note, that result document would not be equal
    * to input one, because there could be multiple input
    * documents.
-   * Note, that this method writes all loaded
-   * defines from all loaded HRD files.
    */
-
-  void saveRegionMappings(Writer* writer) const override;
+  void  saveRegionMappings(Writer* writer) const;
 
   /**
    * Changes specified region definition to @c rdnew
    * @param region Region full qualified name.
    * @param rdnew  New region definition to replace old one
    */
-  void setRegionDefine(const UnicodeString& region, const RegionDefine* rdnew) override;
+  void  setRegionDefine(const String &region, const RegionDefine* rdnew);
 };
 
 #endif
+
+

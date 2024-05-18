@@ -108,7 +108,6 @@ static const char NFMP_FreeFindData[] = "FreeFindDataW";
 static const char NFMP_GetVirtualFindData[] = "GetVirtualFindDataW";
 static const char NFMP_FreeVirtualFindData[] = "FreeVirtualFindDataW";
 static const char NFMP_SetDirectory[] = "SetDirectoryW";
-static const char NFMP_GetLinkTarget[] = "GetLinkTargetW";
 static const char NFMP_GetFiles[] = "GetFilesW";
 static const char NFMP_PutFiles[] = "PutFilesW";
 static const char NFMP_DeleteFiles[] = "DeleteFilesW";
@@ -133,7 +132,7 @@ static void CheckScreenLock()
 	}
 }
 
-static size_t WINAPI FarKeyToName(FarKey Key, wchar_t *KeyText, size_t Size)
+static size_t WINAPI FarKeyToName(int Key, wchar_t *KeyText, size_t Size)
 {
 	FARString strKT;
 
@@ -154,7 +153,7 @@ static size_t WINAPI FarKeyToName(FarKey Key, wchar_t *KeyText, size_t Size)
 	return (len + 1);
 }
 
-unsigned int WINAPI KeyNameToKeyW(const wchar_t *Name)
+int WINAPI KeyNameToKeyW(const wchar_t *Name)
 {
 	FARString strN(Name);
 	return (int)KeyNameToKey(strN);
@@ -305,7 +304,6 @@ bool PluginW::Load()
 	GetModuleFN(pGetVirtualFindDataW, NFMP_GetVirtualFindData);
 	GetModuleFN(pFreeVirtualFindDataW, NFMP_FreeVirtualFindData);
 	GetModuleFN(pSetDirectoryW, NFMP_SetDirectory);
-	GetModuleFN(pGetLinkTargetW, NFMP_GetLinkTarget);
 	GetModuleFN(pGetFilesW, NFMP_GetFiles);
 	GetModuleFN(pPutFilesW, NFMP_PutFiles);
 	GetModuleFN(pDeleteFilesW, NFMP_DeleteFiles);
@@ -373,9 +371,9 @@ static int farDispatchInterThreadCallsW()
 static void WINAPI farBackgroundTaskW(const wchar_t *Info, BOOL Started)
 {
 	if (Started)
-		CtrlObject->Plugins.BackgroundTaskStarted(Info);
+		CtrlObject->Plugins.BackroundTaskStarted(Info);
 	else
-		CtrlObject->Plugins.BackgroundTaskFinished(Info);
+		CtrlObject->Plugins.BackroundTaskFinished(Info);
 }
 
 static size_t WINAPI farStrCellsCount(const wchar_t *Str, size_t CharsCount)
@@ -741,7 +739,7 @@ int PluginW::ProcessEditorEvent(int Event, PVOID Param)
 		es.id = EXCEPT_PROCESSEDITOREVENT;
 		es.nDefaultResult = 0;
 		EXECUTE_FUNCTION_EX(pProcessEditorEventW(Event, Param), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 
 	return 0;	// oops!
@@ -754,7 +752,7 @@ int PluginW::ProcessViewerEvent(int Event, void *Param)
 		es.id = EXCEPT_PROCESSVIEWEREVENT;
 		es.nDefaultResult = 0;
 		EXECUTE_FUNCTION_EX(pProcessViewerEventW(Event, Param), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 
 	return 0;	// oops, again!
@@ -782,7 +780,7 @@ int PluginW::ProcessSynchroEvent(int Event, void *Param)
 		es.id = EXCEPT_PROCESSSYNCHROEVENT;
 		es.nDefaultResult = 0;
 		EXECUTE_FUNCTION_EX(pProcessSynchroEventW(Event, Param), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 
 	return 0;	// oops, again!
@@ -828,25 +826,8 @@ void PluginW::FreeVirtualFindData(HANDLE hPlugin, PluginPanelItem *PanelItem, in
 		ExecuteStruct es;
 		es.id = EXCEPT_FREEVIRTUALFINDDATA;
 		EXECUTE_FUNCTION(pFreeVirtualFindDataW(hPlugin, PanelItem, ItemsNumber), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
-}
-
-bool PluginW::GetLinkTarget(HANDLE hPlugin, PluginPanelItem *PanelItem, FARString &result, int OpMode)
-{
-	if (!pGetLinkTargetW) {
-		return false;
-	}
-	ExecuteStruct es;
-	es.id = EXCEPT_GETLINKTARGET;
-	es.nDefaultResult = -1;
-	wchar_t buf[MAX_PATH + 1] = {0};
-	EXECUTE_FUNCTION_EX(pGetLinkTargetW(hPlugin, PanelItem, buf, ARRAYSIZE(buf), OpMode), es);
-	if (es.nResult <= 0 || size_t(es.nResult) > ARRAYSIZE(buf)) {
-		return false;
-	}
-	result = buf;
-	return true;
 }
 
 int PluginW::GetFiles(HANDLE hPlugin, PluginPanelItem *PanelItem, int ItemsNumber, int Move,
@@ -979,7 +960,7 @@ void PluginW::FreeFindData(HANDLE hPlugin, PluginPanelItem *PanelItem, int Items
 		ExecuteStruct es;
 		es.id = EXCEPT_FREEFINDDATA;
 		EXECUTE_FUNCTION(pFreeFindDataW(hPlugin, PanelItem, ItemsNumber), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 }
 
@@ -1004,7 +985,7 @@ void PluginW::ClosePlugin(HANDLE hPlugin)
 		ExecuteStruct es;
 		es.id = EXCEPT_CLOSEPLUGIN;
 		EXECUTE_FUNCTION(pClosePluginW(hPlugin), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 
 	//	m_pManager->m_pCurrentPlugin = (Plugin*)-1;
@@ -1034,7 +1015,7 @@ void PluginW::GetOpenPluginInfo(HANDLE hPlugin, OpenPluginInfo *pInfo)
 		ExecuteStruct es;
 		es.id = EXCEPT_GETOPENPLUGININFO;
 		EXECUTE_FUNCTION(pGetOpenPluginInfoW(hPlugin, pInfo), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 }
 
@@ -1089,7 +1070,7 @@ void PluginW::FreeCustomData(wchar_t *CustomData)
 		ExecuteStruct es;
 		es.id = EXCEPT_FREECUSTOMDATA;
 		EXECUTE_FUNCTION(pFreeCustomDataW(CustomData), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 }
 
@@ -1112,7 +1093,7 @@ void PluginW::ExitFAR()
 		ExecuteStruct es;
 		es.id = EXCEPT_EXITFAR;
 		EXECUTE_FUNCTION(pExitFARW(), es);
-		(void)es;	// suppress 'set but not used' warning
+		(void)es;	// supress 'set but not used' warning
 	}
 }
 

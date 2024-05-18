@@ -1,7 +1,8 @@
-#ifndef COLORER_CREGEXP_H
-#define COLORER_CREGEXP_H
+#ifndef __CREGEXP__
+#define __CREGEXP__
 
-#include "colorer/Common.h"
+#include<colorer/unicode/String.h>
+#include<colorer/unicode/CharacterClass.h>
 
 /**
     @addtogroup cregexp Regular Expressions
@@ -33,90 +34,93 @@
 #endif
 
 #ifdef NAMED_MATCHES_IN_HASH
-struct SMatch
-{
-  int s, e;
+struct SMatch{
+  int s,e;
 };
 // you can redefine this class
-typedef class SMatchHash
-{
- public:
-  SMatch* setItem(const UnicodeString* name, SMatch& smatch)
-  {
-    return nullptr;
-  };
-  SMatch* getItem(const UnicodeString* name)
-  {
-    return nullptr;
-  };
-} * PMatchHash;
+typedef class SMatchHash{
+public:
+  SMatch *setItem(const String *name, SMatch &smatch){return nullptr;};
+  SMatch *getItem(const String *name){return nullptr;};
+}*PMatchHash;
 #endif
 
-enum class EOps {
+
+enum EOps
+{
   ReBlockOps,
-  ReMul,        // *
-  RePlus,       // +
-  ReQuest,      // ?
-  ReNGMul,      // *?
-  ReNGPlus,     // +?
-  ReNGQuest,    // ??
-  ReRangeN,     // {n,}
-  ReRangeNM,    // {n,m}
-  ReNGRangeN,   // {n,}?
-  ReNGRangeNM,  // {n,m}?
-  ReOr,         // |
-  ReBehind,     // ?#n
-  ReNBehind,    // ?~n
-  ReAhead,      // ?=
-  ReNAhead,     // ?!
+  ReMul,              // *
+  RePlus,             // +
+  ReQuest,            // ?
+  ReNGMul,            // *?
+  ReNGPlus,           // +?
+  ReNGQuest,          // ??
+  ReRangeN,           // {n,}
+  ReRangeNM,          // {n,m}
+  ReNGRangeN,         // {n,}?
+  ReNGRangeNM,        // {n,m}?
+  ReOr,               // |
+  ReBehind,           // ?#n
+  ReNBehind,          // ?~n
+  ReAhead,            // ?=
+  ReNAhead,           // ?!
 
   ReSymbolOps,
   ReEmpty,
-  ReMetaSymb,       // \W \s \d ...
-  ReSymb,           // a b c ...
-  ReWord,           // word...
-  ReEnum,           // []
-  ReNEnum,          // [^]
-  ReBrackets,       // (...)
-  ReNamedBrackets,  // (?{name} ...)
+  ReMetaSymb,         // \W \s \d ...
+  ReSymb,             // a b c ...
+  ReWord,             // word...
+  ReEnum,             // []
+  ReNEnum,            // [^]
+  ReBrackets,         // (...)
+  ReNamedBrackets,    // (?{name} ...)
 #ifdef COLORERMODE
-  ReBkTrace,       // \yN
-  ReBkTraceN,      // \YN
-  ReBkTraceName,   // \y{name}
-  ReBkTraceNName,  // \Y{name}
+  ReBkTrace,          // \yN
+  ReBkTraceN,         // \YN
+  ReBkTraceName,      // \y{name}
+  ReBkTraceNName,     // \Y{name}
 #endif
-  ReBkBrack,     // \N
-  ReBkBrackName  // \p{name}
+  ReBkBrack,          // \N
+  ReBkBrackName       // \p{name}
 };
 
-enum class EMetaSymbols {
+enum EMetaSymbols
+{
   ReBadMeta,
-  ReAnyChr,  // .
-  ReSoL,     // ^
+  ReAnyChr,           // .
+  ReSoL,              // ^
 #ifdef COLORERMODE
-  ReSoScheme,  // ~
+  ReSoScheme,         // ~
 #endif
-  ReEoL,        // $
-  ReDigit,      // \d
-  ReNDigit,     // \D
-  ReWordSymb,   // \w
-  ReNWordSymb,  // \W
-  ReWSpace,     // \s isWhiteSpace()
-  ReNWSpace,    // \S
-  ReUCase,      // \u
-  ReNUCase,     // \l
-  ReWBound,     // \b
-  ReNWBound,    // \B
-  RePreNW,      // \c
+  ReEoL,              // $
+  ReDigit,            // \d
+  ReNDigit,           // \D
+  ReWordSymb,         // \w
+  ReNWordSymb,        // \W
+  ReWSpace,           // \s isWhiteSpace()
+  ReNWSpace,          // \S
+  ReUCase,            // \u
+  ReNUCase,           // \l
+  ReWBound,           // \b
+  ReNWBound,          // \B
+  RePreNW,            // \c
 #ifdef COLORERMODE
-  ReStart,  // \m
-  ReEnd,    // \M
+  ReStart,            // \m
+  ReEnd,              // \M
 #endif
 
   ReChrLast,
 };
 
-enum class EError { EOK = 0, EERROR, ESYNTAX, EBRACKETS, EENUM, EOP };
+#ifdef __HAIKU__
+#undef EOK
+#endif
+
+enum EError
+{
+  EOK = 0, EERROR, ESYNTAX, EBRACKETS, EENUM, EOP
+};
+
 
 /// @ingroup cregexp
 struct SMatches
@@ -136,37 +140,34 @@ struct SMatches
 */
 class SRegInfo
 {
- public:
+public:
   SRegInfo();
   ~SRegInfo();
 
-  union {
+  union{
     EMetaSymbols metaSymbol;
-    UChar symbol;
-    UnicodeString* word;
-    CharacterClass* charclass;
-    SRegInfo* param;
-  } un;
+    wchar symbol;
+    String *word;
+    CharacterClass *charclass;
+    SRegInfo *param;
+  }un;
 #if defined NAMED_MATCHES_IN_HASH
-  UnicodeString* namedata;
+  String *namedata;
 #endif
-  SRegInfo* parent = nullptr;
-  SRegInfo* next = nullptr;
-  SRegInfo* prev = nullptr;
-  int oldParse = 0;
-  int param0 = 0;
-  int param1 = 0;
-  int s = 0;
-  int e = 0;
+  SRegInfo *parent;
+  SRegInfo *next;
+  SRegInfo *prev;
+  int oldParse;
+  int param0, param1;
+  int s, e;
 
-  EOps op = EOps::ReEmpty;
+  EOps op;
 };
 
-struct StackElem
-{
-  // local variable
-  SRegInfo* re;
-  SRegInfo* prev;
+struct StackElem{
+  //local variable
+  SRegInfo *re;
+  SRegInfo *prev;
   int toParse;
   bool leftenter;
   // step if function return true
@@ -175,12 +176,15 @@ struct StackElem
   int ifFalseReturn;
 };
 
+extern StackElem *RegExpStack;
+extern int RegExpStack_Size;
+
 #define INIT_MEM_SIZE 512
 #define MEM_INC 128
 
 enum ReAction {
-  rea_False = 0,
-  rea_True = 1,
+  rea_False=0,
+  rea_True=1,
   rea_Break,
   rea_RangeNM_step2,
   rea_RangeNM_step3,
@@ -247,7 +251,7 @@ enum ReAction {
 */
 class CRegExp
 {
- public:
+public:
   /**
     Empty constructor. No RE tree is builded with this constructor.
     Use #setRE method to change pattern.
@@ -256,7 +260,7 @@ class CRegExp
   /**
     Constructs regular expression and compile it with @c text pattern.
   */
-  CRegExp(const UnicodeString* text);
+  CRegExp(const String *text);
   ~CRegExp();
 
   /**
@@ -276,98 +280,88 @@ class CRegExp
   /**
     Returns count of named brackets.
   */
-  int getBracketNo(const UnicodeString* brname);
+  int getBracketNo(const String *brname);
   /**
     Returns named bracked name by it's index.
   */
-  UnicodeString* getBracketName(int no);
+  String *getBracketName(int no);
 #ifdef COLORERMODE
-  bool setBackRE(CRegExp* bkre);
+  bool setBackRE(CRegExp *bkre);
   /**
     Changes RE object, used for backreferences with named \y{} \Y{} operators.
   */
-  bool setBackTrace(const UnicodeString* str, SMatches* trace);
+  bool setBackTrace(const String *str, SMatches *trace);
   /**
     Returns current RE object, used for backreferences with \y \Y operators.
   */
-  bool getBackTrace(const UnicodeString** str, SMatches** trace);
+  bool getBackTrace(const String **str, SMatches **trace);
 #endif
   /**
     Compiles specified regular expression and drops all
     previous structures.
   */
-  bool setRE(const UnicodeString* re);
+  bool setRE(const String *re);
 #ifdef NAMED_MATCHES_IN_HASH
   /** Runs RE parser against input string @c str
-   */
-  bool parse(const UnicodeString* str, SMatches* mtch, SMatchHash* nmtch = nullptr);
+  */
+  bool parse(const String *str, SMatches *mtch, SMatchHash *nmtch = nullptr);
   /** Runs RE parser against input string @c str
-   */
-  bool parse(const UnicodeString* str, int pos, int eol, SMatches* mtch,
-             SMatchHash* nmtch = nullptr, int soscheme = 0, int moves = -1);
+  */
+  bool parse(const String *str, int pos, int eol, SMatches *mtch, SMatchHash *nmtch = nullptr, int soscheme = 0, int moves = -1);
 #else
   /** Runs RE parser against input string @c str
-   */
-  bool parse(const UnicodeString* str, SMatches* mtch);
+  */
+  bool parse(const String *str, SMatches *mtch);
   /** Runs RE parser against input string @c str
-   */
-  bool parse(const UnicodeString* str, int pos, int eol, SMatches* mtch, int soscheme = 0,
-             int moves = -1);
+  */
+  bool parse(const String *str, int pos, int eol, SMatches *mtch, int soscheme = 0, int moves = -1);
 #endif
 
- private:
-  bool ignoreCase = false;
-  bool extend = false;
-  bool positionMoves = false;
-  bool singleLine = false;
-  bool multiLine = false;
-  SRegInfo* tree_root = nullptr;
-  EError error = EError::EOK;
-  UChar firstChar = 0;
-  EMetaSymbols firstMetaChar = EMetaSymbols::ReBadMeta;
+private:
+  bool ignoreCase, extend, positionMoves, singleLine, multiLine;
+  SRegInfo *tree_root;
+  EError error;
+  wchar firstChar;
+  EMetaSymbols firstMetaChar;
 #ifdef COLORERMODE
-  CRegExp* backRE = nullptr;
-  const UnicodeString* backStr = nullptr;
-  SMatches* backTrace = nullptr;
-  int schemeStart = 0;
+  CRegExp *backRE;
+  const String *backStr;
+  SMatches *backTrace;
+  int schemeStart;
 #endif
-  bool startChange = false;
-  bool endChange = false;
-  const UnicodeString* global_pattern = nullptr;
-  int end = 0;
+  bool startChange, endChange;
+  const String *global_pattern;
+  int end;
 
-  SMatches* matches = nullptr;
-  int cMatch = 0;
+  SMatches *matches;
+  int cMatch;
 #if !defined NAMED_MATCHES_IN_HASH
-  UnicodeString* brnames[NAMED_MATCHES_NUM] = {};
-  int cnMatch = 0;
+  String* brnames[NAMED_MATCHES_NUM];
+  int cnMatch;
 #else
-  SMatchHash* namedMatches = nullptr;
+  SMatchHash *namedMatches;
 #endif
 
   void init();
-  EError setRELow(const UnicodeString& re);
-  EError setStructs(SRegInfo*&, const UnicodeString& expr, int& endPos);
+  EError setRELow(const String &re);
+  EError setStructs(SRegInfo *&, const String &expr, int &endPos);
 
   void optimize();
   bool quickCheck(int toParse);
-  bool isWordBoundary(int toParse);
-  bool isNWordBoundary(int toParse);
-  bool checkMetaSymbol(EMetaSymbols metaSymbol, int& toParse);
-  bool lowParse(SRegInfo* re, SRegInfo* prev, int toParse);
+  bool isWordBoundary(int &toParse);
+  bool isNWordBoundary(int &toParse);
+  bool checkMetaSymbol(EMetaSymbols metaSymbol, int &toParse);
+  bool lowParse(SRegInfo *re, SRegInfo *prev, int toParse);
   bool parseRE(int toParse);
 
   int count_elem;
-  void check_stack(bool res, SRegInfo** re, SRegInfo** prev, int* toParse, bool* leftenter,
-                   int* action);
-  void insert_stack(SRegInfo** re, SRegInfo** prev, int* toParse, bool* leftenter, int ifTrueReturn,
-                    int ifFalseReturn, SRegInfo** re2, SRegInfo** prev2, int toParse2);
+  void check_stack(bool res,SRegInfo **re, SRegInfo **prev, int *toParse,bool *leftenter, int *action);
+  void insert_stack(SRegInfo **re, SRegInfo **prev, int *toParse, bool *leftenter, int ifTrueReturn, int ifFalseReturn, SRegInfo **re2, SRegInfo **prev2, int toParse2);
 
-  static StackElem* RegExpStack;
-  static int RegExpStack_Size;
-
- public:
-  static void clearRegExpStack();
 };
 
-#endif  // COLORER_CREGEXP_H
+
+
+#endif
+
+

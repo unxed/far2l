@@ -177,9 +177,9 @@ Viewer::Viewer(bool bQuickView, UINT aCodePage)
 
 FARString Viewer::ComposeCacheName()
 {
-	//	FARString strCacheName=strPluginData.IsEmpty()?FHP->GetPathName():strPluginData+PointToName(FHP->GetPathName());
+	//	FARString strCacheName=strPluginData.IsEmpty()?strFileName:strPluginData+PointToName(strFileName);
 	FARString strCacheName =
-			strPluginData.IsEmpty() ? strFullFileName : strPluginData + PointToName(FHP->GetPathName());
+			strPluginData.IsEmpty() ? strFullFileName : strPluginData + PointToName(strFileName);
 	if (VM.Processed) {
 		strCacheName+= L":PROCESSED";
 	}
@@ -264,7 +264,7 @@ void Viewer::KeepInitParameters()
 	InitHex = VM.Hex;
 }
 
-int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
+int Viewer::OpenFile(const wchar_t *Name, int warning)
 {
 	VM.CodePage = DefCodePage;
 	DefCodePage = CP_AUTODETECT;
@@ -272,24 +272,22 @@ int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
 
 	ViewFile.Close();
 
-	const auto &GotPathName = NewFileHolder->GetPathName();
-	DWORD FileAttr = apiGetFileAttributes(GotPathName);
+	DWORD FileAttr = apiGetFileAttributes(Name);
 	if (FileAttr != INVALID_FILE_ATTRIBUTES && (FileAttr & FILE_ATTRIBUTE_DEVICE) != 0) {	// avoid stuck
 		OpenFailed = TRUE;
 		return FALSE;
 	}
 
 	SelectSize = 0;		// Сбросим выделение
-	//strFileName = NewFileHolder->GetPathName();
+	strFileName = Name;
 
-	FARString OpenPathName = GotPathName;
 	//	Processed mode:
 	//		Renders ANSI ESC coloring sequences
 	//		For all files beside *.ansi/*.ans runs view.sh
 	//			that doing 'processing' of file and writes output
 	//			into temporary filename. That temporary file then
 	//			viewed instead of original one's.
-	const wchar_t *ext = wcsrchr(GotPathName, L'.');
+	const wchar_t *ext = wcsrchr(Name, L'.');
 	if (ext && (wcscasecmp(ext, L".ansi") == 0 || wcscasecmp(ext, L".ans") == 0)) {
 		VM.Processed = 1;
 		VM.Wrap = 0;
@@ -299,10 +297,10 @@ int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
 	} else if (VM.Processed) {
 		if (strProcessedViewName.IsEmpty()) {
 			if (FarMkTempEx(strProcessedViewName, L"view")) {
-				strProcessedViewName+= PointToName(GotPathName);
+				strProcessedViewName+= PointToName(strFileName);
 
 				std::string cmd = GetMyScriptQuoted("view.sh");
-				std::string strFile = GotPathName.GetMB();
+				std::string strFile = strFileName.GetMB();
 
 				QuoteCmdArgIfNeed(strFile);
 				cmd+= ' ';
@@ -314,18 +312,18 @@ int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
 				cmd+= strFile;
 				int r = farExecuteA(cmd.c_str(), 0);
 				if (r == 0) {
-					OpenPathName = strProcessedViewName.CPtr();
+					Name = strProcessedViewName.CPtr();
 				} else {
 					unlink(strProcessedViewName.GetMB().c_str());
 					strProcessedViewName.Clear();
 				}
 			}
 		} else {
-			OpenPathName = strProcessedViewName.CPtr();
+			Name = strProcessedViewName.CPtr();
 		}
 	}
 
-	ViewFile.Open(OpenPathName.GetMB());	// strFileName.GetMB()
+	ViewFile.Open(Wide2MB(Name));	// strFileName.GetMB()
 
 	if (!ViewFile.Opened()) {
 		/*
@@ -333,19 +331,18 @@ int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
 			+ 'warning' flag processing, in QuickView it is FALSE
 			so don't show red message box
 		*/
-		if (warning) {
-			Message(MSG_WARNING | MSG_ERRORTYPE, 1, Msg::ViewerTitle, Msg::ViewerCannotOpenFile, GotPathName, Msg::Ok);
-		}
+		if (warning)
+			Message(MSG_WARNING | MSG_ERRORTYPE, 1, Msg::ViewerTitle, Msg::ViewerCannotOpenFile, strFileName,
+					Msg::Ok);
 
 		OpenFailed = true;
 		return FALSE;
 	}
 
-	FHP = NewFileHolder;
 	CodePageChangedByUser = FALSE;
 
-	ConvertNameToFull(GotPathName, strFullFileName);
-	apiGetFindDataForExactPathName(GotPathName, ViewFindData);
+	ConvertNameToFull(strFileName, strFullFileName);
+	apiGetFindDataForExactPathName(strFileName, ViewFindData);
 	UINT CachedCodePage = 0;
 
 	if (Opt.ViOpt.SavePos) {
@@ -389,7 +386,7 @@ int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
 		UINT CodePage = 0;
 
 		if (VM.CodePage == CP_AUTODETECT || IsUnicodeOrUtfCodePage(VM.CodePage)) {
-			Detect = GetFileFormat2(GotPathName, CodePage, nullptr, Opt.ViOpt.AutoDetectCodePage != 0, true);
+			Detect = GetFileFormat2(strFileName, CodePage, nullptr, Opt.ViOpt.AutoDetectCodePage != 0, true);
 		}
 
 		if (VM.CodePage == CP_AUTODETECT) {
@@ -491,7 +488,7 @@ void Viewer::ShowPage(int nMode)
 	AdjustWidth();
 
 	if (!ViewFile.Opened()) {
-		if (!FHP->GetPathName().IsEmpty() && ((nMode == SHOW_RELOAD) || (nMode == SHOW_HEX))) {
+		if (!strFileName.IsEmpty() && ((nMode == SHOW_RELOAD) || (nMode == SHOW_HEX))) {
 			SetScreen(X1, Y1, X2, Y2, L' ', COL_VIEWERTEXT);
 			GotoXY(X1, Y1);
 			SetColor(COL_WARNDIALOGTEXT);
@@ -846,13 +843,13 @@ FARString &Viewer::GetTitle(FARString &strName, int, int)
 	if (!strTitle.IsEmpty()) {
 		strName = strTitle;
 	} else {
-		if (!IsAbsolutePath(FHP->GetPathName())) {
+		if (!IsAbsolutePath(strFileName)) {
 			FARString strPath;
 			ViewNamesList.GetCurDir(strPath);
 			AddEndSlash(strPath);
-			strName = strPath + FHP->GetPathName();
+			strName = strPath + strFileName;
 		} else {
-			strName = FHP->GetPathName();
+			strName = strFileName;
 		}
 	}
 
@@ -1069,7 +1066,7 @@ void Viewer::ReadString(ViewerString &rString, int MaxSize, int StrSize)
 		rString.bSelection = true;
 }
 
-int64_t Viewer::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t Viewer::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	switch (OpCode) {
 		case MCODE_C_EMPTY:
@@ -1102,7 +1099,7 @@ int64_t Viewer::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
 	$ 28.01.2001
 	- Путем проверки ViewFile на nullptr избавляемся от падения
 */
-int Viewer::ProcessKey(FarKey Key)
+int Viewer::ProcessKey(int Key)
 {
 	// Pressing Alt together with PageDown/PageUp allows to smoothly
 	// boost scrolling speed, releasing Alt while keeping PageDown/PageUp
@@ -1291,7 +1288,7 @@ int Viewer::ProcessKey(FarKey Key)
 		}
 		case KEY_ADD:
 		case KEY_SUBTRACT: {
-			if (!FHP->IsTemporary())	// if viewing observed (typically temporary) file - dont allow to switch to another file
+			if (!FileHolder)	// if viewing observed (typically temporary) file - dont allow to switch to another file
 			{
 				FARString strName;
 				bool NextFileFound;
@@ -1337,7 +1334,7 @@ int Viewer::ProcessKey(FarKey Key)
 							FarChDir(strViewDir);
 					}
 
-					if (OpenFile(std::make_shared<FileHolder>(strName), TRUE)) {
+					if (OpenFile(strName, TRUE)) {
 						SecondPos = 0;
 						Show();
 					}
@@ -1364,9 +1361,10 @@ int Viewer::ProcessKey(FarKey Key)
 			SavePosCache();
 			VM.Processed = !VM.Processed;
 			ChangeViewKeyBar();
+			FARString reopenFileName = strFileName;
 			if (VM.Processed || !strProcessedViewName.IsEmpty()) {
 				DefCodePage = VM.CodePage;
-				OpenFile(FHP, TRUE);
+				OpenFile(reopenFileName, TRUE);
 			}
 			Show();
 			return true;
@@ -1421,7 +1419,7 @@ int Viewer::ProcessKey(FarKey Key)
 		case KEY_SHIFTF8: {
 			UINT nCodePage = SelectCodePage(VM.CodePage, true, true, false, true);
 			if (nCodePage == CP_AUTODETECT) {
-				if (!GetFileFormat2(FHP->GetPathName(), nCodePage, nullptr, true, true))
+				if (!GetFileFormat2(strFileName, nCodePage, nullptr, true, true))
 					return TRUE;
 			}
 
@@ -1831,7 +1829,7 @@ int Viewer::ProcessKey(FarKey Key)
 			return TRUE;
 		default:
 
-			if (Key >= L' ' && WCHAR_IS_VALID(Key)) {
+			if (Key >= L' ' && Key < 0x10000) {
 				Search(0, Key);
 				return TRUE;
 			}
@@ -2751,7 +2749,7 @@ void Viewer::SetProcessed(bool Processed)
 void Viewer::ShowConsoleTitle()
 {
 	FARString strTitle;
-	strTitle.Format(Msg::InViewer, PointToName(FHP->GetPathName()));
+	strTitle.Format(Msg::InViewer, PointToName(strFileName));
 	ConsoleTitle::SetFarTitle(strTitle);
 }
 

@@ -6,8 +6,6 @@
 #define MODE_LN_WORD 3
 #define MODE_NONE    4
 
-#include "../../WinPort/windows.h"
-
 struct Options
 {
 	int ConvertMode;
@@ -34,7 +32,7 @@ const TCHAR *GetMsg(int MsgId);
 void InitDialogItems(const struct InitDialogItem *Init, struct FarDialogItem *Item, int ItemsNumber);
 int IsCaseMixed(const TCHAR *Str);
 const TCHAR *GetOnlyName(const TCHAR *FullName);
-TCHAR *GetFullName(size_t DestLen, TCHAR *Dest, const TCHAR *Dir, const TCHAR *Name);
+TCHAR *GetFullName(TCHAR *Dest, const TCHAR *Dir, const TCHAR *Name);
 void CaseWord(TCHAR *nm, int Type);
 void ProcessName(const TCHAR *OldFullName, DWORD FileAttributes);
 

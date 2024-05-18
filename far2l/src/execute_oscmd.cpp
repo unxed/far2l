@@ -104,7 +104,7 @@ bool CommandLine::ProcessOSCommands(const wchar_t *CmdLine, bool SeparateWindow,
 		if (ecl.size() == 1) {
 			ClearScreen(COL_COMMANDLINEUSERSCREEN);
 			SaveBackground();
-			VTLog::Reset(NULL);
+			VTLog::Reset();
 		}
 
 	} else if (ecl[0] == "pushd") {

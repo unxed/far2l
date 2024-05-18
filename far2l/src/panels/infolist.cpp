@@ -295,7 +295,7 @@ void InfoList::DisplayObject()
 	ShowPluginDescription();
 }
 
-int64_t InfoList::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t InfoList::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	if (DizView)
 		return DizView->VMProcess(OpCode, vParam, iParam);
@@ -308,7 +308,7 @@ int64_t InfoList::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
 	return 0;
 }
 
-int InfoList::ProcessKey(FarKey Key)
+int InfoList::ProcessKey(int Key)
 {
 	if (!IsVisible())
 		return FALSE;
@@ -330,7 +330,7 @@ int InfoList::ProcessKey(FarKey Key)
 			if (!strDizFileName.IsEmpty()) {
 				CtrlObject->Cp()->GetAnotherPanel(this)->GetCurDir(strCurDir);
 				FarChDir(strCurDir);
-				new FileViewer(std::make_shared<FileHolder>(strDizFileName), TRUE);	// OT
+				new FileViewer(strDizFileName, TRUE);	// OT
 			}
 
 			CtrlObject->Cp()->Redraw();
@@ -348,14 +348,14 @@ int InfoList::ProcessKey(FarKey Key)
 				FarChDir(strCurDir);
 
 				if (!strDizFileName.IsEmpty()) {
-					new FileEditor(std::make_shared<FileHolder>(strDizFileName), CP_AUTODETECT, FFILEEDIT_ENABLEF6);
+					new FileEditor(strDizFileName, CP_AUTODETECT, FFILEEDIT_ENABLEF6);
 				} else if (!Opt.InfoPanel.strFolderInfoFiles.IsEmpty()) {
 					FARString strArgName;
 					const wchar_t *p = Opt.InfoPanel.strFolderInfoFiles;
 
 					while ((p = GetCommaWord(p, strArgName))) {
 						if (!strArgName.ContainsAnyOf("*?")) {
-							new FileEditor(std::make_shared<FileHolder>(strArgName), CP_AUTODETECT,
+							new FileEditor(strArgName, CP_AUTODETECT,
 									FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6);
 							break;
 						}
@@ -631,7 +631,7 @@ int InfoList::OpenDizFile(const wchar_t *DizFile, int YPos)
 	}
 
 	if (bOK) {
-		if (!DizView->OpenFile(std::make_shared<FileHolder>(DizFile), FALSE)) {
+		if (!DizView->OpenFile(DizFile, FALSE)) {
 			delete DizView;
 			DizView = nullptr;
 			return FALSE;

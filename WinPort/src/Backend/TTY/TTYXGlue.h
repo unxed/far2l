@@ -1,6 +1,5 @@
 #pragma once
 #include <memory>
-#include <WinCompat.h>
 #include "../Backend.h"
 #include "../FSClipboardBackend.h"
 

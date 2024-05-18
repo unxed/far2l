@@ -38,7 +38,7 @@ class TTYOutput
 	} _true_colors;
 
 	int _out;
-	bool _far2l_tty, _norgb, _kernel_tty, _screen_tty, _wezterm;
+	bool _far2l_tty, _norgb, _kernel_tty;
 	TTYBasePalette _palette;
 	bool _prev_attr_valid{false};
 	DWORD64 _prev_attr{};
@@ -70,7 +70,7 @@ public:
 	void ChangeMouse(bool enable);
 	void ChangeTitle(std::string title);
 
-	void SendFar2lInteract(const StackSerializer &stk_ser);
+	void SendFar2lInterract(const StackSerializer &stk_ser);
 	void SendOSC52ClipSet(const std::string &clip_data);
 
 	void CheckiTerm2Hack();

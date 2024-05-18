@@ -7,7 +7,7 @@
 
    Generate 32bit CRC for buffer.
 
-   Algorithm got from sources of ZLib.
+   Algoriphm getted from sources of ZLib.
  *******************************************************************/
 
 static int crc_table_empty = 1;

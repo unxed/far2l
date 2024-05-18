@@ -89,8 +89,8 @@ private:
 	ListNode *topOfStack;
 
 public:
-	CallBackStack() { topOfStack = nullptr; }
-	~CallBackStack() { ClearStack(); }
+	CallBackStack() { topOfStack = nullptr; };
+	~CallBackStack() { ClearStack(); };
 
 public:
 	void ClearStack();
@@ -356,7 +356,7 @@ int Help::ReadHelp(const wchar_t *Mask)
 
 		RepeatLastLine = FALSE;
 
-		// заменим табулятор по всем правилам
+		// заменим табулятор по всем праивилам
 		ReplaceTabsBySpaces(strReadStr, CtrlTabSize);
 		RemoveTrailingSpaces(strReadStr);
 
@@ -965,7 +965,7 @@ void Help::CorrectPosition()
 		StackData.TopStr = 0;
 }
 
-int64_t Help::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t Help::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	switch (OpCode) {
 		case MCODE_V_HELPFILENAME:							// Help.FileName
@@ -984,7 +984,7 @@ int64_t Help::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
 	return 1;
 }
 
-int Help::ProcessKey(FarKey Key)
+int Help::ProcessKey(int Key)
 {
 	if (StackData.strSelTopic.IsEmpty())
 		StackData.CurX = StackData.CurY = 0;
@@ -1266,7 +1266,7 @@ int Help::JumpTopic(const wchar_t *JumpTopic)
 		DeleteEndSlash(strFullPath, true);
 		strFullPath+= L"/";
 		strFullPath+= strNewTopic.CPtr() + (IsSlash(strNewTopic.At(0)) ? 1 : 0);
-		bool addSlash = DeleteEndSlash(strFullPath);
+		BOOL addSlash = DeleteEndSlash(strFullPath);
 		ConvertNameToFull(strFullPath, strNewTopic);
 		strFullPath.Format(addSlash ? HelpFormatLink : HelpFormatLinkModule, strNewTopic.CPtr(),
 				wcschr(StackData.strSelTopic.CPtr() + 2, HelpEndLink) + 1);

@@ -21,7 +21,6 @@
 #include <Threaded.h>
 #include "ProtocolSCP.h"
 #include "SSHConnection.h"
-#include "../ShellParseUtils.h"
 #include "../../Op/Utils/ExecCommandFIFO.hpp"
 
 #define QUERY_BY_CMD
@@ -292,6 +291,20 @@ enum DirectoryEnumerMode
 
 class SCPDirectoryEnumer_stat : public SCPDirectoryEnumer
 {
+	static std::string ExtractStringTail(std::string &line)
+	{
+		std::string out;
+		size_t p = line.rfind(' ');
+		if (p != std::string::npos) {
+			out = line.substr(p + 1);
+			line.resize(p);
+		} else {
+			out.swap(line);
+		}
+
+		return out;
+	}
+
 	virtual bool TryParseLine(std::string &name, std::string &owner, std::string &group, FileInformation &file_info)
 	{
 // PATH/NAME MODE SIZE ACCESS MODIFY CHANGE USER GROUP
@@ -313,13 +326,13 @@ class SCPDirectoryEnumer_stat : public SCPDirectoryEnumer
 			}
 			_cmd.output.erase(0, p);
 
-			const std::string &str_group = ShellParseUtils::ExtractStringTail(line, " ");
-			const std::string &str_owner = ShellParseUtils::ExtractStringTail(line, " ");
-			const std::string &str_change = ShellParseUtils::ExtractStringTail(line, " ");
-			const std::string &str_modify = ShellParseUtils::ExtractStringTail(line, " ");
-			const std::string &str_access = ShellParseUtils::ExtractStringTail(line, " ");
-			const std::string &str_size = ShellParseUtils::ExtractStringTail(line, " ");
-			const std::string &str_mode = ShellParseUtils::ExtractStringTail(line, " ");
+			const std::string &str_group = ExtractStringTail(line);
+			const std::string &str_owner = ExtractStringTail(line);
+			const std::string &str_change = ExtractStringTail(line);
+			const std::string &str_modify = ExtractStringTail(line);
+			const std::string &str_access = ExtractStringTail(line);
+			const std::string &str_size = ExtractStringTail(line);
+			const std::string &str_mode = ExtractStringTail(line);
 
 			p = line.rfind('/');
 			if (p != std::string::npos && line.size() > 1) {
@@ -346,7 +359,7 @@ class SCPDirectoryEnumer_stat : public SCPDirectoryEnumer
 	}
 
 public:
-	SCPDirectoryEnumer_stat(std::shared_ptr<SSHConnection> &conn, DirectoryEnumerMode dem, size_t count, const std::string *paths)
+	SCPDirectoryEnumer_stat(std::shared_ptr<SSHConnection> &conn, DirectoryEnumerMode dem, size_t count, const std::string *pathes)
 		: SCPDirectoryEnumer(conn)
 	{
 		std::string command_line = "stat --format=\"%n %f %s %X %Y %Z %U %G\" ";
@@ -354,7 +367,7 @@ public:
 			command_line+= "-L ";
 
 		for (size_t i = 0; i < count; ++i) {
-			const std::string &path_arg = QuotedArg(EnsureNoSlashAtNestedEnd(paths[i]));
+			const std::string &path_arg = QuotedArg(EnsureNoSlashAtNestedEnd(pathes[i]));
 			command_line+= path_arg;
 			if (dem == DEM_LIST) {
 				command_line+= "/.* ";
@@ -375,6 +388,61 @@ public:
 class SCPDirectoryEnumer_ls : public SCPDirectoryEnumer
 {
 	struct timespec _now;
+
+	static unsigned int Char2FileType(char c)
+	{
+		switch (c) {
+			case 'l':
+				return S_IFLNK;
+
+			case 'd':
+				return S_IFDIR;
+
+			case 'c':
+				return S_IFCHR;
+
+			case 'b':
+				return S_IFBLK;
+
+			case 'p':
+				return S_IFIFO;
+
+			case 's':
+				return S_IFSOCK;
+
+			case 'f':
+			default:
+				return S_IFREG;
+		}
+	}
+
+	static unsigned int Triplet2FileMode(const char *c)
+	{
+		unsigned int out = 0;
+		if (c[0] == 'r') out|= 4;
+		if (c[1] == 'w') out|= 2;
+		if (c[2] == 'x' || c[1] == 's' || c[1] == 't') out|= 1;
+		return out;
+	}
+
+	static std::string ExtractStringHead(std::string &line)
+	{
+		std::string out;
+		size_t p = line.find_first_of(" \t");
+		if (p != std::string::npos) {
+			out = line.substr(0, p);
+			while (p < line.size() && (line[p] == ' ' || line[p] == '\t')) {
+				++p;
+			}
+			line.erase(0, p);
+
+		} else {
+			out.swap(line);
+		}
+
+		return out;
+	}
+
 
 	virtual bool TryParseLine(std::string &name, std::string &owner, std::string &group, FileInformation &file_info)
 	{
@@ -405,20 +473,125 @@ crw-------    1 root     root        3, 144 Jan  1  1970 ttyy0
 				++p;
 			}
 			_cmd.output.erase(0, p);
+			const std::string &str_mode = ExtractStringHead(line);
+			if (line.empty())
+				continue;
 
-			if (ShellParseUtils::ParseLineFromLS(line, name, owner, group,
-					file_info.access_time, file_info.modification_time, file_info.status_change_time,
-					file_info.size, file_info.mode)) {
-				if (!name.empty() && FILENAME_ENUMERABLE(name)) {
-					return true;
-				}
-				name.clear();
+			if (line[0] >= '0' && line[0] <= '9') {
+				ExtractStringHead(line); // skip nlinks
+				if (line.empty())
+					continue;
 			}
+			const std::string &str_owner = ExtractStringHead(line);
+			if (line.empty())
+				continue;
+
+			const std::string &str_group = ExtractStringHead(line);
+			if (line.empty())
+				continue;
+
+			const std::string &str_size = ExtractStringHead(line);
+			if (line.empty())
+				continue;
+
+			bool size_is_not_size = false;
+			if (!str_size.empty() && str_size.back() == ',') {
+				// block/char device, size is major, followed by minor
+				ExtractStringHead(line); // really dont care
+				if (line.empty())
+					continue;
+				size_is_not_size = true;
+			}
+
+			const std::string &str_month = ExtractStringHead(line);
+
+			if (line.empty())
+				continue;
+
+			const std::string &str_day = ExtractStringHead(line);
+			if (line.empty())
+				continue;
+
+			const std::string &str_yt = ExtractStringHead(line);
+			if (line.empty())
+				continue;
+
+			file_info.mode = 0;
+			if (str_mode.size() >= 1) {
+				file_info.mode = Char2FileType(str_mode[0]);
+				if (file_info.mode == S_IFLNK) {
+					size_t p = line.find(" -> ");
+					if (p != std::string::npos)
+						line.resize(p);
+				}
+			}
+
+			if (str_mode.size() >= 4) {
+				file_info.mode|= Triplet2FileMode(str_mode.c_str() + 1) << 6;
+			}
+
+			if (str_mode.size() >= 7) {
+				file_info.mode|= Triplet2FileMode(str_mode.c_str() + 4) << 3;
+			}
+
+			if (str_mode.size() >= 10) {
+				file_info.mode|= Triplet2FileMode(str_mode.c_str() + 7);
+			}
+
+			const time_t now = _now.tv_sec;
+			struct tm t{};
+			struct tm *tnow = gmtime(&now);
+			if (tnow)
+				t = *tnow;
+
+			if (str_yt.find(':') == std::string::npos) {
+				t.tm_year = DecToULong(str_yt.c_str(), str_yt.length()) - 1900;
+			} else {
+				if (sscanf(str_yt.c_str(), "%d:%d", &t.tm_hour, &t.tm_min) <= -1) {
+					perror("scanf(str_yt)");
+				}
+			}
+			if (strcasecmp(str_month.c_str(), "jan") == 0) t.tm_mon = 0;
+			else if (strcasecmp(str_month.c_str(), "feb") == 0) t.tm_mon = 1;
+			else if (strcasecmp(str_month.c_str(), "mar") == 0) t.tm_mon = 2;
+			else if (strcasecmp(str_month.c_str(), "apr") == 0) t.tm_mon = 3;
+			else if (strcasecmp(str_month.c_str(), "may") == 0) t.tm_mon = 4;
+			else if (strcasecmp(str_month.c_str(), "jun") == 0) t.tm_mon = 5;
+			else if (strcasecmp(str_month.c_str(), "jul") == 0) t.tm_mon = 6;
+			else if (strcasecmp(str_month.c_str(), "aug") == 0) t.tm_mon = 7;
+			else if (strcasecmp(str_month.c_str(), "sep") == 0) t.tm_mon = 8;
+			else if (strcasecmp(str_month.c_str(), "oct") == 0) t.tm_mon = 9;
+			else if (strcasecmp(str_month.c_str(), "nov") == 0) t.tm_mon = 10;
+			else if (strcasecmp(str_month.c_str(), "dec") == 0) t.tm_mon = 11;
+
+			t.tm_mday = atoi(str_day.c_str());
+
+			file_info.status_change_time.tv_sec
+				= file_info.modification_time.tv_sec
+					= file_info.access_time.tv_sec = mktime(&t);
+
+			file_info.size = size_is_not_size ? 0 : atoll(str_size.c_str());
+
+			owner = str_owner;
+			group = str_group;
+
+			p = line.rfind('/');
+			if (p != std::string::npos && line.size() > 1) {
+				name = line.substr(p + 1);
+			} else {
+				name.swap(line);
+			}
+
+			if (name.empty() || !FILENAME_ENUMERABLE(name)) {
+				name.clear();
+				continue;
+			}
+			return true;
 		}
 	}
 
 public:
-	SCPDirectoryEnumer_ls(std::shared_ptr<SSHConnection> &conn, const SCPQuirks &quirks, DirectoryEnumerMode dem, size_t count, const std::string *paths, const struct timespec &now)
+	SCPDirectoryEnumer_ls(std::shared_ptr<SSHConnection> &conn, const SCPQuirks &quirks, DirectoryEnumerMode dem, size_t count, const std::string *pathes, const struct timespec &now)
 		: SCPDirectoryEnumer(conn), _now(now)
 	{
 		std::string command_line = "LC_TIME=C LS_COLORS= ls ";
@@ -434,7 +607,7 @@ public:
 			command_line+= "-H ";
 
 		for (size_t i = 0; i < count; ++i) {
-			command_line+= QuotedArg(EnsureNoSlashAtNestedEnd(paths[i]));
+			command_line+= QuotedArg(EnsureNoSlashAtNestedEnd(pathes[i]));
 			command_line+= ' ';
 		}
 //		command_line+= "2>/dev/null";
@@ -523,7 +696,7 @@ ProtocolSCP::~ProtocolSCP()
 }
 
 
-void ProtocolSCP::GetModes(bool follow_symlink, size_t count, const std::string *paths, mode_t *modes) noexcept
+void ProtocolSCP::GetModes(bool follow_symlink, size_t count, const std::string *pathes, mode_t *modes) noexcept
 {
 #ifdef QUERY_BY_CMD
 	size_t j = 0;
@@ -532,17 +705,17 @@ void ProtocolSCP::GetModes(bool follow_symlink, size_t count, const std::string 
 
 		std::shared_ptr<SCPDirectoryEnumer> de;
 		if (_quirks.use_ls) {
-			de = std::make_shared<SCPDirectoryEnumer_ls>(_conn, _quirks, follow_symlink ? DEM_QUERY_FOLLOW_SYMLINKS : DEM_QUERY, count, paths, _now);
+			de = std::make_shared<SCPDirectoryEnumer_ls>(_conn, _quirks, follow_symlink ? DEM_QUERY_FOLLOW_SYMLINKS : DEM_QUERY, count, pathes, _now);
 		} else {
-			de = std::make_shared<SCPDirectoryEnumer_stat>(_conn, follow_symlink ? DEM_QUERY_FOLLOW_SYMLINKS : DEM_QUERY, count, paths);
+			de = std::make_shared<SCPDirectoryEnumer_stat>(_conn, follow_symlink ? DEM_QUERY_FOLLOW_SYMLINKS : DEM_QUERY, count, pathes);
 		}
 
 		std::string name, owner, group;
 		FileInformation file_info;
 		while (j < count && de->Enum(name, owner, group, file_info)) {
 			while (j < count) {
-				size_t p = paths[j].rfind('/');
-				const char *expected_name = (p == std::string::npos) ? paths[j].c_str() : paths[j].c_str() + p + 1;
+				size_t p = pathes[j].rfind('/');
+				const char *expected_name = (p == std::string::npos) ? pathes[j].c_str() : pathes[j].c_str() + p + 1;
 
 				++j;
 				if (name == expected_name) {
@@ -562,7 +735,7 @@ void ProtocolSCP::GetModes(bool follow_symlink, size_t count, const std::string 
 		modes[j] = ~(mode_t)0;
 	}
 #else
-	IProtocol::GetModes(follow_symlink, count, paths, modes);
+	IProtocol::GetModes(follow_symlink, count, pathes, modes);
 #endif
 }
 
@@ -783,7 +956,7 @@ void ProtocolSCP::SetTimes(const std::string &path, const timespec &access_time,
 	struct tm t;
 	localtime_r(&modification_time.tv_sec, &t);
 	strftime(str_mt, sizeof(str_mt) - 1, "%Y%m%d%H%M.%S", &t);
-	int rc = 0;
+	int rc;
 	if (access_time.tv_sec != modification_time.tv_sec) {
 		char str_at[32]{};
 		localtime_r(&access_time.tv_sec, &t);

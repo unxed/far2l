@@ -2,7 +2,7 @@
 #define _COLORER_TEXTLINESSTORE_H_
 
 #include <vector>
-#include "colorer/LineSource.h"
+#include <colorer/LineSource.h>
 
 /** Reads array of text lines and
     makes it accessible with LineSource interface.
@@ -16,28 +16,29 @@ public:
 
   /** Empty constructor. Does nothing.
   */
-  TextLinesStore()=default;
-  ~TextLinesStore() override;
+  TextLinesStore();
+  ~TextLinesStore();
 
   /** Loads specified file into vector of strings.
-      @param inFileName File to load.
+      @param fileName File to load.
+      @param inputEncoding Input file encoding.
       @param tab2spaces Points, if we have to convert all tabs in file into spaces.
   */
-  void loadFile(const UnicodeString* inFileName, bool tab2spaces);
+  void loadFile(const String* fileName, const String* inputEncoding, bool tab2spaces);
   /** Returns loaded file name.
   */
-  const UnicodeString* getFileName();
+  const String* getFileName();
   /** Returns total lines count in text. */
   size_t getLineCount();
 
-  UnicodeString* getLine(size_t lno) override;
+  SString* getLine(size_t lno) override;
 protected:
   /** Frees loaded file lines.
   */
   void freeFile();
 private:
-  std::vector<UnicodeString *> lines;
-  uUnicodeString fileName;
+  std::vector<SString*> lines;
+  SString* fileName;
   void replaceTabs(size_t lno);
 
 };

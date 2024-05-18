@@ -60,7 +60,7 @@ private:
 	int ParseAndAddMasks(wchar_t **ExtPtr, const wchar_t *FileName, DWORD FileAttr, int &ExtCount, int Check);
 	void ProcessSelection(VMenu *FilterList);
 	enumFileFilterFlagsType GetFFFT();
-	uint32_t GetCheck(FileFilterParams *FFP);
+	int GetCheck(FileFilterParams *FFP);
 	static void SwapPanelFlags(FileFilterParams *CurFilterData);
 
 public:

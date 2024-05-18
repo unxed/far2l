@@ -101,7 +101,7 @@
             <word name="addwf"/>
             <word name="addwfc"/>
             <word name="andlw"/>
-            <word name="andwf"/>
+            <word name="sndwf"/>
             <word name="banksel"/>
             <word name="bankisel"/>
             <word name="bc"/>
@@ -304,6 +304,7 @@
             <word name="portf"/>
             <word name="trisf"/>
             <word name="latf"/>
+
             <word name="option_reg"/>
             <word name="pcon"/>
          </keywords>
@@ -318,6 +319,7 @@
             <symb name="~"/>
             <symb name="("/>
             <symb name=")"/>
+            <symb name=""/>
             <symb name="&lt;"/>
             <symb name="&lt;&lt;"/>
             <symb name="&lt;="/>
@@ -364,3 +366,4 @@
    - You should have received a copy of the GNU General Public License
    - along with this program; If not, see <http://www.gnu.org/licenses/>.
    - ***** END LICENSE BLOCK ***** -->
+

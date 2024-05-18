@@ -38,7 +38,6 @@
 #define    FillConsoleOutputAttribute       WINPORT(FillConsoleOutputAttribute)
 #define    FillConsoleOutputCharacter       WINPORT(FillConsoleOutputCharacter)
 #define    SetConsoleActiveScreenBuffer     WINPORT(SetConsoleActiveScreenBuffer)
-#define    SetConsoleCursorBlinkTime        WINPORT(SetConsoleCursorBlinkTime)
 
 #define    FlushConsoleInputBuffer          WINPORT(FlushConsoleInputBuffer)
 #define    GetNumberOfConsoleInputEvents    WINPORT(GetNumberOfConsoleInputEvents)
@@ -91,7 +90,6 @@
 #define    SetFilePointerEx       WINPORT(SetFilePointerEx)
 #define    SetFilePointer         WINPORT(SetFilePointer)
 #define    GetFileTime            WINPORT(GetFileTime)
-#define    SetFileTime            WINPORT(SetFileTime)
 #define    SetEndOfFile           WINPORT(SetEndOfFile)
 #define    FlushFileBuffers       WINPORT(FlushFileBuffers)
 #define    GetFileType            WINPORT(GetFileType)

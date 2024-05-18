@@ -1,35 +1,40 @@
-#include "colorer/xml/LocalFileXmlInputSource.h"
-#include <filesystem>
+#include <colorer/xml/LocalFileXmlInputSource.h>
 #include <memory>
 #include <xercesc/util/BinFileInputStream.hpp>
-#include "colorer/Exception.h"
+#include <xercesc/util/XMLString.hpp>
+#include "XStr.h"
 
 LocalFileXmlInputSource::LocalFileXmlInputSource(const XMLCh* path, const XMLCh* base)
 {
-  auto upath = UnicodeString(path);
-  auto ubase = UnicodeString(base);
-  auto clear_path = XmlInputSource::getClearFilePath(&ubase, &upath);
+  input_source.reset( new xercesc::LocalFileInputSource(base, path));
+  if (xercesc::XMLString::findAny(path, kPercent) != nullptr) {
+    XMLCh* e_path = ExpandEnvironment(path);
+    input_source->setSystemId(e_path);
+    delete[] e_path;
+  }
+}
 
-  if (std::filesystem::is_regular_file(clear_path)) {
-    source_path = std::make_unique<UnicodeString>(clear_path.u16string().c_str());
-    input_source = std::make_unique<xercesc::LocalFileInputSource>(clear_path.u16string().c_str());
-    // file is not open yet, only after makeStream
-  }
-  else {
-    throw InputSourceException(UnicodeString(clear_path.c_str()) + " isn't regular file.");
-  }
+LocalFileXmlInputSource::~LocalFileXmlInputSource()
+{
 }
 
 xercesc::BinInputStream* LocalFileXmlInputSource::makeStream() const
 {
-  auto stream = std::make_unique<xercesc::BinFileInputStream>(input_source->getSystemId());
+  std::unique_ptr<xercesc::BinFileInputStream> stream(new xercesc::BinFileInputStream(input_source->getSystemId()));
   if (!stream->getIsOpen()) {
-    throw InputSourceException("Can't open file '" + this->getPath() + "'");
+    throw InputSourceException(SString("Can't open file '") + CString(input_source->getSystemId()) + "'");
   }
   return stream.release();
 }
 
-xercesc::InputSource* LocalFileXmlInputSource::getInputSource() const
+uXmlInputSource LocalFileXmlInputSource::createRelative(const XMLCh* relPath) const
+{
+  return std::unique_ptr<LocalFileXmlInputSource>(new LocalFileXmlInputSource(relPath, input_source->getSystemId()));
+}
+
+xercesc::InputSource* LocalFileXmlInputSource::getInputSource()
 {
   return input_source.get();
 }
+
+

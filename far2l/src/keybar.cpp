@@ -183,7 +183,7 @@ void KeyBar::RefreshObject(bool Render)
 			}
 		}
 
-		WINPORT(SetConsoleFKeyTitles)(NULL, titles);
+		WINPORT(SetConsoleFKeyTitles)(titles);
 	}
 }
 
@@ -282,7 +282,7 @@ void KeyBar::SetAllGroup(int Group, FarLangMsg BaseMsg, int Count)
 	KeyCounts[Group] = Count;
 }
 
-int KeyBar::ProcessKey(FarKey Key)
+int KeyBar::ProcessKey(int Key)
 {
 	switch (Key) {
 		case KEY_KILLFOCUS:
@@ -297,7 +297,7 @@ int KeyBar::ProcessKey(FarKey Key)
 int KeyBar::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
 {
 	INPUT_RECORD rec;
-	FarKey Key;
+	int Key;
 
 	if (!IsVisible())
 		return FALSE;
@@ -332,11 +332,12 @@ int KeyBar::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
 			|| rec.Event.MouseEvent.dwMousePosition.Y != Y1)
 		return FALSE;
 
-	int NewX = MouseEvent->dwMousePosition.X - X1;
+	int NewKey, NewX = MouseEvent->dwMousePosition.X - X1;
 
-	FarKey NewKey = (NewX < KeyWidth * 9)
-		? NewX / KeyWidth
-		: 9 + (NewX - KeyWidth * 9) / (KeyWidth + 1);
+	if (NewX < KeyWidth * 9)
+		NewKey = NewX / KeyWidth;
+	else
+		NewKey = 9 + (NewX - KeyWidth * 9) / (KeyWidth + 1);
 
 	if (Key != NewKey)
 		return FALSE;

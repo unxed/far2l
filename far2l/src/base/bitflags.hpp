@@ -71,12 +71,12 @@ public:
 		return Flags;
 	}
 	// инвертировать состояние флагов
-	DWORD Swap(DWORD SwappedFlags)
+	DWORD Swap(DWORD SwapedFlags)
 	{
-		if (Flags & SwappedFlags)
-			Flags&= ~SwappedFlags;
+		if (Flags & SwapedFlags)
+			Flags&= ~SwapedFlags;
 		else
-			Flags|= SwappedFlags;
+			Flags|= SwapedFlags;
 		return Flags;
 	}
 	// сбросить все флаги

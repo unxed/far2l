@@ -3,10 +3,6 @@
 #include <posix/sys/select.h>
 #endif
 
-#if defined(__DragonFly__)
-#include <sys/select.h>
-#endif
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>

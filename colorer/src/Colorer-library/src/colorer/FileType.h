@@ -1,11 +1,9 @@
-#ifndef COLORER_FILETYPE_H
-#define COLORER_FILETYPE_H
+#ifndef _COLORER_FILETYPE_H_
+#define _COLORER_FILETYPE_H_
 
 #include <vector>
-#include "colorer/Common.h"
-#include "colorer/Exception.h"
-#include "colorer/Scheme.h"
-#include "colorer/common/spimpl.h"
+#include <colorer/Common.h>
+#include <colorer/Scheme.h>
 
 /**
  * HRC FileType (or prototype) instance.
@@ -13,50 +11,39 @@
  */
 class FileType
 {
-  friend class HrcLibrary;
-  friend class TextParser;
-
- public:
-  FileType(UnicodeString name, UnicodeString group, UnicodeString description);
-
-  void addParam(const UnicodeString* name, const UnicodeString* value);
-  void addParam(const UnicodeString& name, const UnicodeString& value);
-  [[maybe_unused]] void setName(const UnicodeString* name);
-  [[maybe_unused]] void setGroup(const UnicodeString* group);
-  [[maybe_unused]] void setDescription(const UnicodeString* description);
+public:
 
   /**
    * Public name of file type (HRC 'name' attribute).
    * @return File type Name
    */
-  [[nodiscard]] const UnicodeString& getName() const;
+  virtual const String* getName() const = 0;
 
   /**
    * Public group name of file type (HRC 'group' attribute).
    * @return File type Group
    */
-  [[nodiscard]] const UnicodeString& getGroup() const;
+  virtual const String* getGroup() const = 0;
 
   /** Public description of file type (HRC 'description' attribute).
       @return File type Description
   */
-  [[nodiscard]] const UnicodeString& getDescription() const;
+  virtual const String* getDescription() const = 0;
 
   /** Returns the base scheme of this file type.
       Basically, this is the scheme with same public name, as it's type.
       If this FileType object is not yet loaded, it is loaded with this call.
       @return File type base scheme, to be used as root scheme of text parsing.
   */
-  Scheme* getBaseScheme();
+  virtual Scheme* getBaseScheme() = 0;
 
   /** Enumerates all available parameters, defined in this file type.
       @return Parameter name with index <code>idx</code> or <code>null</code>
       if index is too large.
   */
-  [[nodiscard]] std::vector<UnicodeString> enumParams() const;
+  virtual std::vector<SString> enumParams() const = 0;
 
-  [[nodiscard]] const UnicodeString* getParamDescription(const UnicodeString& name) const;
-  void setParamDescription(const UnicodeString& name, const UnicodeString* value);
+  virtual const String* getParamDescription(const String &name) const = 0;
 
   /** Returns parameter's value of this file type.
       Parameters are stored in prototypes as
@@ -73,8 +60,8 @@ class FileType
       @param name Parameter's name
       @return Value (changed or default) of this parameter
   */
-  [[nodiscard]] const UnicodeString* getParamValue(const UnicodeString& name) const;
-  [[nodiscard]] int getParamValueInt(const UnicodeString& name, int def_value = 0) const;
+  virtual const String* getParamValue(const String &name) const = 0;
+  virtual int getParamValueInt(const String &name, int def) const = 0;
 
   /** Returns parameter's default value of this file type.
       Default values are the values, explicitly pointed with
@@ -82,8 +69,7 @@ class FileType
       @param name Parameter's name
       @return Default value of this parameter
   */
-  [[nodiscard]] const UnicodeString* getParamDefaultValue(const UnicodeString& name) const;
-  [[nodiscard]] const UnicodeString* getParamUserValue(const UnicodeString& name) const;
+  virtual const String* getParamDefaultValue(const String &name) const = 0;
 
   /** Changes value of the parameter with specified name.
       Note, that changed parameter values are not stored in HRC
@@ -93,25 +79,12 @@ class FileType
       @param name Parameter's name
       @param value New value of this parameter.
   */
-  void setParamValue(const UnicodeString& name, const UnicodeString* value);
-  void setParamValue(const UnicodeString& name, const UnicodeString& value);
-  void setParamDefaultValue(const UnicodeString& name, const UnicodeString* value);
+  virtual void setParamValue(const String &name, const String* value) = 0;
 
-  [[nodiscard]] size_t getParamCount() const;
-
- private:
-  class Impl;
-
-  spimpl::unique_impl_ptr<Impl> pimpl;
+protected:
+  FileType() {};
+  virtual ~FileType() {};
 };
 
-class FileTypeException : public Exception
-{
- public:
-  explicit FileTypeException(const UnicodeString& msg) noexcept
-      : Exception("[FileTypeException] " + msg)
-  {
-  }
-};
+#endif
 
-#endif  // COLORER_FILETYPE_H

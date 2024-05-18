@@ -215,8 +215,7 @@ int ScreenSaver(int EnableExit)
 	}
 	SetCursorType(CursorInfo.bVisible != FALSE, CursorInfo.dwSize);
 	ScreenSaverActive = FALSE;
-	if (!WinPortTesting())
-		FlushInputBuffer();
+	FlushInputBuffer();
 	StartIdleTime = GetProcessUptimeMSec();
 	return 1;
 }

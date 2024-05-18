@@ -165,7 +165,7 @@ void Frame::DestroyAllModal()
 }
 
 /*
-int Frame::ProcessKey(FarKey Key)
+int Frame::ProcessKey(int Key)
 {
 	if (ModalSize()){
 		return (ModalStack[ModalStackSize-1])->ProcessKey(Key);

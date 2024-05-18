@@ -85,7 +85,7 @@ void HMenu::ShowMenu()
 	ItemX[ItemCount] = WhereX();
 }
 
-int64_t HMenu::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t HMenu::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	SelectPos = 0;
 	for (int i = 0; i < ItemCount; i++) {
@@ -156,7 +156,7 @@ int64_t HMenu::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
 	return 0;
 }
 
-int HMenu::ProcessKey(FarKey Key)
+int HMenu::ProcessKey(int Key)
 {
 	SelectPos = 0;
 	for (int i = 0; i < ItemCount; i++) {
@@ -303,6 +303,7 @@ int HMenu::ProcessKey(FarKey Key)
 					return TRUE;
 				}
 			}
+
 			return FALSE;
 		}
 	}
@@ -366,7 +367,8 @@ void HMenu::ProcessSubMenu(MenuDataEx *Data, int DataCount, const wchar_t *SubMe
 
 	while (!SubMenu->Done() && !CloseFARMenu) {
 		INPUT_RECORD rec;
-		FarKey Key = GetInputRecord(&rec);
+		int Key;
+		Key = GetInputRecord(&rec);
 
 		if (Key == KEY_CONSOLE_BUFFER_RESIZE) {
 			LockScreen LckScr;

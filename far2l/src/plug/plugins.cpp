@@ -865,7 +865,7 @@ int PluginManager::GetFile(HANDLE hPlugin, PluginPanelItem *PanelItem, const wch
 			Found = TRUE;
 	}
 
-	ReadUserBackground(SaveScr);
+	ReadUserBackgound(SaveScr);
 	delete SaveScr;
 	return Found;
 }
@@ -879,7 +879,7 @@ int PluginManager::DeleteFiles(HANDLE hPlugin, PluginPanelItem *PanelItem, int I
 	int Code = ph->pPlugin->DeleteFiles(ph->hPlugin, PanelItem, ItemsNumber, OpMode);
 
 	if (Code)
-		ReadUserBackground(&SaveScr);	//???
+		ReadUserBackgound(&SaveScr);	//???
 
 	return Code;
 }
@@ -893,7 +893,7 @@ int PluginManager::MakeDirectory(HANDLE hPlugin, const wchar_t **Name, int OpMod
 	int Code = ph->pPlugin->MakeDirectory(ph->hPlugin, Name, OpMode);
 
 	if (Code != -1)		//???BUGBUG
-		ReadUserBackground(&SaveScr);
+		ReadUserBackgound(&SaveScr);
 
 	return Code;
 }
@@ -907,16 +907,9 @@ int PluginManager::ProcessHostFile(HANDLE hPlugin, PluginPanelItem *PanelItem, i
 	int Code = ph->pPlugin->ProcessHostFile(ph->hPlugin, PanelItem, ItemsNumber, OpMode);
 
 	if (Code)	// BUGBUG
-		ReadUserBackground(&SaveScr);
+		ReadUserBackgound(&SaveScr);
 
 	return Code;
-}
-
-bool PluginManager::GetLinkTarget(HANDLE hPlugin, PluginPanelItem *PanelItem, FARString &result, int OpMode)
-{
-	ChangePriority ChPriority(ChangePriority::NORMAL);
-	PluginHandle *ph = (PluginHandle *)hPlugin;
-	return ph->pPlugin->GetLinkTarget(ph->hPlugin, PanelItem, result, OpMode);
 }
 
 int PluginManager::GetFiles(HANDLE hPlugin, PluginPanelItem *PanelItem, int ItemsNumber, int Move,
@@ -936,7 +929,7 @@ int PluginManager::PutFiles(HANDLE hPlugin, PluginPanelItem *PanelItem, int Item
 	int Code = ph->pPlugin->PutFiles(ph->hPlugin, PanelItem, ItemsNumber, Move, OpMode);
 
 	if (Code)	// BUGBUG
-		ReadUserBackground(&SaveScr);
+		ReadUserBackgound(&SaveScr);
 
 	return Code;
 }
@@ -1123,7 +1116,7 @@ void PluginManager::Configure(int StartPos)
 			PluginList.Show();
 
 			while (!PluginList.Done()) {
-				const auto Key = PluginList.ReadInput();
+				DWORD Key = PluginList.ReadInput();
 				int SelPos = PluginList.GetSelectPos();
 				PluginMenuItemData *item = (PluginMenuItemData *)PluginList.GetUserData(nullptr, 0, SelPos);
 
@@ -1274,7 +1267,7 @@ int PluginManager::CommandsMenu(int ModalType, int StartPos, const wchar_t *Hist
 			PluginList.Show();
 
 			while (!PluginList.Done()) {
-				const auto Key = PluginList.ReadInput();
+				DWORD Key = PluginList.ReadInput();
 				int SelPos = PluginList.GetSelectPos();
 				PluginMenuItemData *item = (PluginMenuItemData *)PluginList.GetUserData(nullptr, 0, SelPos);
 
@@ -1662,7 +1655,7 @@ int PluginManager::ProcessCommandLine(const wchar_t *CommandParam, Panel *Target
 	return TRUE;
 }
 
-void PluginManager::ReadUserBackground(SaveScreen *SaveScr)
+void PluginManager::ReadUserBackgound(SaveScreen *SaveScr)
 {
 	FilePanels *FPanel = CtrlObject->Cp();
 	FPanel->LeftPanel->ProcessingPluginCommand++;
@@ -1803,30 +1796,30 @@ static void OnBackgroundTasksChangedSynched()
 		FrameManager->RefreshFrame();
 }
 
-void PluginManager::BackgroundTaskStarted(const wchar_t *Info)
+void PluginManager::BackroundTaskStarted(const wchar_t *Info)
 {
 	{
 		std::lock_guard<std::mutex> lock(BgTasks);
 		auto ir = BgTasks.emplace(Info, 0);
 		ir.first->second++;
-		fprintf(stderr, "PluginManager::BackgroundTaskStarted('%ls') - count=%d\n", Info, ir.first->second);
+		fprintf(stderr, "PluginManager::BackroundTaskStarted('%ls') - count=%d\n", Info, ir.first->second);
 	}
 
 	InterThreadCallAsync(std::bind(OnBackgroundTasksChangedSynched));
 }
 
-void PluginManager::BackgroundTaskFinished(const wchar_t *Info)
+void PluginManager::BackroundTaskFinished(const wchar_t *Info)
 {
 	{
 		std::lock_guard<std::mutex> lock(BgTasks);
 		auto it = BgTasks.find(Info);
 		if (it == BgTasks.end()) {
-			fprintf(stderr, "PluginManager::BackgroundTaskFinished('%ls') - no such task!\n", Info);
+			fprintf(stderr, "PluginManager::BackroundTaskFinished('%ls') - no such task!\n", Info);
 			return;
 		}
 
 		it->second--;
-		fprintf(stderr, "PluginManager::BackgroundTaskFinished('%ls') - count=%d\n", Info, it->second);
+		fprintf(stderr, "PluginManager::BackroundTaskFinished('%ls') - count=%d\n", Info, it->second);
 		if (it->second == 0)
 			BgTasks.erase(it);
 	}

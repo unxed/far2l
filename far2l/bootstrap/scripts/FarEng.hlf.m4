@@ -123,7 +123,7 @@ transforms your commands into the corresponding external archiver calls.
   ~FAR2L features - Getting Started~@Far2lGettingStarted@
 
 @Far2lGettingStarted
-$ # FAR2L features - Getting Started#
+$ #FAR2L features - Getting Started#
     FAR2L is Linux port FAR Manager v2 (see ~About FAR2L~@About@)
     FAR2L official site: ~https://github.com/elfmz/far2l~@https://github.com/elfmz/far2l@
 
@@ -131,22 +131,10 @@ $ # FAR2L features - Getting Started#
  #UI Backends#
     FAR2L has 3 base UI Backends (see details in ~UI backends~@UIBackends@):
         - #GUI#: uses wxWidgets, works in graphics mode, ideal UX, requires a lot of X11 dependencies;
-        - #TTY|Xi#: works in terminal mode, requires a dependency on pair X11 libraries
-(to access clipboard and to get state of all keyboard modifiers), almost perfect UX;
-        - #TTY|X#: works in terminal mode, uses X11 to access clipboard, all keyboard works via terminal;
-        - #TTY#: plain terminal mode, no X11 dependencies, UX with some restrictions
-(works fully when running in the terminal emulators,
-which provide clipboard access and has their advanced keyboard-protocols, see list below).
-    You can see FAR2L version and currently used backend in window title or by ~pseudo-command~@SpecCmd@ #far:about#.
-    #TTY|Xi# does not work under Wayland due to Wayland's security restriction,
-when it starts, far2l switches to #TTY|X# without i.
-    Far2l running and selecting backend:
-        - if you have FAR2L-GUI installed, then when you run FAR2L it will try to use GUI mode;
-        - to force run in terminal mode TTY|Xi use in command line: #far2l --tty#;
-        - to force run in terminal mode TTY|X use in command line: #far2l --tty --nodetect=xi --ee#;
-        - to force run in plain mode TTY use in command line: #far2l --tty --nodetect=x --ee#;
-        - run FAR2L-GUI from command line in background without blocking terminal: #far2l --notty &#
-    (see details in ~Command line switches~@CmdLine@ or #far2l --help#).
+        - #TTYXi#: works in terminal mode, requires a dependency on pair X11 libraries (to access clipboard and to get state of keyboard modifiers), almost perfect UX;
+        - #TTY#: plain terminal mode, no X11 dependencies, UX with some restrictions (works fully when running in the relevant terminal emulators, using their advanced keyboard-protocols, see list below).
+    If you have FAR2L-GUI installed, then when you run FAR2L it will try to use GUI mode.
+    To force run in terminal mode use #--tty# in command line: #far2l --tty# or #far2l --tty --ee# (see details in ~Command line switches~@CmdLine@ or #far2l --help#).
 
 
  #Keyboard shortcuts are exclusively captured by desktop environment#
@@ -154,8 +142,10 @@ when it starts, far2l switches to #TTY|X# without i.
     Terminal emulators also do not often pass some of the key combinations to applications, or do not distinguish pressing various combinations of modifiers (#Ctrl#, #Alt# etc.).
 
 
- #macOS workaround# if far2l in macOS regularly asks permission to folders
-    After command #sudo codesign --force --deep --sign - /Applications/far2l.app# it is enough to confirm permission only once.
+ #FAR2L within Wayland or within WSL+WSLg (fix clipboard and/or some keys processing in FAR2L-GUI/TTYX)#
+    For adequate work in Wayland it helps to start FAR2L in mode #xWayland# by setting the environment variable #GDK_BACKEND=x11#, because FAR2L (GUI and TTYX modes) uses X11 features to work with the clipboard and get extended keyboard shortcuts that may not be fully compatible in plain Wayland:
+    - running from console: #GDK_BACKEND=x11 far2l#;
+    - inside desktop entry #/usr/share/applications/far2l.desktop# replace #Exec=far2l# with #Exec=env GDK_BACKEND=x11 far2l#
 
 
  #Changing font for FAR2L-GUI#
@@ -164,14 +154,7 @@ when it starts, far2l switches to #TTY|X# without i.
 
  #Pasting feature in terminals#
     The keyboard shortcut of the #terminal pasting# (terminal simulates keyboard input) and #FAR2L pasting# (FAR2L itself does paste) are different. Note that pasting keyboard shortcut in different terminals is various (and may overlap the standard FAR2L's pasting #Shift-Ins# or #Ctrl-V#).
-    In FAR2L without TTY|X (and without enabled OSC 52 both in FAR2L and in terminal) FAR2L's pasting uses its #internal clipboard# (because FAR2L does not access the system clipboard), terminal pasting uses #system clipboard#.
-
-
- #FAR2L command line shell & bash#
-    FAR2L internal command line work fully only via #bash#.
-    You can change shell by Menu(#F9#)->Options->~Command line settings~@CmdlineSettings@->#Use shell# but command line will work with significant restrictions/bugs especially with native shell commands.
-    If you system has not #bash# recommend installing it and using only bash in FAR2L.
-    If your system's default shell is not bash, you may be convenient to set your environments variables, aliases etc. in bash startup files also.
+    In FAR2L without TTYX (and without enabled OSC 52 both in FAR2L and in terminal) FAR2L's pasting uses its #internal clipboard# (because FAR2L does not access the system clipboard), terminal pasting uses #system clipboard#.
 
 
  #Access to remote FAR2L#
@@ -181,14 +164,14 @@ when it starts, far2l switches to #TTY|X# without i.
 
  #Special options for configuring FAR2L running in terminal emulators#
     - Menu(#F9#)->Options->Interface settings->#Use OSC52 to set clipboard data#
-(shown in the menu only if FAR2L run in TTY/TTY|X mode and all other options for clipboard access are unavailable).
+(shown in the menu only if FAR2L run in TTY/TTYX mode and all other options for clipboard access are unavailable).
 You can run #far2l --tty --nodetect# to force not use others clipboard options.
     - Menu(#F9#)->Options->Interface settings->#Override base colors palette#
-(shown in the menu only if FAR2L run in TTY/TTY|X mode) allows far2l to adjust terminal palette colors.
+(shown in the menu only if FAR2L run in TTY/TTYX mode) allows far2l to adjust terminal palette colors.
 If your terminal doesn't support OSC4 sequence you may turn it off to avoid show artifacts sequence in terminal after exit from far2l.
 
 
- #Full-functional work with the system clipboard in a plain terminal version FAR2L TTY#
+ #Full-function work with the system clipboard in a plain terminal version FAR2L TTY#
     To interact with the system clipboard, you must not forget to enable #OSC 52# in both the #FAR2L settings#
 (see details above),
 and in #terminal settings# option #OSC 52 must be allowed#
@@ -198,33 +181,29 @@ and in #terminal settings# option #OSC 52 must be allowed#
  #Terminals and ssh-clients supporting extended FAR2L keyboard shortcuts for plain terminal version FAR2L TTY#
     - Internal terminal in FAR2L-GUI (Linux, macOS, *BSD),
 see ~UI backends~@UIBackends@ and in help of #NetRocks plugin# section #Command line and remote FAR2L#
-(~TTY|F backend~@UIBackends@: keys and clipboard by FAR2L TTY extensions support)
+(keys and clipboard by FAR2L TTY extensions support)
 
     - kovidgoyal's kitty (Linux, macOS, *BSD): ~https://github.com/kovidgoyal/kitty~@https://github.com/kovidgoyal/kitty@ & ~https://sw.kovidgoyal.net/kitty~@https://sw.kovidgoyal.net/kitty@
-(~TTY|k backend~@UIBackends@: keys by kovidgoyal's kitty keyboard protocol;
-for clipboard need turn on OSC 52)
+(keys by kovidgoyal's kitty keyboard protocol; for clipboard need turn on OSC 52)
 
     - Wez's Terminal Emulator (Linux, FreeBSD, Windows): ~https://github.com/wez/wezterm~@https://github.com/wez/wezterm@ & ~https://wezfurlong.org/wezterm~@https://wezfurlong.org/wezterm@
-(~TTY|k backend~@UIBackends@: keys in Linux, FreeBSD by kovidgoyal's kitty keyboard protocol;
-~TTY|w backend~@UIBackends@: keys in Windows by win32-input-mode which enable by default;
-for clipboard need turn on OSC 52)
+(keys in Linux, FreeBSD by kovidgoyal's kitty keyboard protocol; keys in Windows by win32-input-mode which enable by default; for clipboard need turn on OSC 52)
 [in macOS & in Windows in wezterm the kitty keyboard protocol support not working]
 
     - iTerm2 (macOS): ~https://gitlab.com/gnachman/iterm2~@https://gitlab.com/gnachman/iterm2@ & ~https://iterm2.com~@https://iterm2.com@
-(~TTY|a backend~@UIBackends@: keys by iTerm2 "raw keyboard" protocol;
-for clipboard need turn on OSC 52)
+(keys by iTerm2 "raw keyboard" protocol; for clipboard need turn on OSC 52)
 
     - Windows Terminal
-(~TTY|w backend~@UIBackends@: keys by win32-input-mode; for clipboard need turn on OSC 52; has mouse bug: ~https://github.com/microsoft/terminal/issues/15083~@https://github.com/microsoft/terminal/issues/15083@)
+(keys by win32-input-mode; for clipboard need turn on OSC 52; has mouse bug: ~https://github.com/microsoft/terminal/issues/15083~@https://github.com/microsoft/terminal/issues/15083@)
 
     - putty4far2l (Windows ssh-client): ~https://github.com/ivanshatsky/putty4far2l/releases~@https://github.com/ivanshatsky/putty4far2l/releases@ & ~https://github.com/unxed/putty4far2l~@https://github.com/unxed/putty4far2l@
-(~TTY|F backend~@UIBackends@: keys and clipboard by FAR2L TTY extensions support)
+(keys and clipboard by FAR2L TTY extensions support)
 
     - cyd01's KiTTY (Windows ssh-client): ~https://github.com/cyd01/KiTTY~@https://github.com/cyd01/KiTTY@ & ~https://www.9bis.net/kitty~@https://www.9bis.net/kitty@
-(~TTY|F backend~@UIBackends@: keys and clipboard by FAR2L TTY extensions support)
+(keys and clipboard by FAR2L TTY extensions support)
 
     - putty-nd (Windows ssh-client): ~https://sourceforge.net/projects/putty-nd~@https://sourceforge.net/projects/putty-nd@ & ~https://github.com/noodle1983/putty-nd~@https://github.com/noodle1983/putty-nd@
-(~TTY|F backend~@UIBackends@: keys and clipboard by FAR2L TTY extensions support)
+(keys and clipboard by FAR2L TTY extensions support)
 
 
  #Location of FAR2L settings and history#
@@ -236,7 +215,7 @@ for clipboard need turn on OSC 52)
         - #settings/config.ini# - general config
         - #settings/colors.ini# - ~files highlighting and sort groups~@Highlight@
         - #settings/key_macros.ini# - ~keyboard macro commands~@KeyMacro@
-        - #settings/user_menu.ini# - main ~user menu~@UserMenu@ (the format is different from local user FarMenu.ini)
+        - #settings/user_menu.ini# - ~user menu~@UserMenu@ (the format is different from windows versions FarMenu.ini)
         - #settings/associations.ini# - ~file associations~@FileAssoc@
         - #settings/bookmarks.ini# - ~bookmarks~@Bookmarks@ to fast access to frequently used directories by RCtrl-0...9 or Ctrl-Alt-0...9
         - #favorites# - additional items in ~location menu~@DriveDlg@ by Alt-F1/F2
@@ -266,15 +245,11 @@ See LICENSE.txt and LICENSE.Far2.txt in sources tree for details
 
 @CmdLine
 $ # FAR2L: command line switches#
-  Actual list see via #far2l -h# or #far2l --help#.
+  You can specify following switches in the command line or FAR2L_ARGS environment variable:
 
-  You can specify following switches in the command line.
-
-
- #FAR2L backend-specific options:#
   #--tty#
   Runs far2l with ~TTY backend~@UIBackends@ instead of autodetecting GUI/TTY mode. While GUI
-backed is preferred from user experience point of view, sometimes it may be necessary
+backed is preferred from user experience point of view, sometimes it may be neccessary
 to avoid attempt to use GUI mode.
 
   #--notty#
@@ -297,73 +272,68 @@ runs inside.
   Use PRIMARY selection instead of CLIPBOARD X11 selection. This argument applies only to far2l
 that runs with WX backend.
 
-  Backend-specific options also can be set via the #FAR2L_ARGS# environment variable
-(for example: #export FAR2L_ARGS="--tty --nodetect --ee"# and then simple #far2l# to force start only TTY backend).
-
-
- #FAR2L command-line options:#
-  #-a#
+  #/a#
   Disable display of characters with codes 0 - 31 and 255. May be useful when
 executing FAR2L under telnet.
 
-  #-ag#
+  #/ag#
   Disable display of pseudographics with codes > 127.
 
-  #-an#
+  #/an#
   Disable display of pseudographics characters completely.
 
-  #-e[<line>[:<pos>]] <filename>#
-  Edit the specified file. After -e you may optionally specify editor start line
+  #/e[<line>[:<pos>]] <filename>#
+  Edit the specified file. After /e you may optionally specify editor start line
 and line position.
-  For example: #far2l -e70:2 readme#.
+  For example: far /e70:2 readme.
 
-  #-p[<path>]# [Unsupported in far2l]
+  #/p[<path>]#
   Search for "main" plugins in the folder given in <path>.
   Several search paths may be given separated by ';'.
 
-  #-co#
+  #/co#
   Forces FAR2L to load plugins from cache only. Plugins are loaded faster this way,
 but new or changed plugins are not discovered. Should be used ONLY with a stable
 list of plugins. After adding, replacing or deleting a plugin FAR2L should be loaded
 without this switch. If the cache is empty, no plugins will be loaded.
 
-  Remarks about switches -p and -co:
+  Remarks about switches /p and /co:
 
-  - ^<wrap>if -p is empty, then FAR2L will be loaded with no plugins;
-  - ^<wrap>if -p is given with a <path>, then only plugins from <path> will be loaded;
-  - ^<wrap>if only the -co switch is given and plugins cache is not empty, then plugins
+  - ^<wrap>if /p is empty, then FAR2L will be loaded with no plugins;
+  - ^<wrap>if /p is given with a <path>, then only plugins from <path> will be loaded;
+  - ^<wrap>if only the /co switch is given and plugins cache is not empty, then plugins
 will be loaded from cache;
-  - ^<wrap>-co is ignored, if -p is given;
-  - ^<wrap>if -p and -co are not given, then plugins will be loaded from the main folder,
+  - ^<wrap>/co is ignored, if /p is given;
+  - ^<wrap>if /p and /co are not given, then plugins will be loaded from the main folder,
 and from the path given at the "~Path for personal plugins~@PluginsManagerSettings@" parameter.
 
-  #-m#
+  #/m#
   FAR2L will not load macros from the registry when started.
 
-  #-ma#
+  #/ma#
   Macros with the "Run after FAR2L start" option set will not be run when FAR2L is started.
 
-  #-u <identity># or #-u <path>#
-  Allows to specify separate settings identity or FS location.
-  #-u <path>#: in path/.config/ (if path is full path)
-  #-u <identity>#: in ~~/.config/far2l/custom/identity/ or in $XDG_CONFIG_HOME/far2l/custom/identity/
+  #/u <username>#
+  Allows to have separate settings for different users.
+  For example: far /u guest
 
-  #-v <filename>#
-  View the specified file.
-  #-v - <command line>#
-  Executes given command line and opens viewer with its output.
-  For example, #far2l -v - ls# will view ls command output.
+  FAR2L will set the ~environment variable~@FAREnv@ "FARUSER" to the value <username>.
 
-  #-w# [Unsupported in far2l]
+  #/v <filename>#
+  View the specified file. If <filename> is `#-#', data is read from the stdin.
+
+  For example, "dir|far /v -" will view dir command output.
+
+  If the input stream is empty when using '-' (for example, you have not specified
+the "dir" command in the provided example), FAR2L will wait forever for the end of data
+in the input stream. This will probably be fixed in a later version of FAR2L.
+
+  #/w#
   Stretch to console window instead of console buffer.
 
-  #-x# [Unsupported in far2l]
+  #/x#
   Disable exception handling. This option has been designed for plugin developers,
 and it is not recommended to specify it during normal operation.
-
-  #-set:<parameter>=<value>#
-  Override the configuration parameter, see ~far:config~@FarConfig@ for details.
-  Example: far2l -set:Language.Main=English -set:Screen.Clock=0 -set:XLat.Flags=0x10001 -set:System.FindFolders=false
 
 
   It is possible to specify at most two paths (to folders, files or archives) or
@@ -372,7 +342,7 @@ active panel, the second path - to the passive one:
   - ^<wrap>if a folder or archive is specified, FAR2L will show its contents;
   - ^<wrap>if a file is specified, FAR2L will change to the folder where it
 resides and place the cursor on the file, if it exists;
-  - ^<wrap>when prefixes specified (simultaneous use with common paths allowed)
+  - ^<wrap>when profixes specified (simultaneous use with common paths allowed)
 passive command executes first (passive panel activates temporary). Односимвольные префиксы игнорируются.
   Example: far ma:c:\\Far20.7z "macro:post MsgBox(\\"FAR2L\\",\\"Successfully started\\")"
 
@@ -391,8 +361,6 @@ $ #Keyboard reference#
  ~Menu control commands~@MenuCmd@
 
  ~Miscellaneous~@MiscCmd@
-
- ~Special commands~@SpecCmd@
 
 @MenuCmd
 $ #Menu control commands#
@@ -658,7 +626,6 @@ insert the local name of the file with ~symbolic links~@HardSymLink@ expanded.
 
   6. ^<wrap>About hotkeys and other tricks of built-in terminal emulator: ~read here~@Terminal@
 
-    See also ~Special commands~@SpecCmd@.
 
 @FuncCmd
 $ #Panel control commands - service commands#
@@ -932,60 +899,7 @@ Another way to achieve working hotkeys may be changing settings of external appl
 (in order to release needed hotkey combinations) or using exclusive handle hotkeys option
 in the ~interface settings~@InterfSettings@.
 
-@SpecCmd
-$ #Special commands#
- Special FAR pseudo-command usually starting with a prefix and a colon are processed
-in the far2l ~internal command line~@CmdLineCmd@ and
-in ~associated commands~@FileAssoc@, ~user menu~@UserMenu@ and the command ~"Apply command"~@ApplyCmd@.
 
-   #far:about#  - Far information, list and information about plugins.
-
-   #far:config# - ~Configuration editor~@FarConfig@.
-
-   #view:file# or #far:view:file# or #far:view file# - open in viewer existing #file#.
-
-   #edit:file# or #far:edit:file# or #far:edit file# - open in editor #file# (if #file# not exist will be open empty).
-
-   #edit:# or #far:edit:# or #far:edit# - open in editor new empty file.
-
-   #exit#       - reset shell in build-in ~Terminal~@Terminal@.
-
-   #exit far#   - close far2l.
-
- Plugins can define their own command prefixes, see for each available plugin list of Command Prefixes via #far:about#.
-
-@FarConfig
-$ #Configuration editor#
- Starts with the ~pseudo-command~@SpecCmd@ #far:config# in the far2l internal command line.
-
- Allows to view and edit all Far Manager’s options.
-
- Most options can be changed from the ~Options menu~@OptMenu@,
-however some options are available only here or in configuration ini-files.
-
- The options are displayed in a list with four fields per item:
-  #-# The name in the SectionName.ParamName format (for example, Editor.TabSize)
-  #-# The type (boolean, integer, dword, string, binary or unknown)
-  #-# Whether the option is saved when Far configuration is saved (s) or not (-)
-  #-# The value (for integer or dword types the hexadecimal representation additionally displayed).
- If current value of an option is other than the default, the option is marked with the ‘*’ character to the left of the name
-(‘?’ character marked items without default value).
-
- Besides the list navigation keys, the following key combinations are supported:
-
- #Enter# or #F4#       Edit the value.
-
- #Del#               Reset the item to its default value.
-
- #Ctrl-H#            Toggle display of all or only changed items.
-
- #Ctrl-A#            Toggle column name arranging by left or by dot.
-
- #Ctrl-Alt-F#        Toggle quick filtering mode.
-
- #Esc# or #F10#        Close.
-
-    See also: common ~menu~@MenuCmd@ keyboard commands.
 
 @MsWheel
 $ #Mouse: wheel support#
@@ -1516,7 +1430,7 @@ $ #Menus: options menu#
    See also: common ~menu~@MenuCmd@ keyboard commands.
 
 @Terminal
-$ #Terminal#
+$ #Terminal
     #FAR2L# contains built-in terminal emulator, allowing to execute command line applications see their output and control functionality.
 In order to keep usual shell experience far2l first launches supported user's shell in interactive mode and sends it commands typed
 in its own command line.
@@ -1525,16 +1439,15 @@ by default by giving options while you're typing command. Second is driven by ba
 #SHIFT+double-TAB# (quickly press TAB twice while keeping SHIFT pressed).
     #'exit' command behaviour:# typing 'exit' command will cause back shell to exit but will not close whole far2l application to close and next
 command execution request will spawn new back shell instance. This allows to 'reset' shell environment from exported variables and other settings.
-In case you want to exit far2l by typing command: type 'exit far' ~pseudo-command~@SpecCmd@ - it will be recognized by far2l as whole app close request.
+In case you want to exit far2l by typing command: type 'exit far' pseudo-command - it will be recognized by far2l as whole app close request.
     #Hotkeys and scrolling during running command:# you can use #Ctrl+Shift+F3# to open history of output in built-in viewer or
 #Ctrl+Shift+F4# to open it in built-in editor. This allows efficient commands output investigation, including scrolling possibility, using
 built-in viewer and editor capabilities. You can also open history viewer by scrolling mouse wheel up, following scroll til bottom of output
 - will hide that viewer. #Ctrl+C, Ctrl+Z# hotkeys trigger usual signals, however in case hard stuck of command line application you can hard kill
 it and everything in shell by pressing #Ctrl+Alt+C#. Note that its not recommended to use that hotkey without real need cuz it may cause corruption
-or lost of unsaved data in killed applications. You can also use #Ctrl+Alt+Z# to put command execution to background.
-You may return to background'ed command from ~Screens switching menu~@ScrSwitch@ (#F12# in panels).
+or lost of unsaved data in killed applications. If far2l works in TTY backend then you can also use #Ctrl+Alt+Z# to put far2l instance to background, releasing terminal but leaving active command execution.
     #Hotkeys and scrolling when NOT running command:# while #Ctrl+Shift+F3/F4# still functioning in such mode you can also use simple #F3/F4# to get history
-opened in viewer/editor respectively. Also you can press #F8# key to cleanup history and screen. You can switch between panels and terminal by pressing #Ctrl+O#
+opened in viewer/editor respecively. Also you can press #F8# key to cleanup history and screen. You can switch between panels and terminal by pressing #Ctrl+O#
 or clicking top left corner.
     #FAR2L terminal extensions# while FAR2L itself is TUI application, it may run in ~GUI or TTY backends modes~@UIBackends@. While TTY backend may function in usual
 terminal like xterm or SSH session but it may also run inside of terminal of GUI-mode far2l gaining capabilities inachievable under 'usual' terminals,
@@ -1542,7 +1455,7 @@ like live full keyboard keys recognition with with keydown/up reaction. Also 'ho
 You can use this functionality by running TTY far2l inside of ssh client session opened in 'host' far2l or, what is more easy, by using SSH-capable plugin,
 like NetRocks SFTP/SCP protocols to execute remote commands.
 
-  Text selected with mouse automatically copied to clipboard.
+  Text selected with mouse automatically copied to clipboard
 
   Previous command                                          #Up, Ctrl-E#
   Next command                                            #Down, Ctrl-X#
@@ -1577,10 +1490,8 @@ like NetRocks SFTP/SCP protocols to execute remote commands.
   Put far2l instance to background                          #Ctrl+Alt+Z#
     (only if far2l works in TTY backend)
 
-  See also: ~pseudo-commands~@SpecCmd@
-
 @UIBackends
-$ #UI Backends#
+$ #UI Backends
     Depending on build options and available platform features #FAR2L# can render
 its interface using different so-called backends:
 
@@ -1596,7 +1507,7 @@ identical to GUI backend (if terminal hosted by GUI far2l).
 
     If you want to run far2l remotely with best UX its recommended to run it within NetRocks
 connection that allows to use TTY|F backend. If this is not wanted for some reason - you also may
-consider running over ssh session with trusted X forwarding and compression (ssh -Y -C ...) that
+consider running over ssh session with trusted X forwading and compression (ssh -Y -C ...) that
 allows using TTY|Xi or at least TTY|X backend. However its highly recommended to
 #do not use trusted X forwarding when connecting to untrusted servers#,
 because X forwarding opens uncontrollable ability for remote code
@@ -1604,13 +1515,6 @@ to listen all your keystrokes, grab clipboard content, get windows snapshots etc
 is the only secure way to run far2l remotely on untrusted server while supporting all usual far2l
 hotkeys and other UX conveniences.
 
-    - Terminal emulators specific Backends (uses these terminal extensions to get state of all keyboard keys;
-in pure TTY| to access clipboard you must turn on OSC 52 in both the FAR2L settings and the terminal settings;
-TTY|X uses X11 to access clipboard):
-        - #TTY|a# or #TTY|Xa backend:# renders into Apple iTerm2 terminal.
-        - #TTY|k# or #TTY|Xk backend:# renders into kovidgoyal's Kitty (and any terminals with kovidgoyal's kitty keyboard protocol).
-        - #TTY|w# or #TTY|Xw backend:# renders into Windows Terminal (and any terminals with win32 input mode).
-    List and links to supported terminals see in ~FAR2L features - Getting Started~@Far2lGettingStarted@.
 
 @ConfirmDlg
 $ #Confirmations#
@@ -1621,7 +1525,7 @@ following operations:
 
     - overwrite destination files when performing file moving;
 
-    - overwrite and delete files with "read only" attribute;
+    - overwrite and delete files with "read only" arrtibute;
 
     - ~drag and drop~@DragAndDrop@ files;
 
@@ -2007,28 +1911,9 @@ rule sets.
     To quickly disable one or several conditions, uncheck the corresponding
 checkboxes. The #Reset# button will clear all of the filter conditions.
 
-@HistoryCmd
-$ #Common history list commands#
-
-  Clear the commands history                                      #Del#
-
-  Delete the current history item                           #Shift-Del#
-
-  Lock/unlock a history item                                      #Ins#
-   (locked item is not deleted by #Del# or #Shift-Del#)
-
-  Copy the text of the current command to the clipboard        #Ctrl-C#
-  without closing the list                                or #Ctrl-Ins#
-
-  Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
-             * with date lines (as in far3)
-             * plain history (as in far2)
-
-  See also: common ~menu~@MenuCmd@ keyboard commands.
 
 @History
-$ #History#
+$ #History #
     The commands history shows the list of previously executed commands.
 Besides the cursor control keys, the following keyboard shortcuts are
 available:
@@ -2043,16 +1928,16 @@ available:
 
   Clear the commands history                                      #Del#
 
-  Delete the current history item                           #Shift-Del#
-
   Lock/unlock a history item                                      #Ins#
+
+  Delete the current history item                           #Shift-Del#
 
   Copy the text of the current command to the clipboard        #Ctrl-C#
   without closing the list                                or #Ctrl-Ins#
 
   Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
              * with date lines (as in far3)
+             * with date lines + time column
              * plain history (as in far2)
 
   Show additional information                                      #F3#
@@ -2073,7 +1958,6 @@ respective option in the ~system settings dialog~@SystemSettings@.
     For automatic exclusion from history, see ~dialog AutoComplete & History~@AutoCompleteSettings@.
 
     See also: common ~menu~@MenuCmd@ keyboard commands.
-              common ~history~@HistoryCmd@ keyboard commands.
 
 @HistoryViews
 $ #History: file view and edit#
@@ -2089,7 +1973,7 @@ shortcuts are available:
 
   Delete the current history item                           #Shift-Del#
 
-  Lock/unlock a history item                                      #Ins#
+  Установить/снять пометку блокировки пункт истории               #Ins#
 
   Refresh list and remove non-existing entries                 #Ctrl-R#
 
@@ -2102,8 +1986,8 @@ shortcuts are available:
                                                           or #Numpad 5#
 
   Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
              * with date lines (as in far3)
+             * with date lines + time column
              * plain history (as in far2)
 
   Quick jump in panel to directory and file                  #Ctrl-F10#
@@ -2126,7 +2010,6 @@ of time if a file was located on a currently unavailable remote resource.
   2. ^<wrap>Заблокированные пункты не будут удаляться при очистке или обновлении истории.
 
     See also: common ~menu~@MenuCmd@ keyboard commands.
-              common ~history~@HistoryCmd@ keyboard commands.
 
 @HistoryFolders
 $ #History: folders#
@@ -2144,7 +2027,7 @@ available:
 
   Delete the current history item                           #Shift-Del#
 
-  Lock/unlock a history item                                      #Ins#
+  Установить/снять пометку блокировки пункт истории               #Ins#
 
   Refresh list and remove non-existing entries                 #Ctrl-R#
 
@@ -2152,8 +2035,8 @@ available:
   clipboard without closing the list                      or #Ctrl-Ins#
 
   Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
              * with date lines (as in far3)
+             * with date lines + time column
              * plain history (as in far2)
 
   Quick jump in panel to directory (here #Enter# analog)       #Ctrl-F10#
@@ -2176,7 +2059,6 @@ of time if a folder was located on a currently unavailable remote resource.
   2. ^<wrap>Заблокированные пункты не будут удаляться при очистке или обновлении истории.
 
     See also: common ~menu~@MenuCmd@ keyboard commands.
-              common ~history~@HistoryCmd@ keyboard commands.
 
 @TaskList
 $ #Task list#
@@ -2223,7 +2105,7 @@ the main menu and the user menu by pressing #Shift-F2#. Also you may call the
 user menu of the parent folder by pressing #BS#.
 
     You may add command separators to the user menu. To do this, you should add
-a new menu command and define "#--#" as "hot key". To delete a menu separator, you
+a new menu command and define "#--#" as "hot key". To delete a menu separator,you
 must switch to file mode with #Ctrl-F4# key.
 
     To execute a user menu command, select it with cursor keys and press #Enter#.
@@ -2244,18 +2126,17 @@ sequence to execute when this item will be selected.
     When you edit or create a submenu, you should enter the hot key and the
 item title only.
 
-    Local user menus are stored in the text files #FarMenu.Ini#.
-    The main menu is stored in profile in #~~/.config/far2l/settings/user_menu.ini#
-(the format is different from FarMenu.ini).
-If you create a local menu in the FAR2L folder, it will be used instead of
-the main menu saved in the profile.
+    Local user menus are stored in the text files #FarMenu.Ini#. The main menu,
+by default, is stored in the registry, but it is possible to store it in a
+file. If you create a local menu in the FAR2L folder, it will be used instead of
+the main menu saved in the registry.
 
     To close the menu even if submenus are open use #Shift-F10#.
 
     See also:
-      ~Special commands~@SpecCmd@.
-      The list of ~macro keys~@KeyMacroUserMenuList@, available in the user menu.
-      Common ~menu~@MenuCmd@ keyboard commands.
+ 
+    The list of ~macro keys~@KeyMacroUserMenuList@, available in the user menu.
+    Common ~menu~@MenuCmd@ keyboard commands.
 
 @FileAssoc
 $ #File associations #
@@ -2285,9 +2166,7 @@ desired association from the menu.
 #Use Windows registered types# option in ~System settings~@SystemSettings@
 is on, FAR2L tries to use Windows association to execute this file type;
 
-    See also:
-      ~Special commands~@SpecCmd@.
-      common ~menu~@MenuCmd@ keyboard commands.
+    See also: common ~menu~@MenuCmd@ keyboard commands.
 
 
 @FileAssocModify
@@ -2609,7 +2488,7 @@ including the following variables:
   - #%Backend# - FAR2L UI backend;
   - #%Host# - host name of the machine where FAR2L is running;
   - #%User# - user name under wich FAR2L is running;
-  - #%Admin# - name "Root", if FAR2L runs under root privileges, otherwise - empty string.
+  - #%Admin# - name "Root", if FAR2L runs under root priviledges, otherwise - empty string.
 
 @InputSettings
 $ #Settings dialog: input#
@@ -2624,7 +2503,7 @@ to latin and vice-verse, that subsequentially used in #fast file find by Alt+FIL
 
   #Exclusively handle hotkeys that include#
   This options allows to choose control keys using which in hotkey combination
-will cause FAR2L to capture keyboard input exclusively, thus preventing other
+will cause FAR2L to capture keyboard input exclusively, thus preventins other
 application from interfering with FAR2L hotkeys that contains such control key.
 Note that this options works only in GUI backend mode.
 
@@ -2691,22 +2570,12 @@ feature is disabled while a macro is being recorded or executed.
 
 @AutoCompleteSettings
 $ #Settings dialog: AutoComplete & History#
-  #Show list#
-  Show list with autocomplete suggestions.
-
-  #Modal mode#
-  in mode #[x] Modal mode# selected list item put in command line only after #Enter#,
-  in mode #[ ] Modal mode# selected list item put in command line immediately.
-
-  #Append first matched item#
-  The first matched item is append immediately after symbols in the command line.
-
   #Exceptions wildcards# also affect which commands are stored in far2l history.
-  For example, adding #" *"# (mandatory in quotes) excludes from adding in history
-  commands that start with a space (similar to the bash #$HISTCONTROL=ignorespace#).
-  Info: in far2l history work like bash #$HISTCONTROL#
-   with options #ignoredups# (lines which match the previous line are not saved)
-   and #erasedups# (all previous lines matching the current line are removed from the history).
+  For example, adding " *"  (mandatory in quotes) excludes from adding in history
+  commands that start with a space (similar to the bash $HISTCONTROL=ignorespace).
+  Info: in far2l history work like bash $HISTCONTROL
+   with options ignoredups (lines which match the previous line are not saved)
+   и erasedups (all previous lines matching the current line are removed from the history).
 
 @InfoPanelSettings
 $ #Настройка информационной панели#
@@ -2760,7 +2629,7 @@ $ #Настройка информационной панели#
       ^<wrap>ADCN (Active Directory Canonical Name) - данный формат является путем в иерархической структуре к объекту (логину), например,
       engineering.widget.com/software/JohnDoe
     #Основное имя пользователя#
-      ^<wrap>UPN (User Principal Name) - известен так же как адрес электронной почты, например,
+      ^<wrap>UPN (User Principial Name) - известен так же как адрес электронной почты, например,
       someone@example.com
     #Service Principal#
       www/srv.engineering.com/engineering.com
@@ -2854,7 +2723,6 @@ $ #Viewer: control keys#
     #F7#                 ~Search~@ViewerSearch@
     #Shift-F7, Space#    Continue search
     #Alt-F7#             Continue search in "reverse" mode
-    #Ctrl-F7#            ~Grep filter~@GrepFilter@
     #F8#                 Toggle UTF8/~ANSI/OEM~@CodePagesSet@ code page
     #Shift-F8#           Select code page
     #Alt-F8#             ~Change current position~@ViewerGotoPos@
@@ -2910,13 +2778,6 @@ $ #Viewer: control keys#
     6. Pressing Alt+PgUp/PgDn smoothly increases scrolling speed, futher releasing
        Alt while keeping PgUp/PgDn will continue scrolling with selected speed boost.
        Speed boost dismissed by releasing all keys for long time or pressing any other key.
-
-@GrepFilter
-    Here user may temporarily filter currently viewed file content using #UNIX grep# tool pattern matching.
-    You may specify pattern to match (or several patterns separated by #\|# - as in usual grep) and/or
-pattern that will be excluded from output.
-    Optionally it's possible to see specified #lines amount before or after matched region#, as well as
-use #case sensitive# matching or match #whole words# instead of plain substring.
 
 @ViewerGotoPos
 $ #Viewer: go to specified position#
@@ -3285,7 +3146,7 @@ file panel if you chosen filesystem location, or selected Plugin panel will be o
 
      - to delete a bookmark.
 
-    The #Shift-Del# hotkey can be used to force-unmount filesystem that requires root privileges.
+    The #Shift-Del# hotkey can be used to force-unmount filesystem that requires root priviledges.
 
     #Ctrl-1# - #Ctrl-9# switch the display of different information:
 
@@ -3317,7 +3178,7 @@ will be appended to mountpoints entries. For that you need to create text file u
 path #~~/.config/far2l/favorites# and that file must contain lines, each line can have
 one or two or three parts separated by <TAB> character. First part represent path,
 second and third parts are optional and represent information rendered in additional
-columns. It's possible to insert separator with optional title by specifying line
+columns. Its possible to insert separator with optional title by specifing line
 with first part having only '-' character and another part (if present) defining
 title text.
 Note that favorites file can contain shell environment variables denoted with $
@@ -3325,17 +3186,10 @@ character like $HOME, and shell commands substitution, i.e. $(/path/to/some/scri
 will invoke that script.sh and its output will be embedded into content of this file
 during processing. This allows to implement custom dynamic locations list composing.
 
-    If you don't see mounted flash drive in the Location menu (#Alt-F1/F2#)
-then check #Exceptions list# in ~Location Menu Options~@ChangeLocationConfig@ (#F9#).
-E.g., the #/run/*# pattern is included there by default.
-If you have udisks2 configured to mount removable drives under #/run/media/$USER/#
-you need to delete #/run/*# substring from exceptions list.
-After that add more accurate patterns such as #/run/user/*#
-in order to hide garbage mountpoints from the Location menu.
-
     See also:
-      The list of ~macro keys~@KeyMacroDisksList@, available in the disk menu.
-      Common ~menu~@MenuCmd@ keyboard commands.
+ 
+    The list of ~macro keys~@KeyMacroDisksList@, available in the disk menu.
+    Common ~menu~@MenuCmd@ keyboard commands.
 
 
 @DisconnectDrive
@@ -3575,7 +3429,7 @@ $ #Settings dialog: editor#
   #code page#               the file being edited.
 
   #Choose default#          Code page for new files,
-  #code page#               usually UTF-8.
+  #code page#               ususally UTF-8.
 
     If the external editor is assigned to #F4# key, it will be executed only if
 ~associated~@FileAssoc@ editor for the current file type is not defined.
@@ -4070,7 +3924,7 @@ Potential downside includes higher file fragmentation if such regions will be ov
 with normal data in the future.
 
     If #Use copy-on-write# is enabled, then copy routine will use special kernel API
-that copies files in a way, so copied files refer original files data and will be really
+that copies files in a way, so copied files refer orginal files data and will be really
 copied only when that data will be modified in any of files. Note that this functionality
 requires Linux kernel v4.5+ or MacOS 10.12+ and any FS that supports COW files otherwise
 files will be silently copied using conventional way. If being in use this option greatly
@@ -4118,9 +3972,6 @@ will be copied; This option affects only the current copy session and not saved
 for later copy operations.
     #Also ask on R/O files# - controls whether an additional confirmation
 dialog should be displayed for read-only files.
-    If the corresponding item in ~Confirmations~@ConfirmDlg@ is unchecked,
-then "Already existing files" are disabled
-and the #Overwrite# action is silently applied.
 
     When moving files, to determine whether the operation should be performed
 as a copy with subsequent deletion or as a direct move (within one physical
@@ -4190,9 +4041,6 @@ and sort the files by hard link number.
 
     Symbolic links point to files and non-local folders, relative paths also supported.
 
-    #Default suggestion# in field #Link type# may be changed in ~System settings~@SystemSettings@ to
-    - Hardlink for files, Symlink for directories
-    - Symlink always
 
 @ErrCopyItSelf
 $ #Error: copy/move onto itself.#
@@ -4258,13 +4106,9 @@ panels and screens with these instances. #Ctrl-Tab# switches to the next
 screen, #Ctrl-Shift-Tab# to the previous, #F12# shows a list of all available
 screens.
 
-    Additionally there can be multiple terminal commands running in background.
-You may view or activate any of them also from #F12# menu: use #F3# to view
-current command output or Enter to switch to it in terminal.
-
-    The number of background terminal commands, viewers and editors is displayed
-in the left panel upper left corner. This may be disabled by using
-~Panel settings~@PanelSettings@ dialog.
+    The number of background viewers and editors is displayed in the left panel
+upper left corner. This may be disabled by using ~Panel settings~@PanelSettings@
+dialog.
 
     See also: common ~menu~@MenuCmd@ keyboard commands.
 
@@ -4279,8 +4123,8 @@ at a time, and the command 'rar32 m !.!.rar !.!' will move all selected files
 into RAR archives with the same names. The command 'explorer /select,!.!' will
 start the Windows Explorer and set the cursor to the current file or directory.
 
-    See also ~"Special commands"~@SpecCmd@
     See also ~"Operating system commands"~@OSCommands@
+
 
 @OSCommands
 $ #Operating system commands#
@@ -4458,7 +4302,7 @@ happens, which is rather expensive).
 "AZXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", #.*# captures the whole string, and then
 rolls back symbol by symbol until it finds Z. On the opposite, if the expression
 is "A.*?Z" then Z is found at once. Not greedy quantifier is also known as
-#minimizing#, it captures minimal possible quantity of symbols, and only if
+#mininizing#, it captures minimal possible quantity of symbols, and only if
 further match fails it captures more.
 
     #Special symbols#
@@ -4645,13 +4489,13 @@ $ #Change location configuration#
     This dialog can be opened by pressing F9 key in Location menu opened by Alt+F1/F2.
     Here you can choose specific kind of items to be included in change Location
 menu: #mountpoints#, #bookmarks# and #plugins#.
-    Also you can customize mountpoints items by specifying wildcards exceptions
+    Also you can customize mountpoints items by specifing wildcards exceptions
 and changing templates of what should be included into additional columns.
     Following abbreviations can be used there to represent values:
     #$T# - total disk space
     #$U# - used disk space
     #$F# - free disk space
-    #$A# - disk space available for non-privileged user
+    #$A# - disk space available for non-priviledged user
     #$u# - percents space used of total
     #$f# - percents space free of total
     #$a# - percents space available of total

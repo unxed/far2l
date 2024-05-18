@@ -1,10 +1,33 @@
 #ifndef _COLORER_TEXTPARSER_H_
 #define _COLORER_TEXTPARSER_H_
 
-#include "colorer/FileType.h"
-#include "colorer/LineSource.h"
-#include "colorer/RegionHandler.h"
-#include "colorer/common/spimpl.h"
+#include <colorer/FileType.h>
+#include <colorer/LineSource.h>
+#include <colorer/RegionHandler.h>
+
+/**
+ * List of available parse modes
+ * @ingroup colorer
+ */
+enum TextParseMode {
+  /**
+   * Parser will start execution from the root
+   * document's scheme, no cache information will be used
+   */
+  TPM_CACHE_OFF,
+  /**
+   * Parser will use internal cache information to make
+   * initial text positioning and guarantee syntax structure validness.
+   * The text structure will not be dropped and cache tree will remain the same.
+   */
+  TPM_CACHE_READ,
+  /**
+   * Allows parser not only read cache information, but also update
+   * it during parse process.
+   * Also causes all cached data from starting parse position to be dropped.
+   */
+  TPM_CACHE_UPDATE
+};
 
 /**
  * Basic lexical/syntax parser interface.
@@ -14,7 +37,7 @@
  * It uses LineSource interface as a source of input data, and
  * RegionHandler as interface to transfer results of text parse process.
  *
- * Process of syntax parsing supports internal caching algorithm,
+ * Process of syntax parsing supports internal caching algorithim,
  * which allows to store internal parser state and reparse text
  * only partially (on change, on request).
  *
@@ -22,49 +45,25 @@
  */
 class TextParser
 {
- public:
-  /**
-   * List of available parse modes
-   * @ingroup colorer
-   */
-  enum class TextParseMode {
-    /**
-     * Parser will start execution from the root
-     * document's scheme, no cache information will be used
-     */
-    TPM_CACHE_OFF,
-    /**
-     * Parser will use internal cache information to make
-     * initial text positioning and guarantee syntax structure validness.
-     * The text structure will not be dropped and cache tree will remain the same.
-     */
-    TPM_CACHE_READ,
-    /**
-     * Allows parser not only read cache information, but also update
-     * it during parse process.
-     * Also causes all cached data from starting parse position to be dropped.
-     */
-    TPM_CACHE_UPDATE
-  };
+public:
 
-  TextParser();
   /**
    * Sets root scheme (filetype) of the text to parse.
    * @param type FileType, which contains reference to
    * it's baseScheme. If parameter is null, there will
    * be no any kind of parse over the text.
    */
-  void setFileType(FileType* type);
+  virtual void setFileType(FileType* type) = 0;
 
   /**
    * Installs LineSource, used as an input of text to parse
    */
-  void setLineSource(LineSource* lh);
+  virtual void setLineSource(LineSource* lh) = 0;
 
   /**
    * RegionHandler, used as output stream for parsed tree.
    */
-  void setRegionHandler(RegionHandler* rh);
+  virtual void setRegionHandler(RegionHandler* rh) = 0;
 
   /**
    * Performs cachable text parse.
@@ -76,7 +75,7 @@ class TextParser
    * @param num   Number of lines to parse
    * @param mode  Parsing mode.
    */
-  int parse(int from, int num, TextParseMode mode);
+  virtual int parse(int from, int num, TextParseMode mode) = 0;
 
   /**
    * Performs break of parsing process from external thread.
@@ -84,20 +83,20 @@ class TextParser
    * in some editor system implementations, where editor
    * can detect background changes in highlighted text.
    */
-  void breakParse();
+  virtual void breakParse() = 0;
 
   /**
    * Clears internal cached text tree stucture
    */
-  void clearCache();
-  void setMaxBlockSize(int max_block_size);
+  virtual void clearCache() = 0;
 
-  ~TextParser() = default;
-
- private:
-  class Impl;
-
-  spimpl::unique_impl_ptr<Impl> pimpl;
+  virtual ~TextParser() {};
+  
+  virtual void setMaxBlockSize(int max_block_size){};
+protected:
+  TextParser() {};
 };
 
-#endif  //_COLORER_TEXTPARSER_H_
+#endif
+
+

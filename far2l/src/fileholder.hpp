@@ -1,29 +1,21 @@
 #pragma once
 #include <WinCompat.h>
-#include <memory>
 #include "FARString.hpp"
 
-typedef std::shared_ptr<class FileHolder> FileHolderPtr;
-
-class FileHolder
+struct IFileHolder
 {
-protected:
-	FARString _file_path_name;
-	bool _temporary;
-
-public:
-	FileHolder(const FARString &file_path_name, bool temporary = false);
-	virtual ~FileHolder();
-
-	bool IsTemporary() const { return _temporary; }
-	const FARString &GetPathName() const { return _file_path_name; }
-
-	virtual void OnFileEdited(const wchar_t *FileName);
-	virtual void CheckForChanges();
+	virtual ~IFileHolder() {}
+	virtual void OnFileEdited(const wchar_t *FileName) = 0;
 };
 
-class TempFileHolder : public FileHolder
+struct DummyFileHolder : IFileHolder
 {
+	virtual void OnFileEdited(const wchar_t *FileName) {}
+};
+
+class TempFileHolder : public DummyFileHolder
+{
+	FARString _temp_file_name;
 	enum
 	{
 		DONT_DELETE = 0,
@@ -38,6 +30,8 @@ protected:
 	virtual void OnFileEdited(const wchar_t *FileName);
 
 public:
+	const FARString &TempFileName() const { return _temp_file_name; }
+
 	TempFileHolder(const FARString &temp_file_name, bool delete_parent_dir = true);
 	virtual ~TempFileHolder();
 };
@@ -54,6 +48,6 @@ protected:
 
 public:
 	TempFileUploadHolder(const FARString &temp_file_name, bool delete_parent_dir = true);
-	virtual ~TempFileUploadHolder();
-	void CheckForChanges();
+
+	void UploadIfTimestampChanged();
 };

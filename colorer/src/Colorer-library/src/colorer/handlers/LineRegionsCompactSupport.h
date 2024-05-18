@@ -1,7 +1,7 @@
 #ifndef _COLORER_LINEREGIONSCOMPACTSUPPORT_H_
 #define _COLORER_LINEREGIONSCOMPACTSUPPORT_H_
 
-#include "colorer/handlers/LineRegionsSupport.h"
+#include <colorer/handlers/LineRegionsSupport.h>
 
 /** Compact Region store implementation based on LineRegionsSupport class.
     This class guarantees non-interlaced creation of LineRegion structures in line.
@@ -12,15 +12,17 @@
 */
 class LineRegionsCompactSupport : public LineRegionsSupport
 {
- public:
-  LineRegionsCompactSupport() = default;
-  ~LineRegionsCompactSupport() override = default;
-
- protected:
+public:
+  LineRegionsCompactSupport();
+  ~LineRegionsCompactSupport();
+protected:
   /** This method compacts regions while
      adding them into list structure
   */
-  void addLineRegion(size_t lno, LineRegion* ladd) override;
+  void addLineRegion(size_t lno, LineRegion* ladd);
 };
 
 #endif
+
+
+

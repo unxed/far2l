@@ -123,5 +123,3 @@ void cp_logger(int level, const char *cname, const char *msg, ...);
 #ifdef __cplusplus
 }
 #endif
-
-void ShortReadableCodepageName(UINT cp, FARString &strDest);

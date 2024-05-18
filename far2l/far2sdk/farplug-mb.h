@@ -2,8 +2,6 @@
 #ifndef __FAR2SDK_FARPLUG_MB_H__
 #define __FAR2SDK_FARPLUG_MB_H__
 
-#include "farcommon.h"
-
 namespace oldfar
 {
 #ifndef _WIN64
@@ -13,7 +11,10 @@ namespace oldfar
 #pragma pack(push,2)
 #endif
 #endif
-	const int NM = MAX_PATH;
+
+	const int NM=MAX_PATH;
+
+	typedef int FarLangMsgID;
 
 	enum FARMESSAGEFLAGS
 	{
@@ -1484,7 +1485,7 @@ namespace oldfar
 	typedef BOOL (WINAPI *FARSTDADDENDSLASH)(char *Path);
 	typedef int (WINAPI *FARSTDCOPYTOCLIPBOARD)(const char *Data);
 	typedef char   *(WINAPI *FARSTDPASTEFROMCLIPBOARD)(void);
-	typedef FarKey (WINAPI *FARSTDINPUTRECORDTOKEY)(const INPUT_RECORD *r);
+	typedef int (WINAPI *FARSTDINPUTRECORDTOKEY)(const INPUT_RECORD *r);
 	typedef int (WINAPI *FARSTDLOCALISLOWER)(unsigned Ch);
 	typedef int (WINAPI *FARSTDLOCALISUPPER)(unsigned Ch);
 	typedef int (WINAPI *FARSTDLOCALISALPHA)(unsigned Ch);
@@ -1525,8 +1526,8 @@ namespace oldfar
 	};
 
 	typedef char*(WINAPI *FARSTDXLAT)(char *Line,int StartPos,int EndPos,const struct CharTableSet *TableSet,DWORD Flags);
-	typedef BOOL (WINAPI *FARSTDKEYTOKEYNAME)(FarKey Key,char *KeyText,int Size);
-	typedef FarKey (WINAPI *FARSTDKEYNAMETOKEY)(const char *Name);
+	typedef BOOL (WINAPI *FARSTDKEYTOKEYNAME)(int Key,char *KeyText,int Size);
+	typedef int (WINAPI *FARSTDKEYNAMETOKEY)(const char *Name);
 
 	typedef int (WINAPI *FRSUSERFUNC)(
 		const WIN32_FIND_DATAA *FData,
@@ -1565,11 +1566,10 @@ namespace oldfar
 	{
 		EF_HIDEOUT = 0x01,    // dont display output of the command
 		EF_NOWAIT = 0x02,     // dont wait for command completion
-		EF_SUDO = 0x04,       // command must be run with root privileges
+		EF_SUDO = 0x04,       // command must be run with root priviledges
 		EF_NOTIFY = 0x08,     // notify when command completed (if such notifications enabled in settings)
 		EF_NOCMDPRINT = 0x10, // dont print command in command line nor include it to history
-		EF_OPEN = 0x20,       // use desktop shell (if present) to open command (e.g. URLs, documents..)
-		EF_MAYBGND = 0x40     // allow put command to background mode
+		EF_OPEN = 0x20        // use desktop shell (if present) to open command (e.g. URLs, documents..)
 	};
 
 	typedef int (WINAPI *FAREXECUTE)(const char *CmdStr, unsigned int ExecFlags);
@@ -1818,7 +1818,7 @@ namespace oldfar
 		int                   StartSortOrder;
 		const struct KeyBarTitles *KeyBar;
 		const char           *ShortcutData;
-		long                  Reserved;
+		long                  Reserverd;
 	};
 
 	enum OPENPLUGIN_OPENFROM

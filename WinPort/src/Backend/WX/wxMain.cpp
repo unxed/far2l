@@ -1,23 +1,23 @@
 #include "wxMain.h"
 
+#if defined (__HASX11__)
+#include <X11/Xlib.h>
+#endif
+
 #define AREAS_REDUCTION
 
 #define TIMER_ID     10
 
 // interval of timer that used to blink cursor and do some other things
-#define DEF_TIMER_PERIOD 500  // 0.1 second
-#define MIN_TIMER_PERIOD 100  // 0.1 second
-#define MAX_TIMER_PERIOD 500  // 0.5 second
+#define TIMER_PERIOD 500             // 0.5 second
 
 // time interval that used for deferred extra refresh after last title update
 // see comment on WinPortPanel::OnTitleChangedSync
-#define TIMER_EXTRA_REFRESH 100        // 0.1 second
+#define TIMER_EXTRA_REFRESH 100      // 0.1 second
 
 // how many timer ticks may pass since last input activity
 // before timer will be stopped until restarted by some activity
-//#define TIMER_IDLING_CYCLES 600       // 0.5 second * 60 = 30 seconds
-#define TIMER_IDLING_TIME (60000 * 3)  // 3 minutes
-
+#define TIMER_IDLING_CYCLES 60       // 0.5 second * 60 = 30 seconds
 
 // If time between adhoc text copy and mouse button release less then this value then text will not be copied. Used to protect against unwanted copy-paste-s
 #define QEDIT_COPY_MINIMAL_DELAY 150
@@ -27,19 +27,13 @@
 	#define WX_ALT_NONLATIN
 #endif
 
-//30000
-
 IConsoleOutput *g_winport_con_out = nullptr;
 IConsoleInput *g_winport_con_in = nullptr;
 bool g_broadway = false, g_wayland = false, g_remote = false;
-
 static int g_exit_code = 0;
 static int g_maximize = 0;
 static WinPortAppThread *g_winport_app_thread = NULL;
 static WinPortFrame *g_winport_frame = nullptr;
-
-static DWORD g_TIMER_PERIOD = DEF_TIMER_PERIOD;
-static DWORD g_TIMER_IDLING_CYCLES = TIMER_IDLING_TIME / DEF_TIMER_PERIOD;
 
 bool WinPortClipboard_IsBusy();
 
@@ -90,11 +84,6 @@ static void DetectHostAbilities()
 		g_wayland = true;
 	}
 
-	const char *wayland_display = getenv("WAYLAND_DISPLAY");
-	if (wayland_display) {
-		g_wayland = true;
-	}
-
 	const char *ssh_conn = getenv("SSH_CONNECTION");
 	if (ssh_conn && *ssh_conn
 		&& strstr(ssh_conn, "127.0.0.") == NULL
@@ -109,20 +98,17 @@ static void DetectHostAbilities()
 	}
 }
 
-#ifdef __APPLE__
-void MacInit();
-#endif
 
 extern "C" __attribute__ ((visibility("default"))) bool WinPortMainBackend(WinPortMainBackendArg *a)
 {
+#if defined (__HASX11__)
+	/*int result = */XInitThreads();
+#endif
+	
 	if (a->abi_version != FAR2L_BACKEND_ABI_VERSION) {
 		fprintf(stderr, "This far2l_gui is not compatible and cannot be used\n");
 		return false;
 	}
-#ifdef __APPLE__
-	MacInit();
-#endif
-
 
 	g_wx_norgb = a->norgb;
 	g_winport_con_out = a->winport_con_out;
@@ -278,7 +264,6 @@ wxDEFINE_EVENT(WX_CONSOLE_ADHOC_QEDIT, wxCommandEvent);
 wxDEFINE_EVENT(WX_CONSOLE_SET_TWEAKS, wxCommandEvent);
 wxDEFINE_EVENT(WX_CONSOLE_CHANGE_FONT, wxCommandEvent);
 wxDEFINE_EVENT(WX_CONSOLE_SAVE_WIN_STATE, wxCommandEvent);
-wxDEFINE_EVENT(WX_CONSOLE_SET_CURSOR_BLINK_TIME, wxCommandEvent);
 wxDEFINE_EVENT(WX_CONSOLE_EXIT, wxCommandEvent);
 
 
@@ -547,7 +532,6 @@ wxBEGIN_EVENT_TABLE(WinPortPanel, wxPanel)
 	EVT_COMMAND(wxID_ANY, WX_CONSOLE_ADHOC_QEDIT, WinPortPanel::OnConsoleAdhocQuickEditSync)
 	EVT_COMMAND(wxID_ANY, WX_CONSOLE_SET_TWEAKS, WinPortPanel::OnConsoleSetTweaksSync)
 	EVT_COMMAND(wxID_ANY, WX_CONSOLE_CHANGE_FONT, WinPortPanel::OnConsoleChangeFontSync)
-	EVT_COMMAND(wxID_ANY, WX_CONSOLE_SET_CURSOR_BLINK_TIME, WinPortPanel::OnConsoleSetCursorBlinkTimeSync)
 	EVT_COMMAND(wxID_ANY, WX_CONSOLE_EXIT, WinPortPanel::OnConsoleExitSync)
 
 	EVT_IDLE(WinPortPanel::OnIdle)
@@ -574,7 +558,7 @@ WinPortPanel::WinPortPanel(WinPortFrame *frame, const wxPoint& pos, const wxSize
 	Create(frame, wxID_ANY, pos, size, wxWANTS_CHARS | wxNO_BORDER);
 	g_winport_con_out->SetBackend(this);
 	_periodic_timer = new wxTimer(this, TIMER_ID);
-	_periodic_timer->Start(g_TIMER_PERIOD);
+	_periodic_timer->Start(TIMER_PERIOD);
 	OnConsoleOutputTitleChanged();
 	_resize_pending = RP_INSTANT;
 }
@@ -752,7 +736,7 @@ void WinPortPanel::OnTimerPeriodic(wxTimerEvent& event)
 			_periodic_timer->Stop();
 			_extra_refresh = false;
 			Refresh();
-			_periodic_timer->Start(g_TIMER_PERIOD);
+			_periodic_timer->Start(TIMER_PERIOD);
 			fprintf(stderr, "Extra refresh\n");
 		}
 		return;
@@ -766,15 +750,15 @@ void WinPortPanel::OnTimerPeriodic(wxTimerEvent& event)
 	_paint_context.BlinkCursor();
 	++_timer_idling_counter;
 	// stop timer if counter reached limit and cursor is visible and no other timer-dependent things remained
-	if (_timer_idling_counter >= g_TIMER_IDLING_CYCLES && _paint_context.CursorBlinkState() && _text2clip.empty()) {
+	if (_timer_idling_counter >= TIMER_IDLING_CYCLES && _paint_context.CursorBlinkState() && _text2clip.empty()) {
 		_periodic_timer->Stop();
 	}
 }
 
 void WinPortPanel::ResetTimerIdling()
 {
-	if (_timer_idling_counter >= g_TIMER_IDLING_CYCLES && !_periodic_timer->IsRunning()) {
-		_periodic_timer->Start(_extra_refresh ? TIMER_EXTRA_REFRESH : g_TIMER_PERIOD);
+	if (_timer_idling_counter >= TIMER_IDLING_CYCLES && !_periodic_timer->IsRunning()) {
+		_periodic_timer->Start(_extra_refresh ? TIMER_EXTRA_REFRESH : TIMER_PERIOD);
 
 	} else if (_extra_refresh) {
 		_periodic_timer->Stop();
@@ -1083,7 +1067,7 @@ static void TitleChangeCallback(PVOID ctx)
 // Another level of workaround for #1303 #1454:
 // Problem happens if window title change happened just before repaint but
 // it doesn't happen if title changed after repaint even if just after repaint.
-// So instead of applying new title just when application wanted it to apply
+// So instead of appling new title just when application wanted it to apply
 // - wait until application will invoke some console readout function, meaning
 // it entered idle state and risk of upcoming repaints is much lowered then.
 // Do this by using CALLBACK_EVENT functionality that was added exactly for this.
@@ -1199,7 +1183,7 @@ void WinPortPanel::OnKeyDown( wxKeyEvent& event )
 #endif
 
 	if ( (dwMods != 0 && event.GetUnicodeKey() < 32)
-		|| (dwMods & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED | LEFT_ALT_PRESSED)) != 0
+		|| (dwMods & (RIGHT_CTRL_PRESSED | LEFT_ALT_PRESSED)) != 0
 		|| event.GetKeyCode() == WXK_DELETE || event.GetKeyCode() == WXK_RETURN
 		|| (event.GetUnicodeKey()==WXK_NONE && !IsForcedCharTranslation(event.GetKeyCode()) ))
 	{
@@ -1615,7 +1599,7 @@ void WinPortPanel::OnConsoleSetTweaksSync( wxCommandEvent& event )
 
 DWORD64 WinPortPanel::OnConsoleSetTweaks(DWORD64 tweaks)
 {
-	DWORD64 out = TWEAK_STATUS_SUPPORT_CHANGE_FONT | TWEAK_STATUS_SUPPORT_BLINK_RATE;
+	DWORD64 out = TWEAK_STATUS_SUPPORT_CHANGE_FONT;
 
 	if (_paint_context.IsSharpSupported())
 		out|= TWEAK_STATUS_SUPPORT_PAINT_SHARP;
@@ -1662,20 +1646,14 @@ static std::string GetNotifySH()
 
 void WinPortPanel::OnConsoleDisplayNotification(const wchar_t *title, const wchar_t *text)
 {
-	const std::string &str_title = Wide2MB(title);
-	const std::string &str_text = Wide2MB(text);
-
-#ifdef __APPLE__
-	auto fn = std::bind(MacDisplayNotify, str_title.c_str(), str_text.c_str());
-	CallInMain<bool>(fn);
-
-#else
-
 	static std::string s_notify_sh = GetNotifySH();
 	if (s_notify_sh.empty()) {
 		fprintf(stderr, "OnConsoleDisplayNotification: notify.sh not found\n");
 		return;
 	}
+
+	const std::string &str_title = Wide2MB(title);
+	const std::string &str_text = Wide2MB(text);
 
 	pid_t pid = fork();
 	if (pid == 0) {
@@ -1689,7 +1667,6 @@ void WinPortPanel::OnConsoleDisplayNotification(const wchar_t *title, const wcha
 	} else if (pid != -1) {
 		waitpid(pid, 0, 0);
 	}
-#endif
 }
 
 bool WinPortPanel::OnConsoleBackgroundMode(bool TryEnterBackgroundMode)
@@ -1730,30 +1707,6 @@ void WinPortPanel::OnConsoleExitSync( wxCommandEvent& event )
 void WinPortPanel::OnConsoleExit()
 {
 	wxCommandEvent *event = new(std::nothrow) wxCommandEvent(WX_CONSOLE_EXIT);
-	if (event)
-		wxQueueEvent(this, event);
-}
-
-void WinPortPanel::OnConsoleSetCursorBlinkTimeSync( wxCommandEvent& event )
-{
-	EventWithDWORD64 *e = (EventWithDWORD64 *)&event;
-	DWORD interval = e->cookie;
-	if (interval < 100 )
-		g_TIMER_PERIOD = 100;
-	else if (interval > 500 )
-		g_TIMER_PERIOD = 500;
-	else
-		g_TIMER_PERIOD = interval;
-
-	g_TIMER_IDLING_CYCLES = TIMER_IDLING_TIME / g_TIMER_PERIOD;
-
-	_periodic_timer->Stop();
-	_periodic_timer->Start(g_TIMER_PERIOD);
-}
-
-void WinPortPanel::OnConsoleSetCursorBlinkTime(DWORD interval)
-{
-	EventWithDWORD64 *event = new(std::nothrow) EventWithDWORD64(interval, WX_CONSOLE_SET_CURSOR_BLINK_TIME);
 	if (event)
 		wxQueueEvent(this, event);
 }
@@ -1823,4 +1776,157 @@ void WinPortPanel::OnConsoleOverrideColor(DWORD Index, DWORD *ColorFG, DWORD *Co
 
 	auto fn = std::bind(&ConsoleOverrideColorInMain, Index, ColorFG, ColorBK);
 	CallInMainNoRet(fn);
+}
+
+// === Image viewer ===
+
+class ImgFrame : public wxFrame {
+public:
+	ImgFrame(const wxString &title, const wxSize &size);
+	void OnPaint(wxPaintEvent &event);
+	void OnPanelKeyDown(wxKeyEvent &event);
+
+	int degree = 0;
+	int brightness = 0;
+	int contrast = 0;
+	std::string path;
+	wxImage img;
+	wxBitmap bmp;
+	wxPanel *panel;
+};
+
+ImgFrame::ImgFrame(const wxString &title, const wxSize &size) : wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, size, wxBORDER_NONE | wxSTAY_ON_TOP) {
+	panel = new wxPanel(this, wxID_ANY);
+	Connect(wxEVT_PAINT, wxPaintEventHandler(ImgFrame::OnPaint));
+	panel->Connect(wxEVT_KEY_DOWN, wxKeyEventHandler(ImgFrame::OnPanelKeyDown), NULL, this);
+}
+
+void ImgFrame::OnPanelKeyDown(wxKeyEvent &event) {
+
+	char c[256];
+	char filename[] = "/tmp/far2l_temp.bmp";
+	int res;
+
+	if (
+		(event.GetKeyCode() == WXK_RIGHT) || (event.GetKeyCode() == WXK_LEFT) ||
+		(event.GetKeyCode() == WXK_UP) || (event.GetKeyCode() == WXK_DOWN)
+	) {
+
+		wxDisplay display;
+		wxRect screenRect = display.GetGeometry();
+
+		if (event.GetKeyCode() == WXK_RIGHT) {
+			degree += 90;
+		} else if (event.GetKeyCode() == WXK_LEFT) {
+			degree -= 90;
+		} else if ((event.GetKeyCode() == WXK_UP) && !event.ShiftDown()) {
+			brightness += 10;
+		} else if ((event.GetKeyCode() == WXK_DOWN) && !event.ShiftDown()) {
+			brightness -= 10;
+		} else if ((event.GetKeyCode() == WXK_UP) && event.ShiftDown()) {
+			contrast += 10;
+		} else if ((event.GetKeyCode() == WXK_DOWN) && event.ShiftDown()) {
+			contrast -= 10;
+		}
+
+		if (degree == 360) { degree = 0; }
+		if (degree == -360) { degree = 0; }
+
+		int res;
+		sprintf(c, "rm -rf \"%s\"", filename);
+		res = system(c);
+		fprintf(stderr, "res: %i \n", res);
+
+		sprintf(c, "convert \"%s\" -auto-orient -rotate %i -resize %ix%i\\> -brightness-contrast %ix%i \"%s\"",
+			path.c_str(), degree, screenRect.width, screenRect.height, brightness, contrast, filename);
+		fprintf(stderr, "c: %s \n", c);
+		res = system(c);
+		fprintf(stderr, "res: %i \n", res);
+
+		wxString filePath = filename;
+		img.LoadFile(filePath, wxBITMAP_TYPE_BMP);
+		bmp = wxBitmap(img);
+		SetSize(img.GetSize());
+
+		wxPaintDC dc(this);
+		dc.DrawBitmap(bmp, 0, 0, false);
+
+		Centre();
+		Refresh();
+
+	} else if (!event.RawControlDown() && !event.ShiftDown() &&
+		!event.MetaDown() && !event.AltDown() && !event.CmdDown()) {
+
+		sprintf(c, "rm -rf \"%s\"", filename);
+		res = system(c);
+		fprintf(stderr, "res: %i \n", res);
+
+		Close(true);
+	}
+}
+
+void ImgFrame::OnPaint(wxPaintEvent &event) {
+	wxPaintDC dc(this);
+	dc.DrawBitmap(bmp, 0, 0, false);
+}
+
+void WinPortPanel::OnWinPortViewImg(const char *path)
+{
+#if defined (__HASX11__)
+
+	bool hasConvert = true;
+	FILE *fp;
+	char result[1024];
+	fp = popen("which convert", "r");
+	if (fp == NULL) {
+		hasConvert = false;
+	}
+	if (fgets(result, sizeof(result) - 1, fp) == NULL) {
+		hasConvert = false;
+	}
+	pclose(fp);
+	if (strstr(result, "/") == NULL) {
+		hasConvert = false;
+	}
+	if (!hasConvert) {
+		wxMessageBox(wxT("\"convert\" tool not found. You probably need to install imagemagick."),
+			wxT("Error"), wxOK | wxICON_ERROR);
+		return;
+	}
+
+	char filename[] = "/tmp/far2l_temp.bmp";
+
+	wxInitAllImageHandlers();
+
+	wxDisplay display;
+	wxRect screenRect = display.GetGeometry();
+
+	char c[256];
+
+	int res;
+	sprintf(c, "rm -rf \"%s\"", filename);
+	res = system(c);
+	fprintf(stderr, "res: %i \n", res);
+
+	sprintf(c, "convert \"%s\" -auto-orient -resize %ix%i\\> \"%s\"", path, screenRect.width, screenRect.height, filename);
+	res = system(c);
+	fprintf(stderr, "res: %i \n", res);
+
+	wxString filePath = filename;
+	ImgFrame *frame = new ImgFrame("Image Viewer", wxDefaultSize);
+	frame->path = path;
+	frame->img.LoadFile(filePath, wxBITMAP_TYPE_BMP);
+	frame->bmp = wxBitmap(frame->img);
+	frame->SetSize(frame->img.GetSize());
+	frame->Centre();
+	frame->Raise();
+	frame->SetFocus();
+	frame->Show(true);
+
+	return;
+
+#endif
+	wxMessageBox(wxT("far2l is built without X11 libs, image viewer not available."),
+		wxT("Error"), wxOK | wxICON_ERROR);
+	return;
 }

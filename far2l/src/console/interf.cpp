@@ -41,7 +41,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "keys.hpp"
 #include "colors.hpp"
 #include "ctrlobj.hpp"
-#include "ConfigOptSaveLoad.hpp"
+#include "ConfigSaveLoad.hpp"
 #include "filepanels.hpp"
 #include "panel.hpp"
 #include "fileedit.hpp"
@@ -90,7 +90,7 @@ void InitConsole()
 	CONSOLE_CURSOR_INFO InitCursorInfo;
 	Console.GetCursorInfo(InitCursorInfo);
 
-	ConfigOptAssertLoaded();
+	AssertConfigLoaded();
 
 	// размер клавиатурной очереди = 1024 кода клавиши
 	if (!KeyQueue)
@@ -192,7 +192,7 @@ void ToggleVideoMode()
 	WINPORT(SetConsoleWindowMaximized)(LargestSize.X != CurSize.X || LargestSize.Y != CurSize.Y);
 }
 
-void GenerateWINDOW_BUFFER_SIZE_EVENT(int Sx, int Sy, bool Damaged)
+void GenerateWINDOW_BUFFER_SIZE_EVENT(int Sx, int Sy)
 {
 	COORD Size;
 	if (Sx == -1 || Sy == -1) {
@@ -202,7 +202,6 @@ void GenerateWINDOW_BUFFER_SIZE_EVENT(int Sx, int Sy, bool Damaged)
 	Rec.EventType = WINDOW_BUFFER_SIZE_EVENT;
 	Rec.Event.WindowBufferSizeEvent.dwSize.X = Sx == -1 ? Size.X : Sx;
 	Rec.Event.WindowBufferSizeEvent.dwSize.Y = Sy == -1 ? Size.Y : Sy;
-	Rec.Event.WindowBufferSizeEvent.bDamaged = Damaged ? TRUE : FALSE;
 	DWORD Writes;
 	Console.WriteInput(Rec, 1, Writes);
 }
@@ -489,14 +488,6 @@ void InitRecodeOutTable()
 	//_SVS(SysLogDump("Oem2Unicode",0,(LPBYTE)Oem2Unicode,sizeof(Oem2Unicode),nullptr));
 }
 
-void Text64(int X, int Y, uint64_t Color, const WCHAR *Str, size_t Length)
-{
-	CurColor = Color;
-	CurX = X;
-	CurY = Y;
-	Text(Str, Length);
-}
-
 void Text(int X, int Y, int Color, const WCHAR *Str)
 {
 	CurColor = FarColorToReal(Color);
@@ -714,7 +705,6 @@ void vmprintf(const wchar_t *fmt, ...)
 void SetColor(DWORD64 Color, bool ApplyToConsole)
 {
 	CurColor = FarColorToReal(Color & 0xffff);
-
 	if (Color & 0xffffff0000000000) {
 		CurColor|= BACKGROUND_TRUECOLOR;
 		CurColor|= (Color & 0xffffff0000000000);
@@ -723,22 +713,6 @@ void SetColor(DWORD64 Color, bool ApplyToConsole)
 		CurColor|= FOREGROUND_TRUECOLOR;
 		CurColor|= (Color & 0x000000ffffff0000);
 	}
-	if (ApplyToConsole) {
-		Console.SetTextAttributes(CurColor);
-	}
-}
-
-void SetColor64(DWORD64 Color, bool ApplyToConsole)
-{
-	CurColor = Color;
-/**
-	if (Color & 0xffffff0000000000) {
-		CurColor |= BACKGROUND_TRUECOLOR;
-	}
-	if (Color & 0x000000ffffff0000) {
-		CurColor |= FOREGROUND_TRUECOLOR;
-	}
-**/
 	if (ApplyToConsole) {
 		Console.SetTextAttributes(CurColor);
 	}

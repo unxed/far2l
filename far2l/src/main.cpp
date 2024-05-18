@@ -73,7 +73,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "InterThreadCall.hpp"
 #include "SafeMMap.hpp"
 #include "ConfigRW.hpp"
-#include "ConfigOptSaveLoad.hpp"
+#include "ConfigSaveLoad.hpp"
 #include "help.hpp"
 
 #ifdef DIRECT_RT
@@ -82,7 +82,7 @@ int DirectRT = 0;
 
 static void print_help(const char *self)
 {
-	printf("FAR2L - oldschool file manager, with built-in terminal and other usefulness'es\n"
+	printf("FAR2L - oldschool file manager, with built-in terminal and other usefullness'es\n"
 			"Usage: %s [switches] [-cd apath [-cd ppath]]\n\n"
 			"where\n"
 			"  apath - path to a folder (or a file or an archive or command with prefix)\n"
@@ -104,15 +104,12 @@ static void print_help(const char *self)
 			"      Allows to specify separate settings identity or FS location.\n"
 			" -v <filename>\n"
 			"      View the specified file.\n"
-			" -v - <command line>\n"
+			" -v - command line\n"
 			"      Executes given command line and opens viewer with its output.\n"
 			" -e[<line>[:<pos>]] [filename]\n"
 			"      Edit the specified file with optional cursor position specification or empty new file.\n"
-			" -e[<line>[:<pos>]] - <command line>\n"
+			" -e[<line>[:<pos>]] - command line\n"
 			"      Executes given command line and opens editor with its output.\n"
-			" -set:<parameter>=<value>\n"
-			"      Override the configuration parameter, see far:config for details.\n"
-			"      Example: far2l -set:Language.Main=English -set:Screen.Clock=0 -set:XLat.Flags=0xff -set:System.FindFolders=false\n"
 			"\n",
 			self);
 	WinPortHelp();
@@ -189,8 +186,8 @@ static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARStri
 
 			if (Opt.OnlyEditorViewerUsed == Options::ONLY_EDITOR
 					|| Opt.OnlyEditorViewerUsed == Options::ONLY_EDITOR_ON_CMDOUT) {
-				FileEditor *ShellEditor = new FileEditor(std::make_shared<FileHolder>(strEditViewArg),
-						CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6, StartLine, StartChar);
+				FileEditor *ShellEditor = new FileEditor(strEditViewArg, CP_AUTODETECT,
+						FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6, StartLine, StartChar);
 				_tran(SysLog(L"make shelleditor %p", ShellEditor));
 
 				if (!ShellEditor->GetExitCode())	// ????????????
@@ -198,7 +195,7 @@ static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARStri
 					FrameManager->ExitMainLoop(0);
 				}
 			} else {
-				FileViewer *ShellViewer = new FileViewer(std::make_shared<FileHolder>(strEditViewArg), FALSE);
+				FileViewer *ShellViewer = new FileViewer(strEditViewArg, FALSE);
 
 				if (!ShellViewer->GetExitCode()) {
 					FrameManager->ExitMainLoop(0);
@@ -335,7 +332,7 @@ static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARStri
 
 static void SetupFarPath(const char *arg0)
 {
-	InMyTemp();		// pre-cache in env temp paths
+	InMyTemp();		// pre-cache in env temp pathes
 	InitCurrentDirectory();
 
 	char buf[PATH_MAX + 1];
@@ -442,11 +439,6 @@ int FarAppMain(int argc, char **argv)
 		bool switchHandled = false;
 		if ((arg_w[0] == L'/' || arg_w[0] == L'-') && arg_w[1]) {
 			switchHandled = true;
-			if (!StrCmpNI(arg_w.c_str() + 1, L"SET:", 4))
-			{
-				Opt.CmdLineStrings.emplace_back(arg_w.c_str() + 5);
-				continue;
-			}
 			switch (Upper(arg_w[1])) {
 				case L'A':
 
@@ -602,10 +594,8 @@ int FarAppMain(int argc, char **argv)
 		Opt.LoadPlug.PluginsPersonal = FALSE;
 	}
 
-	ConfigOptLoad();
+	LoadConfig();
 	InitConsole();
-	WINPORT(SetConsoleCursorBlinkTime)(NULL, Opt.CursorBlinkTime);
-
 	static_assert(!IsPtr(Msg::NewFileName._id),
 			"Too many language messages. Need to refactor code to eliminate use of IsPtr.");
 
@@ -700,7 +690,7 @@ static void SetCustomSettings(const char *arg)
 	if (arg[0] == '/') {
 		refined = arg;
 
-	} else if (arg[0] == '.' && arg[1] == GOOD_SLASH) {
+	} else if (arg[0] == '.' && arg[1] == '/') {
 		char cwdbuf[MAX_PATH + 1] = {'.', 0};
 		const char *cwd = getcwd(cwdbuf, MAX_PATH);
 		if (cwd) {
@@ -712,8 +702,8 @@ static void SetCustomSettings(const char *arg)
 		refined = arg;
 	}
 
-	while (!refined.empty() && refined.back() == GOOD_SLASH) {
-		refined.pop_back(); // refined.resize(refined.size() - 1);
+	while (!refined.empty() && refined.back() == '/') {
+		refined.resize(refined.size() - 1);
 	}
 
 	fprintf(stderr, "%s: '%s'\n", __FUNCTION__, refined.c_str());
@@ -737,7 +727,7 @@ int _cdecl main(int argc, char *argv[])
 			return sudo_main_askpass();
 		if (strcmp(name, "far2l_sudoapp") == 0)
 			return sudo_main_dispatcher(argc - 1, argv + 1);
-		if (argc >= 5) {
+		if (argc >= 4) {
 			if (strcmp(argv[1], "--libexec") == 0) {
 				return libexec(argv[2], argv[3], argv[4], argc - 5, argv + 5);
 			}
@@ -761,11 +751,6 @@ int _cdecl main(int argc, char *argv[])
 	umask(g_umask);
 
 	setlocale(LC_ALL, "");	// otherwise non-latin keys missing with XIM input method
-
-	const char *lcc = getenv("LC_COLLATE");
-	if (lcc && *lcc) {
-		setlocale(LC_COLLATE, lcc);
-	}
 
 	SetupFarPath(argv[0]);
 

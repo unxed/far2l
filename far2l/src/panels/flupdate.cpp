@@ -149,8 +149,7 @@ void FileList::ReadFileNames(int KeepSelection, int IgnoreVisible, int DrawMessa
 	apiGetCurrentDirectory(strSaveDir);
 	{
 		if (!SetCurPath()) {
-			if (!WinPortTesting())
-				FlushInputBuffer();		// Очистим буффер ввода, т.к. мы уже можем быть в другом месте...
+			FlushInputBuffer();		// Очистим буффер ввода, т.к. мы уже можем быть в другом месте...
 			return;
 		}
 	}
@@ -195,7 +194,6 @@ void FileList::ReadFileNames(int KeepSelection, int IgnoreVisible, int DrawMessa
 		OldData.Swap(ListData);
 
 	ListData.Clear();
-	SymlinksCache.clear();
 
 	int ReadOwners = IsColumnDisplayed(OWNER_COLUMN);
 	int ReadGroups = IsColumnDisplayed(GROUP_COLUMN);
@@ -555,7 +553,6 @@ void FileList::UpdatePlugin(int KeepSelection, int IgnoreVisible)
 
 	if (!CtrlObject->Plugins.GetFindData(hPlugin, &PanelData, &PluginFileCount, 0)) {
 		ListData.Clear();
-		SymlinksCache.clear();
 		PopPlugin(TRUE);
 		Update(KeepSelection);
 
@@ -597,7 +594,7 @@ void FileList::UpdatePlugin(int KeepSelection, int IgnoreVisible)
 		OldData.Swap(ListData);
 
 	ListData.Clear();
-	SymlinksCache.clear();
+
 	ListData.ReserveExtra(PluginFileCount);
 
 	if (!Filter)
@@ -643,7 +640,7 @@ void FileList::UpdatePlugin(int KeepSelection, int IgnoreVisible)
 
 		TotalFileSize+= CurListData->FileSize;
 	}
-	if (!ListData.IsEmpty() && ((Info.Flags & OPIF_USEHIGHLIGHTING) || (Info.Flags & OPIF_USEATTRHIGHLIGHTING)))
+	if ((Info.Flags & OPIF_USEHIGHLIGHTING) || (Info.Flags & OPIF_USEATTRHIGHLIGHTING))
 		CtrlObject->HiFiles->GetHiColor(&ListData[0], ListData.Count(),
 				(Info.Flags & OPIF_USEATTRHIGHLIGHTING) != 0);
 

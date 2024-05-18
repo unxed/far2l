@@ -4,10 +4,9 @@
 class VTMouse
 {
 	IVTShell *_vtshell;
-	uint32_t _mex;
-	unsigned int _sgr_prev_ibut{0};
+	MouseExpectation _mex;
 
 public:
-	VTMouse(IVTShell *vtshell, uint32_t mex);
+	VTMouse(IVTShell *vtshell, MouseExpectation mex);
 	bool OnInputMouse(const MOUSE_EVENT_RECORD &MouseEvent);
 };

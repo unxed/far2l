@@ -327,9 +327,9 @@ int FTP::ExpandListINT(PluginPanelItem *pi, int icn, FP_SizeItemList *il, BOOL F
 			else
 				str = CurName;
 
-			FtpConnectMessage(hConnect, MScanning, str.c_str());
+			FtpConnectMessage(hConnect, MScaning, str.c_str());
 		} else if (hConnect)
-			FtpConnectMessage(hConnect, MScanning, PointToName(CurName));
+			FtpConnectMessage(hConnect, MScaning, PointToName(CurName));
 
 		if (il) {
 			num = il->Count();

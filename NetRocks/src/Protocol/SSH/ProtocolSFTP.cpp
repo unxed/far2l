@@ -12,7 +12,6 @@
 #include <map>
 #include <set>
 #include <deque>
-#include <fstream>
 #include <algorithm>
 #include <libssh/libssh.h>
 #include <libssh/ssh2.h>
@@ -28,7 +27,7 @@ std::shared_ptr<IProtocol> CreateProtocolSCP(const std::string &host, unsigned i
 	const std::string &username, const std::string &password, const std::string &options);
 
 std::shared_ptr<IProtocol> CreateProtocol(const std::string &protocol, const std::string &host, unsigned int port,
-	const std::string &username, const std::string &password, const std::string &options, int fd_ipc_recv)
+	const std::string &username, const std::string &password, const std::string &options)
 {
 	if (strcasecmp(protocol.c_str(), "scp") == 0) {
 		return CreateProtocolSCP(host, port, username, password, options);

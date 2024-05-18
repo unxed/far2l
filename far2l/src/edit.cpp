@@ -484,7 +484,7 @@ void Edit::FastShow()
 		ApplyColor();
 }
 
-int Edit::RecurseProcessKey(FarKey Key)
+int Edit::RecurseProcessKey(int Key)
 {
 	Recurse++;
 	int RetCode = ProcessKey(Key);
@@ -493,7 +493,7 @@ int Edit::RecurseProcessKey(FarKey Key)
 }
 
 // Функция вставки всякой хреновени - от шорткатов до имен файлов
-int Edit::ProcessInsPath(FarKey Key, int PrevSelStart, int PrevSelEnd)
+int Edit::ProcessInsPath(int Key, int PrevSelStart, int PrevSelEnd)
 {
 	int RetCode = FALSE;
 	FARString strPathName;
@@ -506,7 +506,7 @@ int Edit::ProcessInsPath(FarKey Key, int PrevSelStart, int PrevSelEnd)
 			RetCode = TRUE;
 	} else		// Пути/имена?
 	{
-		RetCode = _MakePath1(Key, strPathName, L"", 0); // 0 - always not escaping path names
+		RetCode = _MakePath1(Key, strPathName, L"");
 	}
 
 	// Если что-нить получилось, именно его и вставим (PathName)
@@ -531,7 +531,7 @@ int Edit::ProcessInsPath(FarKey Key, int PrevSelStart, int PrevSelEnd)
 	return RetCode;
 }
 
-int64_t Edit::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t Edit::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	switch (OpCode) {
 		case MCODE_C_EMPTY:
@@ -662,7 +662,7 @@ int Edit::CalcPosBwdTo(int Pos) const
 	return Pos;
 }
 
-int Edit::ProcessKey(FarKey Key)
+int Edit::ProcessKey(int Key)
 {
 	switch (Key) {
 		case KEY_ADD:
@@ -779,7 +779,6 @@ int Edit::ProcessKey(FarKey Key)
 	if (Key != KEY_NONE && Key != KEY_IDLE && Key != KEY_SHIFTINS && Key != KEY_SHIFTNUMPAD0 && Key != KEY_CTRLINS
 			&& ((unsigned int)Key < KEY_F1 || (unsigned int)Key > KEY_F12) && Key != KEY_ALT && Key != KEY_SHIFT
 			&& Key != KEY_CTRL && Key != KEY_RALT && Key != KEY_RCTRL && (Key < KEY_ALT_BASE || Key > KEY_ALT_BASE + 0xFFFF)
-			&& !( Key & (KEY_ALT | KEY_RALT) )
 			&&		// ???? 256 ???
 			!(((unsigned int)Key >= KEY_MACRO_BASE && (unsigned int)Key <= KEY_MACRO_ENDBASE)
 					|| ((unsigned int)Key >= KEY_OP_BASE && (unsigned int)Key <= KEY_OP_ENDBASE))
@@ -1330,7 +1329,7 @@ int Edit::ProcessKey(FarKey Key)
 			Key = KEY_SPACE;
 		default: {
 			//			_D(SysLog(L"Key=0x%08X",Key));
-			if (Key == KEY_ENTER || !IS_KEY_NORMAL(Key))	// KEY_NUMENTER,KEY_IDLE,KEY_NONE covered by !IS_KEY_NORMAL
+			if (Key == KEY_ENTER || Key >= EXTENDED_KEY_BASE)	// KEY_NUMENTER,KEY_IDLE,KEY_NONE covered by >=EXTENDED_KEY_BASE
 				break;
 
 			if (!Flags.Check(FEDITLINE_PERSISTENTBLOCKS)) {
@@ -1395,7 +1394,7 @@ int Edit::ProcessInsPlainText(const wchar_t *str)
 	return FALSE;
 }
 
-int Edit::InsertKey(FarKey Key)
+int Edit::InsertKey(int Key)
 {
 	bool changed = false;
 	wchar_t *NewStr;
@@ -1455,7 +1454,7 @@ int Edit::InsertKey(FarKey Key)
 					return FALSE;
 
 				Str = NewStr;
-				wmemset(&Str[StrSize], L' ', CurPos + 1 - StrSize);
+				wmemset(&Str[StrSize], L' ', CurPos - StrSize);
 				Str[CurPos + 1] = 0;
 				StrSize = CurPos + 1;
 
@@ -1785,7 +1784,7 @@ void Edit::InsertBinaryString(const wchar_t *Str, int Length)
 
 				this->Str = NewStr;
 				wmemset(&this->Str[StrSize], L' ', CurPos - StrSize);
-				this->Str[CurPos] = 0;
+				this->Str[CurPos + 1] = 0;
 				StrSize = CurPos;
 			}
 
@@ -2221,7 +2220,7 @@ void Edit::DeleteBlock()
 	SelEnd = 0;
 	Flags.Clear(FEDITLINE_MARKINGBLOCK);
 
-	// OT: Проверка на корректность поведения строки при удалении и вставки
+	// OT: Проверка на корректность поведени строки при удалении и вставки
 	if (Flags.Check((FEDITLINE_PARENT_SINGLELINE | FEDITLINE_PARENT_MULTILINE))) {
 		if (LeftPos > CurPos)
 			LeftPos = CurPos;
@@ -2305,7 +2304,7 @@ void Edit::ApplyColor()
 			RealStart = RealPosToCell(CurItem.StartPos);
 			Start = RealStart - LeftPos;
 		}
-		// Для оптимизации делаем вычисление относительно предыдущей позиции
+		// Для отптимизации делаем вычисление относительно предыдущей позиции
 		else {
 			RealStart = RealPosToCell(TabPos, Pos, CurItem.StartPos, nullptr);
 			Start = RealStart - LeftPos;
@@ -2359,7 +2358,7 @@ void Edit::ApplyColor()
 			End = RealEnd - LeftPos;
 		}
 		/*
-			Для оптимизации делаем вычисление относительно предыдущей позиции (с учётом
+			Для отптимизации делаем вычисление относительно предыдущей позиции (с учётом
 			корректировки относительно табов)
 		*/
 		else {
@@ -2464,7 +2463,7 @@ void Edit::Xlat(bool All)
 	Проверяет: попадает ли символ в разрешённый
 	диапазон символов, пропускаемых маской
 */
-int Edit::KeyMatchedMask(FarKey Key)
+int Edit::KeyMatchedMask(int Key)
 {
 	int Inserted = FALSE;
 
@@ -2671,7 +2670,7 @@ void EditControl::PopulateCompletionMenu(VMenu &ComplMenu, const FARString &strF
 			if (!m_pSuggestor)
 				m_pSuggestor.reset(new MenuFilesSuggestor);
 
-			m_pSuggestor->Suggest(strFilter, ComplMenu, ECFlags.Check(EC_ENABLEFNCOMPLETE_ESCAPED));
+			m_pSuggestor->Suggest(strFilter, ComplMenu);
 		}
 	}
 }
@@ -2688,7 +2687,7 @@ void EditControl::RemoveSelectedCompletionMenuItem(VMenu &ComplMenu)
 	}
 }
 
-void EditControl::AutoCompleteProcMenu(bool &Result, bool Manual, bool DelBlock, FarKey &BackKey)
+void EditControl::AutoCompleteProcMenu(int &Result, bool Manual, bool DelBlock, int &BackKey)
 {
 	VMenu ComplMenu(nullptr, nullptr, 0, 0);
 	FARString strTemp = Str;
@@ -2745,10 +2744,10 @@ void EditControl::AutoCompleteProcMenu(bool &Result, bool Manual, bool DelBlock,
 					SetMenuPos(ComplMenu);
 					ComplMenu.Show();
 				} else if (ir.EventType == KEY_EVENT || ir.EventType == FARMACRO_KEY_EVENT) {
-					FarKey MenuKey = InputRecordToKey(&ir);
+					int MenuKey = InputRecordToKey(&ir);
 
 					// ввод
-					if ((MenuKey >= FarKey(L' ') && MenuKey <= MAX_VKEY_CODE) || MenuKey == KEY_BS
+					if ((MenuKey >= int(L' ') && MenuKey <= MAX_VKEY_CODE) || MenuKey == KEY_BS
 							|| MenuKey == KEY_DEL || MenuKey == KEY_NUMDEL) {
 						FARString strPrev;
 						GetString(strPrev);
@@ -2869,7 +2868,7 @@ void EditControl::AutoCompleteProcMenu(bool &Result, bool Manual, bool DelBlock,
 								ComplMenu.Hide();
 								ComplMenu.SetExitCode(-1);
 								BackKey = MenuKey;
-								Result = true;
+								Result = 1;
 							}
 						}
 					}
@@ -2887,9 +2886,9 @@ void EditControl::AutoCompleteProcMenu(bool &Result, bool Manual, bool DelBlock,
 	}
 }
 
-bool EditControl::AutoCompleteProc(bool Manual, bool DelBlock, FarKey &BackKey)
+int EditControl::AutoCompleteProc(bool Manual, bool DelBlock, int &BackKey)
 {
-	bool Result = false;
+	int Result = 0;
 	static int Reenter = 0;
 
 	if (ECFlags.Check(EC_ENABLEAUTOCOMPLETE) && *Str && !Reenter
@@ -2903,10 +2902,10 @@ bool EditControl::AutoCompleteProc(bool Manual, bool DelBlock, FarKey &BackKey)
 
 void EditControl::AutoComplete(bool Manual, bool DelBlock)
 {
-	FarKey Key = 0;
+	int Key = 0;
 	if (AutoCompleteProc(Manual, DelBlock, Key)) {
 		// BUGBUG, hack
-		const auto Wait = WaitInMainLoop;
+		int Wait = WaitInMainLoop;
 		WaitInMainLoop = 1;
 		if (!CtrlObject->Macro.ProcessKey(Key))
 			pOwner->ProcessKey(Key);

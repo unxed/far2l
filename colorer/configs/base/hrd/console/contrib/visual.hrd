@@ -1,9 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE hrd PUBLIC "-//Cail Lomecb//DTD Colorer HRD take5//EN"
-  "http://colorer.sf.net/2003/hrd.dtd">
+<?xml version="1.0" encoding="us-ascii"?>
 <hrd xmlns="http://colorer.sf.net/2003/hrd">
 
-<!--White background color scheme by Roman Kuzmin, aka NightRoman, 2021-12-04-->
+<!--White background color scheme by Roman Kuzmin, aka NightRoman, 2016-09-08-->
 
 <assign fore="#0" back="#F" name="def:Text"/>
 
@@ -79,8 +77,7 @@
 <!--c: VS-->
 <assign fore="#4" name="c:PreprocInclude"/>
 
-<!--xml: CData markup-->
-<assign fore="#7" name="xml:CDStart"/>
-<assign fore="#7" name="xml:CDEnd"/>
+<!--xml: CData != text-->
+<assign fore="#1" name="xml:CData"/>
 
 </hrd>

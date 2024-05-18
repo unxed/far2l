@@ -362,11 +362,7 @@ long long BaseDialog::LongLongFromDialogControl(int ctl)
 {
 	std::string str;
 	TextFromDialogControl(ctl, str);
-	const char *p = str.c_str();
-	while (*p == ' ') {
-		++p;
-	}
-	return atoll(p);
+	return atoll(str.c_str());
 }
 
 void BaseDialog::SetEnabledDialogControl(int ctl, bool en)
@@ -488,26 +484,6 @@ void BaseDialog::FileSizeToDialogControl(int ctl, unsigned long long value)
 		return;
 
 	TextToDialogControl(ctl, FileSizeString(value));
-}
-
-bool BaseDialog::DateTimeToDialogControl(int ctl, const FILETIME *ft)
-{
-	if (!ft->dwHighDateTime) {
-		//TextToDialogControl(ctl, "");
-		return false;
-	}
-
-	FILETIME ct;
-	SYSTEMTIME st;
-	WINPORT(FileTimeToLocalFileTime)(ft, &ct);
-	WINPORT(FileTimeToSystemTime)(&ct, &st);
-
-	char str[0x100] = {};
-	snprintf(str, sizeof(str) - 1, "%04u-%02u-%02u %02u:%02u:%02u.%03u",
-		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
-	TextToDialogControl(ctl, str);
-
-	return true;
 }
 
 void BaseDialog::TimePeriodToDialogControl(int ctl, unsigned long long msec_ull)

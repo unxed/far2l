@@ -47,16 +47,16 @@ void FilesSuggestor::Suggest(const std::string &filter, std::vector<Suggestion> 
 {
 	std::string dir_path, name_prefix;
 
-	size_t last_slash = filter.rfind(GOOD_SLASH);
+	size_t last_slash = filter.rfind('/');
 	if (last_slash != std::string::npos) {
 		name_prefix = filter.substr(last_slash + 1);
 		if (last_slash > 0) {
 			dir_path = filter.substr(0, last_slash);
-			if (dir_path[0] != GOOD_SLASH) {
+			if (dir_path[0] != '/') {
 				dir_path.insert(0, "./");
 			}
 		} else {
-			dir_path = GOOD_SLASH;
+			dir_path = '/';
 		}
 
 	} else {
@@ -118,7 +118,7 @@ void *FilesSuggestor::ThreadProc()
 		try {
 			std::string stat_path = _dir_path;
 			if (!stat_path.empty() && stat_path.back() != GOOD_SLASH) {
-				stat_path+= GOOD_SLASH;
+				stat_path+= '/';
 			}
 			size_t stat_path_len = stat_path.size();
 			for (;;) {
@@ -175,20 +175,14 @@ void *FilesSuggestor::ThreadProc()
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
-void MenuFilesSuggestor::Suggest(const wchar_t *filter, VMenu& menu, bool escaping)
+void MenuFilesSuggestor::Suggest(const wchar_t *filter, VMenu& menu)
 {
 	if (!filter || !*filter) {
 		return;
 	}
 
 	std::string filter_mb;
-	if (!escaping) {
-		FARString filter_escaping = filter;
-		EscapeSpace(filter_escaping);
-		Wide2MB(filter_escaping, filter_mb);
-	}
-	else
-		Wide2MB(filter, filter_mb);
+	Wide2MB(filter, filter_mb);
 	std::string orig_filter_mb = filter_mb;
 
 	Environment::Arguments args;
@@ -260,9 +254,6 @@ void MenuFilesSuggestor::Suggest(const wchar_t *filter, VMenu& menu, bool escapi
 		} else if (last_arg.quot == Environment::QUOT_SINGLE
 				|| last_arg.quot == Environment::QUOT_DOLLAR_SINGLE) {
 			str_tmp+= L'\'';
-		}
-		if (!escaping) {
-			UnEscapeSpace(str_tmp);
 		}
 		menu.AddItem(str_tmp);
 	}

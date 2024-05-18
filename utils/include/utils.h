@@ -3,7 +3,6 @@
 #include <vector>
 #include <cstdarg>
 #include <sys/types.h>
-#include <string.h>
 #include "cctweaks.h"
 #include "BitTwiddle.hpp"
 #include "MatchWildcard.hpp"
@@ -99,17 +98,6 @@ template <class StrT>
 	return i;
 }
 
-template <class CharT>
-	size_t StrEndsBy(const CharT *haystack, const CharT *needle)
-{
-	const size_t hl = tzlen(haystack);
-	const size_t l = tzlen(needle);
-	if (!l || hl < l)
-		return 0;
-
-	return memcmp(haystack + hl - l, needle, l * sizeof(CharT)) ? 0 : l;
-}
-
 template <class StrT>
 	size_t StrEndsBy(const StrT &haystack, const typename StrT::value_type *needle)
 {
@@ -118,12 +106,6 @@ template <class StrT>
 		return 0;
 
 	return memcmp(haystack.c_str() + haystack.size() - l, needle, l * sizeof(typename StrT::value_type)) ? 0 : l;
-}
-
-template <class StrT>
-	size_t StrEndsBy(const StrT &haystack, const typename StrT::value_type needle)
-{
-	return !haystack.empty() && haystack.back() == needle;
 }
 
 
@@ -164,7 +146,6 @@ size_t ReadAll(int fd, void *data, size_t len);
 ssize_t ReadWritePiece(int fd_src, int fd_dst);
 
 bool ReadWholeFile(const char *path, std::string &result, size_t limit = (size_t)-1);
-bool WriteWholeFile(const char *path, const std::string &content, unsigned int mode = 0600);
 
 int pipe_cloexec(int pipedes[2]);
 

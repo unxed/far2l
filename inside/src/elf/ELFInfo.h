@@ -35,13 +35,13 @@ struct ELFInfo
 };
 
 
-struct ELF_EndiannessBig
+struct ELF_EndianessBig
 {
 	template <class T>
 		static T C(const T &v) { return BIGEND(v); }
 };
 
-struct ELF_EndiannessLittle
+struct ELF_EndianessLittle
 {
 	template <class T>
 		static T C(const T &v) { return LITEND(v); }

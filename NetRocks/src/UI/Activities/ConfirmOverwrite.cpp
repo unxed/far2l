@@ -7,7 +7,7 @@
 /*                             34                          62
 345                        30       39 42                    64
  ====================== Download ============================
-| Destination file already exists:                           |
+| Destination file aready exists:                            |
 | [EDITBOX                                                 ] |
 | Source file information: [99999 Kb]  [DD/MM/YYYY hh:mm.ss] |
 | Destination information: [        ]  [DD/MM/YYYY hh:mm.ss] |

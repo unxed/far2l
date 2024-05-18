@@ -87,7 +87,6 @@ enum VMENU_FLAGS
 	VMENU_CHANGECONSOLETITLE = 0x01000000,			//
 	VMENU_MOUSEREACTION      = 0x02000000,			// реагировать на движение мыши? (перемещать позицию при перемещении курсора мыши?)
 	VMENU_DISABLED = 0x04000000,					//
-	VMENU_IGNORE_SINGLECLICK = 0x08000000,			// по щелчку не ENTER, а только выбор строки (полезно при снятом VMENU_MOUSEREACTION)
 };
 
 class Dialog;
@@ -111,7 +110,7 @@ struct MenuItemEx
 	short AmpPos;	// Позиция автоназначенной подсветки
 	bool FilteredOut;
 
-	DWORD SetCheck(uint32_t Value)
+	DWORD SetCheck(int Value)
 	{
 		if (Value) {
 			Flags|= LIF_CHECKED;
@@ -158,12 +157,6 @@ struct MenuItemEx
 
 	MenuItemEx() { Clear(); }
 
-	MenuItemEx(const MenuItemEx &srcMenu)
-	{
-		Clear();
-		operator=(srcMenu);
-	}
-
 	// UserData не копируется.
 	const MenuItemEx &operator=(const MenuItemEx &srcMenu)
 	{
@@ -189,7 +182,7 @@ struct MenuDataEx
 	DWORD Flags;
 	DWORD AccelKey;
 
-	DWORD SetCheck(uint32_t Value)
+	DWORD SetCheck(int Value)
 	{
 		if (Value) {
 			Flags&= ~0xFFFF;
@@ -293,12 +286,11 @@ private:
 	void UpdateInternalCounters(DWORD OldFlags, DWORD NewFlags);
 	void RestoreFilteredItems();
 	void FilterStringUpdated(bool bLonger);
-	bool IsFilterEditKey(FarKey Key);
-	bool ShouldSendKeyToFilter(FarKey Key);
+	bool IsFilterEditKey(int Key);
+	bool ShouldSendKeyToFilter(int Key);
 	bool AddToFilter(const wchar_t *str);
 	// коректировка текущей позиции и флагов SELECTED
 	void UpdateSelectPos();
-	void EnableFilter(bool Enable);
 
 public:
 	VMenu(const wchar_t *Title, MenuDataEx *Data, int ItemCount, int MaxHeight = 0, DWORD Flags = 0,
@@ -337,10 +329,10 @@ public:
 	void GetColors(struct FarListColors *ColorsOut);
 	void SetOneColor(int Index, short Color);
 
-	virtual int ProcessKey(FarKey Key);
+	virtual int ProcessKey(int Key);
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent);
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0);
-	virtual FarKey ReadInput(INPUT_RECORD *GetReadRec = nullptr);
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0);
+	virtual int ReadInput(INPUT_RECORD *GetReadRec = nullptr);
 
 	void DeleteItems();
 	int DeleteItem(int ID, int Count = 1);
@@ -354,8 +346,8 @@ public:
 	int FindItem(const FarListFind *FindItem);
 	int FindItem(int StartIndex, const wchar_t *Pattern, DWORD Flags = 0);
 
-	int GetItemCount() { return ItemCount; }
-	int GetShowItemCount() { return ItemCount - ItemHiddenCount; }
+	int GetItemCount() { return ItemCount; };
+	int GetShowItemCount() { return ItemCount - ItemHiddenCount; };
 	int GetVisualPos(int Pos);
 	int VisualPosToReal(int VPos);
 
@@ -367,8 +359,8 @@ public:
 	int GetSelectPos(struct FarListPos *ListPos);
 	int SetSelectPos(struct FarListPos *ListPos);
 	int SetSelectPos(int Pos, int Direct);
-	uint32_t GetCheck(int Position = -1);
-	void SetCheck(uint32_t Check, int Position = -1);
+	int GetCheck(int Position = -1);
+	void SetCheck(int Check, int Position = -1);
 
 	bool UpdateRequired();
 
@@ -379,15 +371,15 @@ public:
 	void SortItems(int Direction = 0, int Offset = 0, BOOL SortForDataDWORD = FALSE);
 	BOOL GetVMenuInfo(struct FarListInfo *Info);
 
-	virtual const wchar_t *GetTypeName() { return L"[VMenu]"; }
+	virtual const wchar_t *GetTypeName() { return L"[VMenu]"; };
 	virtual int GetTypeAndName(FARString &strType, FARString &strName);
 
 	virtual int GetType() { return CheckFlags(VMENU_COMBOBOX) ? MODALTYPE_COMBOBOX : MODALTYPE_VMENU; }
 
 	void SetMaxHeight(int NewMaxHeight);
 
-	int GetVDialogItemID() const { return DialogItemID; }
-	void SetVDialogItemID(int NewDialogItemID) { DialogItemID = NewDialogItemID; }
+	int GetVDialogItemID() const { return DialogItemID; };
+	void SetVDialogItemID(int NewDialogItemID) { DialogItemID = NewDialogItemID; };
 
 	static MenuItemEx *FarList2MenuItem(const FarListItem *Item, MenuItemEx *ListItem);
 	static FarListItem *MenuItem2FarList(const MenuItemEx *ListItem, FarListItem *Item);

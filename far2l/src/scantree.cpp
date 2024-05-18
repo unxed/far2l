@@ -54,7 +54,7 @@ void ScanTree::SetFindPath(const wchar_t *Path, const wchar_t *Mask, const DWORD
 	strFindMask = wcscmp(Mask, L"*") ? Mask : L"";
 	ScanDirStack.clear();
 
-	if (strFindPath != WGOOD_SLASH) {
+	if (strFindPath != L"/") {
 		DeleteEndSlash(strFindPath);
 	}
 
@@ -82,7 +82,7 @@ void ScanTree::CheckForEnterSubdir(const FAR_FIND_DATA_EX *fdata)
 		ConvertNameToReal(strFindPath.c_str(), ScanDirStack.back().RealPath);
 
 		// check if converted path points to same location is already scanned or to parent path of already scanned location
-		// NB: in original FAR here was exact-match check all paths (not only symlinks)
+		// NB: in original FAR here was exact-match check all pathes (not only symlinks)
 		// that caused excessive scan from FS root cuz in Linux links pointing to / are usual situation unlike Windows
 		// NB2: There're two recursive protection checks, excessive on first look:
 		// Check by path: if real path is equal OR represents parent of some previously scanned path
@@ -116,8 +116,8 @@ void ScanTree::CheckForEnterSubdir(const FAR_FIND_DATA_EX *fdata)
 
 void ScanTree::StartEnumSubdir()
 {
-	if (!strFindPath.empty() && strFindPath.back() != LGOOD_SLASH)
-		strFindPath+= LGOOD_SLASH;
+	if (!strFindPath.empty() && strFindPath.back() != L'/')
+		strFindPath+= L'/';
 
 	DWORD WinPortFindFlags = 0;
 	if (Flags.Check(FSCANTREE_NOLINKS))
@@ -141,7 +141,7 @@ void ScanTree::LeaveSubdir()
 {
 	if (!ScanDirStack.empty()) {
 		ScanDirStack.pop_back();
-		size_t p = strFindPath.rfind(GOOD_SLASH, strFindPath.size() - 2);
+		size_t p = strFindPath.rfind('/', strFindPath.size() - 2);
 		if (p != std::string::npos) {
 			strFindPath.resize(p + 1);
 		}

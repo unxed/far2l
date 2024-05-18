@@ -62,7 +62,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(PROJECT_DI_MEMOEDIT)
 /*
 	Идея в следующем.
-	1. Строки в реестре хранятся как и раньше, т.к. CommandXXX
+	1. Строки в реестре храняться как и раньше, т.к. CommandXXX
 	2. Для DI_MEMOEDIT мы из только преобразовываем в один массив
 */
 #endif
@@ -546,7 +546,7 @@ int UserMenu::ProcessSingleMenu(const wchar_t *MenuKey, int MenuPos, const wchar
 					MenuNeedRefresh = false;
 				}
 
-				FarKey Key = UserMenu.ReadInput();
+				int Key = UserMenu.ReadInput();
 				MenuPos = UserMenu.GetSelectPos();
 
 				if ((unsigned int)Key >= KEY_F1 && (unsigned int)Key <= KEY_F24) {
@@ -635,8 +635,8 @@ int UserMenu::ProcessSingleMenu(const wchar_t *MenuKey, int MenuPos, const wchar
 						{
 							ConsoleTitle *OldTitle = new ConsoleTitle;
 							FARString strFileName = strMenuFileName;
-							FileEditor ShellEditor(std::make_shared<FileHolder>(strFileName),
-									CP_WIDE_LE, FFILEEDIT_DISABLEHISTORY, -1, -1, nullptr);
+							FileEditor ShellEditor(strFileName, CP_WIDE_LE, FFILEEDIT_DISABLEHISTORY, -1, -1,
+									nullptr);
 							delete OldTitle;
 							ShellEditor.SetDynamicallyBorn(false);
 							FrameManager->ExecuteModalEV();
@@ -646,7 +646,7 @@ int UserMenu::ProcessSingleMenu(const wchar_t *MenuKey, int MenuPos, const wchar
 											nullptr, OPEN_EXISTING))) {
 								apiDeleteFile(strMenuFileName);
 
-								if (Key == KEY_ALTSHIFTF4)	// для текущего пункта меню закрывать не надо
+								if (Key == KEY_ALTSHIFTF4)	// для тукущего пункта меню закрывать ненадо
 									break;
 
 								return 0;
@@ -663,7 +663,7 @@ int UserMenu::ProcessSingleMenu(const wchar_t *MenuKey, int MenuPos, const wchar
 						MenuModified = true;
 						UserMenu.Hide();
 
-						if (Key == KEY_ALTSHIFTF4)	// для текущего пункта меню закрывать не надо
+						if (Key == KEY_ALTSHIFTF4)	// для тукущего пункта меню закрывать ненадо
 							break;
 
 						return 0;	// Закрыть меню
@@ -749,8 +749,6 @@ int UserMenu::ProcessSingleMenu(const wchar_t *MenuKey, int MenuPos, const wchar
 		CtrlObject->CmdLine->GetSelection(OldCmdLineSelStart, OldCmdLineSelEnd);
 		CtrlObject->CmdLine->LockUpdatePanel(TRUE);
 
-		Panel *ActivePanel = CtrlObject->Cp()->ActivePanel;
-
 		// Цикл исполнения команд меню (CommandX)
 		for (;;) {
 			FormatString strLineName;
@@ -805,12 +803,8 @@ int UserMenu::ProcessSingleMenu(const wchar_t *MenuKey, int MenuPos, const wchar
 							}
 
 							// ProcessOSAliases(strCommand);
-							if (CtrlObject->CmdLine->ProcessFarCommands(strCommand))	// far commands always not silent
-								;
-							else if (!isSilent) {
-								if (!ActivePanel->ProcessPluginEvent(FE_COMMAND, (void *)strCommand.CPtr())) {
-									CtrlObject->CmdLine->ExecString(strCommand, FALSE, 0, 0, ListFileUsed);
-								}
+							if (!isSilent) {
+								CtrlObject->CmdLine->ExecString(strCommand, FALSE, 0, 0, ListFileUsed);
 							} else {
 								SaveScreen SaveScr;
 								CtrlObject->Cp()->LeftPanel->CloseFile();

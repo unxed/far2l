@@ -62,28 +62,22 @@ private:
 	*/
 	int SaveToSaveAs;
 	FARString strPluginData;
-	FileHolderPtr UngreppedFH;
-	int64_t UngreppedPos{0};
-
-	void GrepFilter();
-	void GrepFilterDismiss();
 
 public:
-	FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch = FALSE, int DisableHistory = FALSE,
+	FileViewer(const wchar_t *Name, int EnableSwitch = FALSE, int DisableHistory = FALSE,
 			int DisableEdit = FALSE, long ViewStartPos = -1, const wchar_t *PluginData = nullptr,
 			NamesList *ViewNamesList = nullptr, int ToSaveAs = FALSE, UINT aCodePage = CP_AUTODETECT);
-	FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int DisableHistory, const wchar_t *Title, int X1,
+	FileViewer(const wchar_t *Name, int EnableSwitch, int DisableHistory, const wchar_t *Title, int X1,
 			int Y1, int X2, int Y2, UINT aCodePage = CP_AUTODETECT);
-
 	virtual ~FileViewer();
 
 public:
-	void Init(FileHolderPtr NewFileHolder, int EnableSwitch, int DisableHistory, long ViewStartPos,
+	void Init(const wchar_t *Name, int EnableSwitch, int DisableHistory, long ViewStartPos,
 			const wchar_t *PluginData, NamesList *ViewNamesList, int ToSaveAs);
 	virtual void InitKeyBar();
-	virtual int ProcessKey(FarKey Key);
+	virtual int ProcessKey(int Key);
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent);
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0);
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0);
 	virtual void ShowConsoleTitle();
 	virtual void OnDestroy();
 	virtual void OnChangeFocus(int focus);
@@ -97,6 +91,7 @@ public:
 		DisableEdit = !AEnable;
 		InitKeyBar();
 	}
+	void SetFileHolder(std::shared_ptr<IFileHolder> Observer) { View.SetFileHolder(Observer); }
 	void SetPluginData(const wchar_t *PluginData) { strPluginData = PluginData; }
 
 	/* $ Введена для нужд CtrlAltShift OT */
@@ -122,4 +117,4 @@ public:
 };
 
 void ModalViewFile(const std::string &pathname);
-void ViewConsoleHistory(HANDLE con_hnd, bool modal, bool autoclose);
+void ViewConsoleHistory(bool modal, bool autoclose);

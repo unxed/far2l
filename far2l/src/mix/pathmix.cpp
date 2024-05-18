@@ -43,7 +43,7 @@ NTPath::NTPath(LPCWSTR Src)
 {
 	if (Src && *Src) {
 		Str = Src;
-		if (!HasPathPrefix(Src) && *Src != GOOD_SLASH) {
+		if (!HasPathPrefix(Src) && *Src != '/') {
 			ConvertNameToFull(Str, Str);
 		}
 	}
@@ -66,12 +66,12 @@ bool IsNetworkServerPath(const wchar_t *Path)
 
 bool IsLocalPath(const wchar_t *Path)
 {
-	return (Path && Path[0] == LGOOD_SLASH);	// && Path[1] != L'/'
+	return (Path && Path[0] == L'/');	// && Path[1] != L'/'
 }
 
 bool IsLocalRootPath(const wchar_t *Path)
 {
-	return (Path && Path[0] == LGOOD_SLASH && !Path[1]);
+	return (Path && Path[0] == L'/' && !Path[1]);
 }
 
 bool HasPathPrefix(const wchar_t *Path)
@@ -292,11 +292,11 @@ bool DeleteEndSlash(wchar_t *Path, bool AllEndSlash)
 	return Ret;
 }
 
-bool DeleteEndSlash(std::wstring &strPath, bool AllEndSlash)
+BOOL DeleteEndSlash(std::wstring &strPath, bool AllEndSlash)
 {
-	bool out = false;
+	BOOL out = FALSE;
 	while (!strPath.empty() && IsSlash(strPath.back())) {
-		out = true;
+		out = TRUE;
 		strPath.pop_back();
 		if (!AllEndSlash)
 			break;
@@ -304,7 +304,7 @@ bool DeleteEndSlash(std::wstring &strPath, bool AllEndSlash)
 	return out;
 }
 
-bool DeleteEndSlash(FARString &strPath, bool AllEndSlash)
+BOOL DeleteEndSlash(FARString &strPath, bool AllEndSlash)
 {
 	size_t LenToSlash = strPath.GetLength();
 
@@ -315,10 +315,10 @@ bool DeleteEndSlash(FARString &strPath, bool AllEndSlash)
 	}
 
 	if (LenToSlash == strPath.GetLength())
-		return false;
+		return FALSE;
 
 	strPath.Truncate(LenToSlash);
-	return true;
+	return TRUE;
 }
 
 bool CutToSlash(FARString &strStr, bool bInclude)
@@ -441,7 +441,7 @@ FARString ExtractFilePath(const FARString &Path)
 
 bool IsRootPath(const FARString &Path)
 {
-	return Path == WGOOD_SLASH;
+	return Path == L"/";
 }
 
 static std::string LookupExecutableInEnvPath(const char *file)
@@ -461,8 +461,8 @@ static std::string LookupExecutableInEnvPath(const char *file)
 			out.assign(s);
 		}
 
-		if (out.empty() || out[out.size() - 1] != GOOD_SLASH) {
-			out+= GOOD_SLASH;
+		if (out.empty() || out[out.size() - 1] != '/') {
+			out+= '/';
 		}
 		out+= file;
 		struct stat st{};
@@ -517,7 +517,7 @@ static dev_t GetDeviceId(const std::string &path)
 	if (stat(path.c_str(), &st) == 0) {
 		return st.st_dev;
 	}
-	const size_t slash = path.rfind(GOOD_SLASH);
+	const size_t slash = path.rfind('/');
 	if (slash != 0 && slash != std::string::npos) {
 		return GetDeviceId(path.substr(0, slash));
 	}
@@ -539,7 +539,7 @@ FARString EscapeDevicePath(FARString path)
 		}
 	}
 	if (path.GetLength() == 0) {
-		path = WGOOD_SLASH;
+		path = L"/";
 	}
 	return path;
 }

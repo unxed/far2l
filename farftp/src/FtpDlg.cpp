@@ -570,8 +570,7 @@ void FTP::SelectTable()
 {
 	struct FarMenuItem MenuItems[16];
 	memset(MenuItems, 0, sizeof(MenuItems));
-	if (hConnect)
-		MenuItems[hConnect->TableNum].Selected = TRUE;
+	MenuItems[hConnect->TableNum].Selected = TRUE;
 	strcpy(MenuItems[0].Text, "Windows");
 	strcpy(MenuItems[1].Text, "DOS");
 	strcpy(MenuItems[2].Text, FP_GetMsg(MTableAuto));

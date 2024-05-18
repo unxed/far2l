@@ -52,9 +52,8 @@ public:
 	virtual ~VTOutputReader();
 	void Start(int fd_out = -1);
 	void Stop();
-	inline bool IsDeactivated() const { return _deactivated; }
+	void WaitDeactivation();
 	void KickAss();
-
 
 protected:
 	virtual void OnJoin();
@@ -82,7 +81,7 @@ public:
 	};
 
 	VTInputReader(IProcessor *processor);
-	void Start(HANDLE con_hnd);
+	void Start();
 	void Stop();
 	void InjectInput(const char *str, size_t len);
 
@@ -92,7 +91,6 @@ protected:
 private:
 	std::atomic<bool> _stop{false};
 	IProcessor *_processor;
-	HANDLE _con_hnd{NULL};
 	std::list<std::string> _pending_injected_inputs;
 	std::mutex _pending_injected_inputs_mutex;
 

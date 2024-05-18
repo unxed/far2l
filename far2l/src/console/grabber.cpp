@@ -217,7 +217,7 @@ void Grabber::DisplayObject()
 	}
 }
 
-int Grabber::ProcessKey(FarKey key)
+int Grabber::ProcessKey(int key)
 {
 	/*
 		$ 14.03.2001 SVS
@@ -468,8 +468,7 @@ bool Grabber::Run()
 		s_in_grabber = true;
 		try {
 			WaitInMainLoop = FALSE;
-			if (!WinPortTesting())
-				FlushInputBuffer();
+			FlushInputBuffer();
 			Grabber().Process();
 			out = true;
 

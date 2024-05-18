@@ -145,8 +145,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 @CmdLine
 $ # FAR: a FAR parancssori kapcsolói#
-  Actual list see via #far2l -h# or #far2l --help#.
-
   A FAR a következő parancssori kapcsolókkal indítható:
 
   #/a#    ^<wrap>Letiltja a 0-31-ig terjedő és a 255-ös ASCII kódú
@@ -221,11 +219,6 @@ egy későbbi verziójában a szerzők valószínűleg ki fogják javítani.
 a szerzők a pluginek fejlesztői részére tervezték, ezért nem ajánlott normál
 használat közben alkalmazni.
 
-  #/set:<parameter>=<value>#
-  Override the configuration parameter, see ~far:config~@FarConfig@ for details.
-  Example: far2l -set:Language.Main=English -set:Screen.Clock=0 -set:XLat.Flags=0x10001 -set:System.FindFolders=false
-
-
     A parancssorban megadható legfeljebb két olyan elérési út, ami mappára,
 fájlra vagy tömörített fájlra mutat. Az első elérési út az aktív, a második a
 passzív panelre vonatkozik:
@@ -251,8 +244,6 @@ $ #Billentyűparancsok#
  ~Menu control commands~@MenuCmd@
 
  ~Egyebek~@MiscCmd@
-
- ~Special commands~@SpecCmd@
 
 @MenuCmd
 $ #Menu control commands#
@@ -520,7 +511,6 @@ be vannak kapcsolva.
 beszúrása" parancs a fájlok helyi nevét illeszti be, elérési útjukkal és
 ~szimbolikus linkjeikkel~@HardSymLink@ együtt.
 
-    See also ~Special commands~@SpecCmd@.
 
 @FuncCmd
 $ #Panelvezérlő parancsok - rendszerparancsok#
@@ -795,60 +785,6 @@ $ #Panelvezérlő parancsok - egyebek#
     és húzzuk, vagy mozgathatók a #Ctrl-F5# lenyomása után a
     #kurzornyilakkal# is.
 
-@SpecCmd
-$ #Special commands#
- Special FAR pseudo-command usually starting with a prefix and a colon are processed
-in the far2l ~internal command line~@CmdLineCmd@ and
-in ~associated commands~@FileAssoc@, ~user menu~@UserMenu@ and the command ~"Apply command"~@ApplyCmd@.
-
-   #far:about#  - Far information, list and information about plugins.
-
-   #far:config# - ~Configuration editor~@FarConfig@.
-
-   #view:file# or #far:view:file# or #far:view file# - open in viewer existing #file#.
-
-   #edit:file# or #far:edit:file# or #far:edit file# - open in editor #file# (if #file# not exist will be open empty).
-
-   #edit:# or #far:edit:# or #far:edit# - open in editor new empty file.
-
-   #exit#       - reset shell in build-in ~Terminal~@Terminal@.
-
-   #exit far#   - close far2l.
-
- Plugins can define their own command prefixes, see for each available plugin list of Command Prefixes via #far:about#.
-
-@FarConfig
-$ #Configuration editor#
- Starts with the ~pseudo-command~@SpecCmd@ #far:config# in the far2l internal command line.
-
- Allows to view and edit all Far Manager’s options.
-
- Most options can be changed from the ~Options menu~@OptMenu@,
-however some options are available only here or in configuration ini-files.
-
- The options are displayed in a list with four fields per item:
-  #-# The name in the SectionName.ParamName format (for example, Editor.TabSize)
-  #-# The type (boolean, integer, dword, string, binary or unknown)
-  #-# Whether the option is saved when Far configuration is saved (s) or not (-)
-  #-# The value (for integer or dword types the hexadecimal representation additionally displayed).
- If current value of an option is other than the default, the option is marked with the ‘*’ character to the left of the name
-(‘?’ character marked items without default value).
-
- Besides the list navigation keys, the following key combinations are supported:
-
- #Enter# or #F4#       Edit the value.
-
- #Del#               Reset the item to its default value.
-
- #Ctrl-H#            Toggle display of all or only changed items.
-
- #Ctrl-A#            Toggle column name arranging by left or by dot.
-
- #Ctrl-Alt-F#        Toggle quick filtering mode.
-
- #Esc# or #F10#        Close.
-
-    See also: common ~menu~@MenuCmd@ keyboard commands.
 
 @MsWheel
 $ #Egér: görgő támogatása#
@@ -1671,25 +1607,6 @@ operációs rendszerek használják.
 engedélyezhetünk egy-egy szűrőfeltételt, a #Reset# gomb pedig minden
 szűrőfeltételt töröl.
 
-@HistoryCmd
-$ #Common history list commands#
-
-  Clear the commands history                                      #Del#
-
-  Delete the current history item                           #Shift-Del#
-
-  Lock/unlock a history item                                      #Ins#
-   (locked item is not deleted by #Del# or #Shift-Del#)
-
-  Copy the text of the current command to the clipboard        #Ctrl-C#
-  without closing the list                                or #Ctrl-Ins#
-
-  Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
-             * with date lines (as in far3)
-             * plain history (as in far2)
-
-  See also: common ~menu~@MenuCmd@ keyboard commands.
 
 @History
 $ #Parancs előzmények#
@@ -1713,8 +1630,8 @@ $ #Parancs előzmények#
     a lista legördítve marad                            vagy #Ctrl-Ins#
 
   Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
              * with date lines (as in far3)
+             * with date lines + time column
              * plain history (as in far2)
 
   Show additional information                                      #F3#
@@ -1737,7 +1654,6 @@ $ #Parancs előzmények#
   vagy törlése esetén sem.
 
     See also: common ~menu~@MenuCmd@ keyboard commands.
-              common ~history~@HistoryCmd@ keyboard commands.
 
 @HistoryViews
 $ #Előzmények: megnézett és szerkesztett fájlok előzménye#
@@ -1766,8 +1682,8 @@ $ #Előzmények: megnézett és szerkesztett fájlok előzménye#
                                                         vagy #Numpad 5#
 
   Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
              * with date lines (as in far3)
+             * with date lines + time column
              * plain history (as in far2)
 
   Quick jump in panel to directory and file                  #Ctrl-F10#
@@ -1791,7 +1707,6 @@ $ #Előzmények: megnézett és szerkesztett fájlok előzménye#
         módosulása vagy törlése esetén sem.
 
     See also: common ~menu~@MenuCmd@ keyboard commands.
-              common ~history~@HistoryCmd@ keyboard commands.
 
 @HistoryFolders
 $ #Előzmények: mappa előzmények#
@@ -1817,8 +1732,8 @@ $ #Előzmények: mappa előzmények#
   a lista legördítve marad                              vagy #Ctrl-Ins#
 
   Toggle history view:                                         #Ctrl-T#
-             * with date lines + time column
              * with date lines (as in far3)
+             * with date lines + time column
              * plain history (as in far2)
 
   Quick jump in panel to directory (here #Enter# analog)       #Ctrl-F10#
@@ -1842,7 +1757,6 @@ $ #Előzmények: mappa előzmények#
        módosulása vagy törlése esetén sem.
 
    See also: common ~menu~@MenuCmd@ keyboard commands.
-             common ~history~@HistoryCmd@ keyboard commands.
 
 @TaskList
 $ #Futó programok#
@@ -1917,20 +1831,18 @@ a nevét (ami majd a menüben jelenik meg) és a végrehajtandó parancs sorát.
     Almenü szerkesztésénél csak a gyorsbillentyűt és a nevet kell megadni.
 
     A helyi felhasználói menü az adott mappában egy #FarMenu.Ini# nevű fájlba
-mentődik.
-    A FAR a főmenüt a profilkönyvtárba menti az #~~/.config/far2l/settings/user_menu.ini# fájlba
-(a formátum eltér a FarMenu.ini-től).
-Ha helyi menüt készítettünk a FAR mappájában, a FAR ezt
-fogja használni a profil főmenü helyett.
+mentődik. A főmenüt a FAR alaphelyzetben a regisztrációs adatbázisba menti, de
+fájlba is menthető. Ha helyi menüt készítettünk a FAR mappájában, a FAR ezt
+fogja használni a registrybe mentett főmenü helyett.
 
     A #Shift-F10# azonnal bezárja a felhasználói menü ablakát, akár főmenü,
 akár almenü volt megnyitva benne.
 
 
     See also:
-      ~Special commands~@SpecCmd@.
-      The list of ~macro keys~@KeyMacroUserMenuList@, available in the user menu.
-      Common ~menu~@MenuCmd@ keyboard commands.
+ 
+    The list of ~macro keys~@KeyMacroUserMenuList@, available in the user menu.
+    Common ~menu~@MenuCmd@ keyboard commands.
 
 @FileAssoc
 $ #Fájltársítások#
@@ -1957,9 +1869,7 @@ társításokat menüből választhatjuk ki.
 #fájltípusainak használata# opció be van kapcsolva, a FAR megpróbálja a
 Windows társításait alkalmazni.
 
-    See also:
-      ~Special commands~@SpecCmd@.
-      common ~menu~@MenuCmd@ keyboard commands.
+    See also: common ~menu~@MenuCmd@ keyboard commands.
 
 @FileAssocModify
 $ #Fájltársítások: szerkesztés#
@@ -2870,16 +2780,8 @@ párbeszédablakát.
     A #Shift-F1# pluginen lenyomva meghívja a plugin helyzetérzékeny
 súgóját (ha a súgófájl létezik).
 
-    If you don't see mounted flash drive in the Location menu (#Alt-F1/F2#)
-then check #Exceptions list# in Location Menu Options (#F9#).
-E.g., the #/run/*# pattern is included there by default.
-If you have udisks2 configured to mount removable drives under #/run/media/$USER/#
-you need to delete #/run/*# substring from exceptions list.
-After that add more accurate patterns such as #/run/user/*#
-in order to hide garbage mountpoints from the Location menu.
-
     See also:
-      Common ~menu~@MenuCmd@ keyboard commands.
+    Common ~menu~@MenuCmd@ keyboard commands.
 
 @DisconnectDrive
 $ #Hálózati meghajtó leválasztása#
@@ -3644,9 +3546,6 @@ fájlok írják felül a célhelyen létezőket;
     #Csak olvasható fájloknál is kérdez# - ha a célhelyen "csak
 olvasható" attribútumú fájllal találkozik, a
 felülírás előtt újabb megerősítést kér.
-    If the corresponding item in ~Confirmations~@ConfirmDlg@ is unchecked,
-then "Already existing files" are disabled
-and the #Overwrite# action is silently applied.
 
     A ~Rendszer beállítások~@SystemSettings@ menü "Másoláshoz a rendszerrutin
 használata" opciójával a FAR a Windows operációs rendszer CopyFileEx nevű
@@ -3790,9 +3689,6 @@ linkeket. Mivel a szimbolikus link a mappa csomópontok fejlettebb
 változata, ezért az ilyen linkek fájlokra és nem-helyi mappákra is
 mutathatnak, valamint relatív elérési útvonalak is használhatók.
 
-    #Default suggestion# in field #Link type# may be changed in ~System settings~@SystemSettings@ to
-    - Hardlink for files, Symlink for directories
-    - Symlink always
 
 @ErrCopyItSelf
 $ #Hiba: nem másolható vagy mozgatható önmagára#
@@ -3880,7 +3776,6 @@ megegyező nevű RAR tömörített fájlokba mozgatja a kijelölt fájlokat. Az
 "explorer /select,!.!" parancs megnyitja a Windows Intézőt és ráállítja a
 kurzort az aktuális fájlra vagy mappára.
 
-    See also ~Special commands~@SpecCmd@
     Lásd még ~Operációs rendszer parancsok~@OSCommands@.
 
 

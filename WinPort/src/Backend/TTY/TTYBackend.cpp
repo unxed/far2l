@@ -28,7 +28,6 @@
 #include "FarTTY.h"
 #include "../FSClipboardBackend.h"
 
-static uint16_t g_far2l_term_width = 80, g_far2l_term_height = 25;
 static volatile long s_terminal_size_change_id = 0;
 static TTYBackend * g_vtb = nullptr;
 
@@ -80,7 +79,7 @@ static WORD WChar2WinVKeyCode(WCHAR wc)
 }
 
 
-TTYBackend::TTYBackend(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, DWORD nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int *result) :
+TTYBackend::TTYBackend(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, const char *nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int *result) :
 	_full_exe_path(full_exe_path),
 	_stdin(std_in),
 	_stdout(std_out),
@@ -101,8 +100,9 @@ TTYBackend::TTYBackend(const char *full_exe_path, int std_in, int std_out, bool 
 	}
 
 	struct winsize w{};
-	GetWinSize(w);
-	g_winport_con_out->SetSize(w.ws_col, w.ws_row);
+	if (GetWinSize(w)) {
+		g_winport_con_out->SetSize(w.ws_col, w.ws_row);
+	}
 	g_winport_con_out->GetSize(_cur_width, _cur_height);
 	g_vtb = this;
 }
@@ -128,17 +128,18 @@ TTYBackend::~TTYBackend()
 	DetachNotifyPipe();
 }
 
-void TTYBackend::GetWinSize(struct winsize &w)
+bool TTYBackend::GetWinSize(struct winsize &w)
 {
 	int r = ioctl(_stdout, TIOCGWINSZ, &w);
 	if (UNLIKELY(r != 0)) {
 		r = ioctl(_stdin, TIOCGWINSZ, &w);
 		if (UNLIKELY(r != 0)) {
-			perror("TIOCGWINSZ");
-			w.ws_row = g_far2l_term_height;
-			w.ws_col = g_far2l_term_width;
+			perror("GetWinSize");
+			return false;
 		}
 	}
+
+	return true;
 }
 
 void TTYBackend::DetachNotifyPipe()
@@ -207,16 +208,6 @@ void TTYBackend::UpdateBackendIdentification()
 	g_winport_backend = s_backend_identification;
 }
 
-static bool UnderWayland()
-{
-	const char *xdg_st = getenv("XDG_SESSION_TYPE");
-	if (xdg_st && strcasecmp(xdg_st, "wayland") == 0)
-		return true;
-	if (getenv("WAYLAND_DISPLAY"))
-		return true;
-	return false;
-}
-
 void TTYBackend::ReaderThread()
 {
 	bool prev_far2l_tty = false;
@@ -226,15 +217,13 @@ void TTYBackend::ReaderThread()
 
 		if (_far2l_tty) {
 			if (!prev_far2l_tty && !_ext_clipboard) {
-				IFar2lInteractor *interactor = this;
-				_clipboard_backend_setter.Set<TTYFar2lClipboardBackend>(interactor);
+				IFar2lInterractor *interractor = this;
+				_clipboard_backend_setter.Set<TTYFar2lClipboardBackend>(interractor);
 			}
 
 		} else {
-			if ((_nodetect & NODETECT_X)==0) {
-
-				// disable xi on Wayland as it not work there anyway and also causes delays
-				_ttyx = StartTTYX(_full_exe_path, ((_nodetect & NODETECT_XI)==0) && !UnderWayland());
+			if (!strchr(_nodetect, 'x') || strstr(_nodetect, "xi")) {
+				_ttyx = StartTTYX(_full_exe_path, !strstr(_nodetect, "xi"));
 			}
 			if (_ttyx) {
 				if (!_ext_clipboard) {
@@ -251,7 +240,7 @@ void TTYBackend::ReaderThread()
 		{
 			std::unique_lock<std::mutex> lock(_async_mutex);
 			_deadio = false;
-			_ae.term_resized = true;
+			_ae.flags.term_resized = true;
 		}
 
 
@@ -307,11 +296,6 @@ void TTYBackend::ReaderLoop()
 
 		int rs;
 
-		// Enable esc expiration on Wayland as Xi not work there
-		if (!_esc_expiration && UnderWayland()) {
-			_esc_expiration = 100;
-		}
-
 		if (!idle_expired && _esc_expiration > 0 && !_far2l_tty) {
 			struct timeval tv;
 			tv.tv_sec = _esc_expiration / 1000;
@@ -353,7 +337,7 @@ void TTYBackend::ReaderLoop()
 			// iTerm2 cmd+v workaround
 			if (_iterm2_cmd_state || _iterm2_cmd_ts) {
 				std::unique_lock<std::mutex> lock(_async_mutex);
-				_ae.output = true;
+				_ae.flags.output = true;
 				_async_cond.notify_all();
 			}
 		}
@@ -373,7 +357,7 @@ void TTYBackend::ReaderLoop()
 			if (_terminal_size_change_id != terminal_size_change_id) {
 				_terminal_size_change_id = terminal_size_change_id;
 				std::unique_lock<std::mutex> lock(_async_mutex);
-				_ae.term_resized = true;
+				_ae.flags.term_resized = true;
 				_async_cond.notify_all();
 			}
 		}
@@ -388,41 +372,42 @@ void TTYBackend::WriterThread()
 		DispatchPalette(tty_out);
 //		DispatchTermResized(tty_out);
 		while (!_exiting && !_deadio) {
-			AsyncEvent ae{};
+			AsyncEvent ae;
+			ae.all = 0;
 			do {
 				std::unique_lock<std::mutex> lock(_async_mutex);
-				if (!_ae.HasAny()) {
+				if (_ae.all == 0) {
 					_async_cond.wait(lock);
 				}
-				if (_ae.HasAny()) {
-					std::swap(ae, _ae);
-					if (ae.palette) {
+				if (_ae.all != 0) {
+					std::swap(ae.all, _ae.all);
+					if (ae.flags.palette) {
 						_async_cond.notify_all();
 					}
 					break;
 				}
 			} while (!_exiting && !_deadio);
 
-			if (ae.palette) {
+			if (ae.flags.palette) {
 				DispatchPalette(tty_out);
 			}
 
-			if (ae.term_resized) {
+			if (ae.flags.term_resized) {
 				DispatchTermResized(tty_out);
-				ae.output = true;
+				ae.flags.output = true;
 			}
 
-			if (ae.output)
+			if (ae.flags.output)
 				DispatchOutput(tty_out);
 
-			if (ae.title_changed) {
+			if (ae.flags.title_changed) {
 				tty_out.ChangeTitle(StrWide2MB(g_winport_con_out->GetTitle()));
 			}
 
-			if (ae.far2l_interact)
-				DispatchFar2lInteract(tty_out);
+			if (ae.flags.far2l_interract)
+				DispatchFar2lInterract(tty_out);
 
-			if (ae.osc52clip_set) {
+			if (ae.flags.osc52clip_set) {
 				DispatchOSC52ClipSet(tty_out);
 			}
 
@@ -434,7 +419,7 @@ void TTYBackend::WriterThread()
 			tty_out.Flush();
 			tcdrain(_stdout);
 
-			if (ae.go_background) {
+			if (ae.flags.go_background) {
 				gone_background = true;
 				break;
 			}
@@ -476,7 +461,9 @@ void TTYBackend::DispatchPalette(TTYOutput &tty_out)
 void TTYBackend::DispatchTermResized(TTYOutput &tty_out)
 {
 	struct winsize w{};
-	GetWinSize(w);
+	if (!GetWinSize(w)) {
+		return;
+	}
 
 	if (_cur_width != w.ws_col || _cur_height != w.ws_row) {
 		g_winport_con_out->SetSize(w.ws_col, w.ws_row);
@@ -589,38 +576,38 @@ void TTYBackend::DispatchOutput(TTYOutput &tty_out)
 }
 
 
-void TTYBackend::DispatchFar2lInteract(TTYOutput &tty_out)
+void TTYBackend::DispatchFar2lInterract(TTYOutput &tty_out)
 {
-	Far2lInteractV queued;
+	Far2lInterractV queued;
 	{
 		std::unique_lock<std::mutex> lock(_async_mutex);
-		queued.swap(_far2l_interacts_queued);
+		queued.swap(_far2l_interracts_queued);
 	}
 
-	std::unique_lock<std::mutex> lock_sent(_far2l_interacts_sent);
+	std::unique_lock<std::mutex> lock_sent(_far2l_interracts_sent);
 
 	for (auto & i : queued) {
 		uint8_t id = 0;
 		if (i->waited) {
-			if (_far2l_interacts_sent.size() >= 0xff) {
+			if (_far2l_interracts_sent.size() >= 0xff) {
 				fprintf(stderr,
-					"TTYBackend::DispatchFar2lInteract: too many sent interacts - %ld\n",
-					_far2l_interacts_sent.size());
+					"TTYBackend::DispatchFar2lInterract: too many sent interracts - %ld\n",
+					_far2l_interracts_sent.size());
 				i->stk_ser.Clear();
 				i->evnt.Signal();
 				return;
 			}
 			for (;;) {
-				id = ++_far2l_interacts_sent._id_counter;
-				if (id && _far2l_interacts_sent.find(id) == _far2l_interacts_sent.end()) break;
+				id = ++_far2l_interracts_sent._id_counter;
+				if (id && _far2l_interracts_sent.find(id) == _far2l_interracts_sent.end()) break;
 			}
 		}
 		i->stk_ser.PushNum(id);
 
 		if (i->waited)
-			_far2l_interacts_sent.emplace(id, i);
+			_far2l_interracts_sent.emplace(id, i);
 
-		tty_out.SendFar2lInteract(i->stk_ser);
+		tty_out.SendFar2lInterract(i->stk_ser);
 	}
 }
 
@@ -649,7 +636,7 @@ void TTYBackend::KickAss(bool flush_input_queue)
 void TTYBackend::OnConsoleOutputUpdated(const SMALL_RECT *areas, size_t count)
 {
 	std::unique_lock<std::mutex> lock(_async_mutex);
-	_ae.output = true;
+	_ae.flags.output = true;
 	_async_cond.notify_all();
 }
 
@@ -661,7 +648,7 @@ void TTYBackend::OnConsoleOutputResized()
 void TTYBackend::OnConsoleOutputTitleChanged()
 {
 	std::unique_lock<std::mutex> lock(_async_mutex);
-	_ae.title_changed = true;
+	_ae.flags.title_changed = true;
 	_async_cond.notify_all();
 }
 
@@ -679,8 +666,8 @@ COORD TTYBackend::OnConsoleGetLargestWindowSize()
 
 		try {
 			StackSerializer stk_ser;
-			stk_ser.PushNum(FARTTY_INTERACT_GET_WINDOW_MAXSIZE);
-			if (Far2lInteract(stk_ser, true)) {
+			stk_ser.PushNum(FARTTY_INTERRACT_GET_WINDOW_MAXSIZE);
+			if (Far2lInterract(stk_ser, true)) {
 				stk_ser.PopNum(out.Y);
 				stk_ser.PopNum(out.X);
 				_largest_window_size = out;
@@ -708,9 +695,9 @@ bool TTYBackend::OnConsoleSetFKeyTitles(const char **titles)
 			}
 			stk_ser.PushNum(state);
 		}
-		stk_ser.PushNum(FARTTY_INTERACT_SET_FKEY_TITLES);
+		stk_ser.PushNum(FARTTY_INTERRACT_SET_FKEY_TITLES);
 
-		if (Far2lInteract(stk_ser, detect_support)) {
+		if (Far2lInterract(stk_ser, detect_support)) {
 			if (detect_support) {
 				bool supported = false;
 				stk_ser.PopNum(supported);
@@ -738,8 +725,8 @@ BYTE TTYBackend::OnConsoleGetColorPalette()
 
 	if (_far2l_tty) try {
 		StackSerializer stk_ser;
-		stk_ser.PushNum(FARTTY_INTERACT_GET_COLOR_PALETTE);
-		Far2lInteract(stk_ser, true);
+		stk_ser.PushNum(FARTTY_INTERRACT_GET_COLOR_PALETTE);
+		Far2lInterract(stk_ser, true);
 		uint8_t bits, reserved;
 		stk_ser.PopNum(bits);
 		stk_ser.PopNum(reserved);
@@ -768,8 +755,8 @@ void TTYBackend::OnConsoleAdhocQuickEdit()
 {
 	try {
 		StackSerializer stk_ser;
-		stk_ser.PushNum(FARTTY_INTERACT_CONSOLE_ADHOC_QEDIT);
-		Far2lInteract(stk_ser, false);
+		stk_ser.PushNum(FARTTY_INTERRACT_CONSOLE_ADHOC_QEDIT);
+		Far2lInterract(stk_ser, false);
 	} catch (std::exception &) {}
 }
 
@@ -792,9 +779,9 @@ DWORD64 TTYBackend::OnConsoleSetTweaks(DWORD64 tweaks)
 	if (override_default_palette != ((tweaks & CONSOLE_TTY_PALETTE_OVERRIDE) != 0)) {
 		{
 			std::unique_lock<std::mutex> lock(_async_mutex);
-			_ae.palette = true;
+			_ae.flags.palette = true;
 			_async_cond.notify_all();
-			while (_ae.palette) {
+			while (_ae.flags.palette) {
 				_async_cond.wait(lock);
 			}
 		}
@@ -829,9 +816,9 @@ void TTYBackend::OnConsoleOverrideColor(DWORD Index, DWORD *ColorFG, DWORD *Colo
 	}
 
 	std::unique_lock<std::mutex> lock(_async_mutex);
-	_ae.palette = true;
+	_ae.flags.palette = true;
 	_async_cond.notify_all();
-	while (_ae.palette) {
+	while (_ae.flags.palette) {
 		_async_cond.wait(lock);
 	}
 }
@@ -844,17 +831,12 @@ void TTYBackend::OnConsoleSaveWindowState()
 {
 }
 
-void TTYBackend::OnConsoleSetCursorBlinkTime(DWORD interval)
-{
-
-}
-
 void TTYBackend::OnConsoleSetMaximized(bool maximized)
 {
 	try {
 		StackSerializer stk_ser;
-		stk_ser.PushNum(maximized ? FARTTY_INTERACT_WINDOW_MAXIMIZE : FARTTY_INTERACT_WINDOW_RESTORE);
-		Far2lInteract(stk_ser, false);
+		stk_ser.PushNum(maximized ? FARTTY_INTERRACT_WINDOW_MAXIMIZE : FARTTY_INTERRACT_WINDOW_RESTORE);
+		Far2lInterract(stk_ser, false);
 	} catch (std::exception &) {}
 }
 
@@ -865,8 +847,8 @@ void TTYBackend::ChooseSimpleClipboardBackend()
 	}
 
 	if (_osc52clip_set) {
-		IOSC52Interactor *interactor = this;
-		_clipboard_backend_setter.Set<OSC52ClipboardBackend>(interactor);
+		IOSC52Interractor *interractor = this;
+		_clipboard_backend_setter.Set<OSC52ClipboardBackend>(interractor);
 	} else {
 		_clipboard_backend_setter.Set<FSClipboardBackend>();
 	}
@@ -877,23 +859,23 @@ void TTYBackend::OSC52SetClipboard(const char *text)
 	fprintf(stderr, "TTYBackend::OSC52SetClipboard\n");
 	std::unique_lock<std::mutex> lock(_async_mutex);
 	_osc52clip = text;
-	_ae.osc52clip_set = true;
+	_ae.flags.osc52clip_set = true;
 	_async_cond.notify_all();
 }
 
-bool TTYBackend::Far2lInteract(StackSerializer &stk_ser, bool wait)
+bool TTYBackend::Far2lInterract(StackSerializer &stk_ser, bool wait)
 {
 	if (!_far2l_tty || _exiting)
 		return false;
 
-	std::shared_ptr<Far2lInteractData> pfi = std::make_shared<Far2lInteractData>();
+	std::shared_ptr<Far2lInterractData> pfi = std::make_shared<Far2lInterractData>();
 	pfi->stk_ser.Swap(stk_ser);
 	pfi->waited = wait;
 
 	{
 		std::unique_lock<std::mutex> lock(_async_mutex);
-		_far2l_interacts_queued.emplace_back(pfi);
-		_ae.far2l_interact = 1;
+		_far2l_interracts_queued.emplace_back(pfi);
+		_ae.flags.far2l_interract = 1;
 		_async_cond.notify_all();
 	}
 
@@ -902,7 +884,7 @@ bool TTYBackend::Far2lInteract(StackSerializer &stk_ser, bool wait)
 
 	pfi->evnt.Wait();
 
-	std::unique_lock<std::mutex> lock_sent(_far2l_interacts_sent);
+	std::unique_lock<std::mutex> lock_sent(_far2l_interracts_sent);
 	if (_exiting)
 		return false;
 
@@ -926,14 +908,6 @@ bool TTYBackend::OnConsoleIsActive()
 	return false;//true;
 }
 
-void TTYBackend_OnTerminalDamaged(bool flush_input_queue)
-{
-	__sync_add_and_fetch ( &s_terminal_size_change_id, 1);
-	if (g_vtb) {
-		g_vtb->KickAss(flush_input_queue);
-	}
-}
-
 static void OnFar2lKey(bool down, StackSerializer &stk_ser)
 {
 	try {
@@ -951,13 +925,6 @@ static void OnFar2lKey(bool down, StackSerializer &stk_ser)
 	} catch (std::exception &) {
 		fprintf(stderr, "OnFar2lKey: broken args!\n");
 	}
-}
-
-static void OnFar2lTerminalSize(StackSerializer &stk_ser)
-{
-	stk_ser.PopNum(g_far2l_term_height);
-	stk_ser.PopNum(g_far2l_term_width);
-	TTYBackend_OnTerminalDamaged(false);
 }
 
 static void OnFar2lKeyCompact(bool down, StackSerializer &stk_ser)
@@ -1026,7 +993,11 @@ void TTYBackend::OnInspectKeyEvent(KEY_EVENT_RECORD &event)
 	}
 
 	if (!event.wVirtualKeyCode) {
-		event.wVirtualKeyCode = WChar2WinVKeyCode(event.uChar.UnicodeChar);
+		if (event.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED | LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) {
+			event.wVirtualKeyCode = WChar2WinVKeyCode(event.uChar.UnicodeChar);
+		} else {
+			event.wVirtualKeyCode = VK_UNASSIGNED;
+		}
 	}
 	if (!event.uChar.UnicodeChar && IsEnhancedKey(event.wVirtualKeyCode)) {
 		event.dwControlKeyState|= ENHANCED_KEY;
@@ -1055,10 +1026,6 @@ void TTYBackend::OnFar2lEvent(StackSerializer &stk_ser)
 			OnFar2lKeyCompact(code == FARTTY_INPUT_KEYDOWN_COMPACT, stk_ser);
 			break;
 
-		case FARTTY_INPUT_TERMINAL_SIZE:
-			OnFar2lTerminalSize(stk_ser);
-			break;
-
 		default:
 			fprintf(stderr, "Far2lEvent unknown code=0x%x!\n", (unsigned int)(unsigned char)code);
 	}
@@ -1074,12 +1041,12 @@ void TTYBackend::OnFar2lReply(StackSerializer &stk_ser)
 	uint8_t id;
 	stk_ser.PopNum(id);
 
-	std::unique_lock<std::mutex> lock_sent(_far2l_interacts_sent);
+	std::unique_lock<std::mutex> lock_sent(_far2l_interracts_sent);
 
-	auto i = _far2l_interacts_sent.find(id);
-	if (i != _far2l_interacts_sent.end()) {
+	auto i = _far2l_interracts_sent.find(id);
+	if (i != _far2l_interracts_sent.end()) {
 		auto pfi = i->second;
-		_far2l_interacts_sent.erase(i);
+		_far2l_interracts_sent.erase(i);
 		pfi->stk_ser.Swap(stk_ser);
 		pfi->evnt.Signal();
 	}
@@ -1087,12 +1054,12 @@ void TTYBackend::OnFar2lReply(StackSerializer &stk_ser)
 
 void TTYBackend::OnInputBroken()
 {
-	std::unique_lock<std::mutex> lock_sent(_far2l_interacts_sent);
-	for (auto &i : _far2l_interacts_sent) {
+	std::unique_lock<std::mutex> lock_sent(_far2l_interracts_sent);
+	for (auto &i : _far2l_interracts_sent) {
 		i.second->stk_ser.Clear();
 		i.second->evnt.Signal();
 	}
-	_far2l_interacts_sent.clear();
+	_far2l_interracts_sent.clear();
 }
 
 DWORD TTYBackend::QueryControlKeys()
@@ -1161,8 +1128,8 @@ void TTYBackend::OnConsoleDisplayNotification(const wchar_t *title, const wchar_
 		StackSerializer stk_ser;
 		stk_ser.PushStr(Wide2MB(text));
 		stk_ser.PushStr(Wide2MB(title));
-		stk_ser.PushNum(FARTTY_INTERACT_DESKTOP_NOTIFICATION);
-		Far2lInteract(stk_ser, false);
+		stk_ser.PushNum(FARTTY_INTERRACT_DESKTOP_NOTIFICATION);
+		Far2lInterract(stk_ser, false);
 	} catch (std::exception &) {}
 }
 
@@ -1174,13 +1141,21 @@ bool TTYBackend::OnConsoleBackgroundMode(bool TryEnterBackgroundMode)
 
 	if (TryEnterBackgroundMode) {
 		std::unique_lock<std::mutex> lock(_async_mutex);
-		_ae.go_background = true;
+		_ae.flags.go_background = true;
 		_async_cond.notify_all();
 	}
 
 	return true;
 }
 
+
+void TTYBackend_OnTerminalDamaged(bool flush_input_queue)
+{
+	__sync_add_and_fetch ( &s_terminal_size_change_id, 1);
+	if (g_vtb) {
+		g_vtb->KickAss(flush_input_queue);
+	}
+}
 
 static void OnSigWinch(int)
 {
@@ -1198,18 +1173,14 @@ static void OnSigTstp(int signo)
 	if (g_far2l_tty)
 		TTYNegotiateFar2l(g_std_in, g_std_out, false);
 
-	if (tcgetattr(g_std_out, &g_ts_cont) == -1) {
-		perror("OnSigTstp - tcgetattr");
-	}
+	tcgetattr(g_std_out, &g_ts_cont);
 	raise(SIGSTOP);
 }
 
 
 static void OnSigCont(int signo)
 {
-	if (tcsetattr(g_std_out, TCSADRAIN, &g_ts_cont ) == -1) {
-		perror("OnSigCont - tcsetattr");
-	}
+	tcsetattr(g_std_out, TCSADRAIN, &g_ts_cont );
 	if (g_far2l_tty)
 		TTYNegotiateFar2l(g_std_in, g_std_out, true);
 
@@ -1218,7 +1189,7 @@ static void OnSigCont(int signo)
 
 static void OnSigHup(int signo)
 {
-	// drop sudo privileges once pending sudo operation completes
+	// drop sudo priviledges once pending sudo operation completes
 	// leaving them is similar to leaving root console unattended
 	sudo_client_drop();
 
@@ -1238,7 +1209,7 @@ static void OnSigHup(int signo)
 }
 
 
-bool WinPortMainTTY(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, DWORD nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int argc, char **argv, int(*AppMain)(int argc, char **argv), int *result)
+bool WinPortMainTTY(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, const char *nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int argc, char **argv, int(*AppMain)(int argc, char **argv), int *result)
 {
 	TTYBackend vtb(full_exe_path, std_in, std_out, ext_clipboard, norgb, nodetect, far2l_tty, esc_expiration, notify_pipe, result);
 
@@ -1265,3 +1236,8 @@ bool WinPortMainTTY(const char *full_exe_path, int std_in, int std_out, bool ext
 
 	return true;
 }
+
+void TTYBackend::OnWinPortViewImg(const char *path)
+{
+}
+

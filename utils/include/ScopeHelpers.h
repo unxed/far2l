@@ -44,14 +44,7 @@ public:
 class UnlinkScope
 {
 	std::string _path;
-
 public:
-	UnlinkScope();
-	UnlinkScope(const std::string &path);
-	UnlinkScope &operator = (const std::string &path);
-
-	inline operator const std::string &() const { return _path; }
-	inline const char *c_str() const { return _path.c_str(); }
-
+	UnlinkScope(const std::string &path) : _path(path) {}
 	~UnlinkScope();
 };

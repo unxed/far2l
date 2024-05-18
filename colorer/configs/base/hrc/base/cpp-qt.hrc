@@ -105,6 +105,7 @@
 		<word name="Q_DECLARE_INTERFACE"/> <!-- todo: iface string -->
 		<word name="Q_EXPORT_PLUGIN2"/>
 		<word name="Q_IMPORT_PLUGIN"/>
+		<word name=""/>
 	</keywords>
 </scheme>
 

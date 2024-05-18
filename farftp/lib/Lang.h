@@ -176,7 +176,7 @@ enum
 
 	MWaiting,					//"Waiting for data "
 	MSeconds,					//" sec"
-	MScanning,					//"Scanning folder..."
+	MScaning,					//"Scanning folder..."
 	MAutoRetryText,				//"(R)etry in"
 	MRetryText,					//"{Enter - retry; ESC - cancel}"
 
@@ -233,7 +233,7 @@ enum
 	MWSANO_DATA,				//"WSANO_DATA: Valid name, no data record of requ"
 	MWSANO_ADDRESS,				//"WSANO_ADDRESS: No address, look for MX record"
 
-	MWSAENoError,				//"Operation succeeded"
+	MWSAENoError,				//"Operation successed"
 	MWSAEUnknown,				//"Unknown socket error"
 	MWSANotInit,				//"Windows socket error"
 	MKeepAliveExec,				//"Keepalive..."
@@ -382,7 +382,7 @@ enum
 	MQNotFoundSource,			//"Can not find source file [%s]: %s"
 	MQCanNotChangeRemote,		//"Can not change FTP dir: %s"
 	MQCanNotFindRemote,			//"Can not find source file [%s]: %s"
-	MQErrDownload,				//"Can not download file: %s"
+	MQErrDowload,				//"Can not download file: %s"
 	MQErrUpload,				//"Can not upload file: %s"
 	MQItemCancelled,			//"Url item cancelled. Do you want to connect to host?"
 

@@ -37,7 +37,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "poscache.hpp"
 #include "udlist.hpp"
 #include "config.hpp"
-#include "ConfigOptSaveLoad.hpp"
+#include "ConfigSaveLoad.hpp"
 
 FilePositionCache::FilePositionCache(FilePositionCacheKind kind)
 	:
@@ -51,7 +51,7 @@ FilePositionCache::~FilePositionCache()
 
 void FilePositionCache::ApplyElementsLimit()
 {
-	ConfigOptAssertLoaded();
+	AssertConfigLoaded();
 	int MaxPositionCache = Opt.MaxPositionCache;
 
 	if ((int)_kfh->SectionsCount() > MaxPositionCache + MaxPositionCache / 4 + 16) {

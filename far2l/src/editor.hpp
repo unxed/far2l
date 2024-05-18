@@ -91,18 +91,6 @@ struct EditorUndoData
 			delete[] Str;
 		}
 	}
-	EditorUndoData(const EditorUndoData& src) : EditorUndoData()
-	{
-		operator=(src);
-	}
-	EditorUndoData& operator=(const EditorUndoData &src)
-	{
-		if (this != &src)
-		{
-			SetData(src.Type, src.Str, src.EOL, src.StrNum, src.StrPos, src.Length);
-		}
-		return *this;
-	}
 	void SetData(int Type, const wchar_t *Str, const wchar_t *Eol, int StrNum, int StrPos, int Length = -1)
 	{
 		if (Length == -1 && Str)
@@ -327,9 +315,9 @@ public:
 	int SetRawData(const wchar_t *SrcBuf, int SizeSrcBuf, int TextFormat);		// преобразование из буфера в список
 	int GetRawData(wchar_t **DestBuf, int &SizeDestBuf, int TextFormat = 0);	// преобразование из списка в буфер
 
-	virtual int ProcessKey(FarKey Key);
+	virtual int ProcessKey(int Key);
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent);
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0);
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0);
 
 	void KeepInitParameters();
 	void SetStartPos(int LineNum, int CharNum);

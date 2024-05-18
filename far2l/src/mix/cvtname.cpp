@@ -63,7 +63,7 @@ void MixToFullPath(FARString &strPath)
 					// fragment ".\"
 				// case L'\\':
 				// fragment "./"
-				case LGOOD_SLASH: {
+				case L'/': {
 					for (pstSrc = pstPath + m + 2, pstDst = pstPath + m; *pstSrc; pstSrc++, pstDst++) {
 						*pstDst = *pstSrc;
 					}
@@ -317,7 +317,7 @@ FARString &PrepareDiskPath(FARString &strPath, bool CheckFullPath)
 {
 	// elevation not required during cosmetic operation
 	if (!strPath.IsEmpty()) {
-		if (CheckFullPath && strPath[0] != LGOOD_SLASH) {
+		if (CheckFullPath && strPath[0] != L'/') {
 			ConvertNameToFull(strPath, strPath);
 		}
 	}

@@ -13,7 +13,7 @@ static bool ShouldImportRegSettings(const std::string &virtual_path)
 		&& virtual_path != "PluginHotkeys"
 		&& virtual_path != "PluginsCache"
 
-		// skip abandoned poscache entries
+		// skip abandoned poscache entires
 		&& virtual_path != "Viewer/LastPositions"
 		&& virtual_path != "Editor/LastPositions"
 

@@ -90,9 +90,9 @@ public:
 		std::vector<char> _tmpcvec;
 	};
 
-	FileEditor(FileHolderPtr NewFileHolder, UINT codepage, DWORD InitFlags, int StartLine = -1, int StartChar = -1,
+	FileEditor(const wchar_t *Name, UINT codepage, DWORD InitFlags, int StartLine = -1, int StartChar = -1,
 			const wchar_t *PluginData = nullptr, int OpenModeExstFile = FEOPMODE_QUERY);
-	FileEditor(FileHolderPtr NewFileHolder, UINT codepage, DWORD InitFlags, int StartLine, int StartChar,
+	FileEditor(const wchar_t *Name, UINT codepage, DWORD InitFlags, int StartLine, int StartChar,
 			const wchar_t *Title, int X1, int Y1, int X2, int Y2, int OpenModeExstFile = FEOPMODE_QUERY);
 	virtual ~FileEditor();
 
@@ -105,6 +105,8 @@ public:
 		Flags.Change(FFILEEDIT_ENABLEF6, AEnableF6);
 		InitKeyBar();
 	}
+	void SetFileHolder(std::shared_ptr<IFileHolder> Observer) { FileHolder = Observer; }
+
 	// Добавлено для поиска по AltF7. При редактировании найденного файла из
 	// архива для клавиши F2 сделать вызов ShiftF2.
 	void SetSaveToSaveAs(int ToSaveAs)
@@ -112,15 +114,15 @@ public:
 		Flags.Change(FFILEEDIT_SAVETOSAVEAS, ToSaveAs);
 		InitKeyBar();
 	}
-	virtual BOOL IsFileModified() const { return m_editor->IsFileModified(); }
+	virtual BOOL IsFileModified() const { return m_editor->IsFileModified(); };
 	virtual int GetTypeAndName(FARString &strType, FARString &strName);
 	int EditorControl(int Command, void *Param);
 	void SetCodePage(UINT codepage);	// BUGBUG
-	BOOL IsFileChanged() const { return m_editor->IsFileChanged(); }
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0);
+	BOOL IsFileChanged() const { return m_editor->IsFileChanged(); };
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0);
 	void GetEditorOptions(EditorOptions &EdOpt);
 	void SetEditorOptions(EditorOptions &EdOpt);
-	void CodepageChangedByUser() { Flags.Set(FFILEEDIT_CODEPAGECHANGEDBYUSER); }
+	void CodepageChangedByUser() { Flags.Set(FFILEEDIT_CODEPAGECHANGEDBYUSER); };
 	virtual void Show();
 	void SetPluginTitle(const wchar_t *PluginTitle);
 	static const FileEditor *CurrentEditor;
@@ -129,6 +131,7 @@ private:
 	Editor *m_editor;
 	KeyBar EditKeyBar;
 	NamesList *EditNamesList;
+	bool F4KeyOnly;
 	FARString strFileName;
 	FARString strFullFileName;
 	FARString strStartDir;
@@ -137,34 +140,33 @@ private:
 	FARString strPluginData;
 	FARString strLoadedFileName;
 	FAR_FIND_DATA_EX FileInfo;
-	FARString AttrStr;		// 13.02.2001 IS - Сюда запомним буквы атрибутов, чтобы не вычислять их много раз
+	wchar_t AttrStr[4];		// 13.02.2001 IS - Сюда запомним буквы атрибутов, чтобы не вычислять их много раз
 	IUnmakeWritablePtr FileUnmakeWritable;
-	DWORD SysErrorCode{false};
-	bool m_bClosing{false};	// 28.04.2005 AY: true когда редактор закрывается (т.е. в деструкторе)
-	bool bEE_READ_Sent{false};
-	FemaleBool m_AddSignature{FB_NO};
-	bool F4KeyOnly{false};
-	bool BadConversion{false};
-	UINT m_codepage{0};	// BUGBUG
-	int SaveAsTextFormat{0};
-	FileHolderPtr FHP;
+	DWORD SysErrorCode;
+	bool m_bClosing;	// 28.04.2005 AY: true когда редактор закрываеться (т.е. в деструкторе)
+	bool bEE_READ_Sent;
+	FemaleBool m_AddSignature;
+	bool BadConversion;
+	UINT m_codepage;	// BUGBUG
+	int SaveAsTextFormat;
+	std::shared_ptr<IFileHolder> FileHolder;
 	std::unique_ptr<EditorConfigOrg> EdCfg;
 
 	virtual void DisplayObject();
 	int ProcessQuitKey(int FirstSave, BOOL NeedQuestion = TRUE);
 	BOOL UpdateFileList();
 	bool DecideAboutSignature();
-	int ReProcessKey(FarKey Key, int CalledFromControl = TRUE);
+	int ReProcessKey(int Key, int CalledFromControl = TRUE);
 	bool AskOverwrite(const FARString &FileName);
-	void Init(FileHolderPtr NewFileHolder, UINT codepage, const wchar_t *Title, DWORD InitFlags, int StartLine,
+	void Init(const wchar_t *Name, UINT codepage, const wchar_t *Title, DWORD InitFlags, int StartLine,
 			int StartChar, const wchar_t *PluginData, int OpenModeExstFile);
 	virtual void InitKeyBar();
-	virtual int ProcessKey(FarKey Key);
+	virtual int ProcessKey(int Key);
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent);
 	virtual void ShowConsoleTitle();
 	virtual void OnChangeFocus(int focus);
 	virtual void SetScreenPosition();
-	virtual const wchar_t *GetTypeName() { return L"[FileEdit]"; }
+	virtual const wchar_t *GetTypeName() { return L"[FileEdit]"; };
 	virtual int GetType() { return MODALTYPE_EDITOR; }
 	virtual void OnDestroy();
 	virtual int GetCanLoseFocus(int DynamicMode = FALSE);
@@ -174,8 +176,8 @@ private:
 	BOOL isTemporary();
 	virtual void ResizeConsole();
 	int LoadFile(const wchar_t *Name, int &UserBreak);
-	bool ReloadFile(const wchar_t *Name);
 	// TextFormat, Codepage и AddSignature используются ТОЛЬКО, если bSaveAs = true!
+
 	void SaveContent(const wchar_t *Name, BaseContentWriter *Writer, bool bSaveAs, int TextFormat,
 			UINT codepage, bool AddSignature, int Phase);
 	int SaveFile(const wchar_t *Name, int Ask, bool bSaveAs, int TextFormat = 0, UINT Codepage = CP_UTF8,
@@ -196,4 +198,4 @@ private:
 };
 
 bool dlgOpenEditor(FARString &strFileName, UINT &codepage);
-void EditConsoleHistory(HANDLE con_hnd, bool modal);
+void EditConsoleHistory(bool modal);

@@ -283,7 +283,6 @@ struct CommandLineOptions
 	int EditBlock;
 	int DelRemovesBlocks;
 	int AutoComplete;
-	int Splitter;
 	int UsePromptFormat;
 	int UseShell;
 	int WaitKeypress;
@@ -312,7 +311,7 @@ struct LoadPluginsOptions
 {
 	//  DWORD TypeLoadPlugins;       // see TYPELOADPLUGINSOPTIONS
 	int MainPluginDir;		// TRUE - использовать стандартный путь к основным плагинам
-	int PluginsCacheOnly;	// setting by '/co' switch, not saved in registry
+	int PluginsCacheOnly;	// seting by '/co' switch, not saved in registry
 	int PluginsPersonal;
 
 	FARString strCustomPluginsPath;		// путь для поиска плагинов, указанный в /p
@@ -397,7 +396,6 @@ struct Options
 	int InactivityExitTime;
 	int ShowHidden;
 	int Highlight;
-	int CursorBlinkTime;
 
 	FARString strLeftFolder;
 	FARString strRightFolder;
@@ -418,8 +416,6 @@ struct Options
 	int SudoPasswordExpiration;
 
 	CopyMoveOptions CMOpt;
-
-	int MakeLinkSuggestSymlinkAlways;	// по Alt-F6 предлагать всегда symlink или hardink/symlink в зависимости от того среди выбранных только файлы или и каталоги
 
 	DeleteOptions DelOpt;
 
@@ -451,7 +447,7 @@ struct Options
 	int AutoSaveSetup;
 	int SetupArgv;	// количество каталогов в ком.строке ФАРа
 	int ChangeDriveMode;
-	int ChangeDriveDisconnectMode;
+	int ChangeDriveDisconnetMode;
 	FARString ChangeDriveExceptions;
 	FARString ChangeDriveColumn2, ChangeDriveColumn3;
 
@@ -461,7 +457,6 @@ struct Options
 	int SavePluginFoldersHistory;
 	int FoldersHistoryCount;
 	int DialogsHistoryCount;
-	int AutoHighlightHistory;
 
 	BYTE HistoryShowTimes[8];
 
@@ -617,14 +612,7 @@ struct Options
 	bool IsUserAdmin;
 	FARString strWindowTitle;
 
-	int DateFormat;
-	FARString strDateSeparator;
-	FARString strTimeSeparator;
-	FARString strDecimalSeparator;
-
 	bool IsFirstStart;
-
-	std::vector<std::wstring> CmdLineStrings;
 };
 
 extern Options Opt;

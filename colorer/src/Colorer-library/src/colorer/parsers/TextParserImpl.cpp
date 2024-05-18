@@ -1,50 +1,66 @@
-#include "colorer/parsers/TextParserImpl.h"
+#include <colorer/parsers/TextParserImpl.h>
+#include <colorer/unicode/Character.h>
+#include <colorer/unicode/DString.h>
 
-TextParser::Impl::Impl()
+TextParserImpl::TextParserImpl()
 {
   CTRACE(logger->trace("[TextParserImpl] constructor"));
-  initCache();
+  cache = new ParseCache();
+  clearCache();
+  lineSource = nullptr;
+  regionHandler = nullptr;
+  picked = nullptr;
+  baseScheme = nullptr;
+  memset(&matchend, 0, sizeof(SMatches));
+  maxBlockSize = 1000;
 }
 
-TextParser::Impl::~Impl()
+TextParserImpl::~TextParserImpl()
 {
+  clearCache();
   delete cache;
 }
 
-void TextParser::Impl::setFileType(FileType* type)
+void TextParserImpl::setFileType(FileType* type)
 {
   baseScheme = nullptr;
   if (type != nullptr) {
-    baseScheme = (SchemeImpl*) (type->getBaseScheme());
+    baseScheme = (SchemeImpl*)(type->getBaseScheme());
   }
-  initCache();
+  clearCache();
 }
 
-void TextParser::Impl::setLineSource(LineSource* lh)
+void TextParserImpl::setLineSource(LineSource* lh)
 {
   lineSource = lh;
 }
 
-void TextParser::Impl::setRegionHandler(RegionHandler* rh)
+void TextParserImpl::setRegionHandler(RegionHandler* rh)
 {
   regionHandler = rh;
 }
 
-int TextParser::Impl::parse(int from, int num, TextParseMode mode)
+int TextParserImpl::parse(int from, int num, TextParseMode mode)
 {
   gx = 0;
-  current_parse_line = from;
-  end_line4parse = from + num;
+  gy = from;
+  gy2 = from + num;
   clearLine = -1;
 
   invisibleSchemesFilled = false;
   schemeStart = -1;
   breakParsing = false;
-  updateCache = (mode == TextParseMode::TPM_CACHE_UPDATE);
+  updateCache = (mode == TPM_CACHE_UPDATE);
 
   CTRACE(logger->trace("[TextParserImpl] parse from={0}, num={1}", from, num));
   /* Check for initial bad conditions */
-  if (!regionHandler || !lineSource || !baseScheme) {
+  if (regionHandler == nullptr) {
+    return from;
+  }
+  if (lineSource == nullptr) {
+    return from;
+  }
+  if (baseScheme == nullptr) {
     return from;
   }
 
@@ -58,14 +74,17 @@ int TextParser::Impl::parse(int from, int num, TextParseMode mode)
   forward = nullptr;
   cache->scheme = baseScheme;
 
-  if (mode == TextParseMode::TPM_CACHE_READ || mode == TextParseMode::TPM_CACHE_UPDATE) {
+  if (mode == TPM_CACHE_READ || mode == TPM_CACHE_UPDATE) {
     parent = cache->searchLine(from, &forward);
     if (parent != nullptr) {
-      CTRACE(logger->trace("[TPCache] searchLine() parent:{0},{1}-{2}", *parent->scheme->getName(),
-                           parent->sline, parent->eline));
+      CTRACE(logger->trace("[TPCache] searchLine() parent:{0},{1}-{2}", parent->scheme->getName()->getChars(), parent->sline, parent->eline));
     }
   }
+  cachedLineNo = from;
+  cachedParent = parent;
+  cachedForward = forward;
   CTRACE(logger->trace("[TextParserImpl] parse: cache filled"));
+
 
   do {
     if (!forward) {
@@ -76,8 +95,7 @@ int TextParser::Impl::parse(int from, int num, TextParseMode mode)
         delete parent->children;
         parent->children = nullptr;
       }
-    }
-    else {
+    } else {
       if (updateCache) {
         delete forward->next;
         forward->next = nullptr;
@@ -92,18 +110,17 @@ int TextParser::Impl::parse(int from, int num, TextParseMode mode)
       parent->clender->end->setBackTrace(parent->backLine, &parent->matchstart);
       colorize(parent->clender->end.get(), parent->clender->lowContentPriority);
       vtlist->clear();
-    }
-    else {
+    } else {
       colorize(nullptr, false);
     }
 
     if (updateCache) {
       if (parent != cache) {
-        parent->eline = current_parse_line;
+        parent->eline = gy;
       }
     }
-    if (parent != cache && current_parse_line < end_line4parse) {
-      leaveScheme(current_parse_line, &matchend, parent->clender);
+    if (parent != cache && gy < gy2) {
+      leaveScheme(gy, &matchend, parent->clender);
     }
     gx = matchend.e[0];
 
@@ -116,97 +133,114 @@ int TextParser::Impl::parse(int from, int num, TextParseMode mode)
   return endLine;
 }
 
-void TextParser::Impl::initCache()
+void TextParserImpl::clearCache()
 {
-  delete cache;
-  cache = new ParseCache();
+  ParseCache* tmp, *tmp2;
+  tmp = cache->next;
+  while (tmp) {
+    tmp2 = tmp->next;
+    delete tmp;
+    tmp = tmp2;
+  }
+  delete cache->children;
+  delete cache->backLine;
+  cache->backLine = nullptr;
+  cache->sline = 0;
   cache->eline = 0x7FFFFFF;
+  cache->children = cache->parent = cache->next = nullptr;
 }
 
-void TextParser::Impl::breakParse()
+void TextParserImpl::breakParse()
 {
   breakParsing = true;
 }
 
-void TextParser::Impl::addRegion(int lno, int sx, int ex, const Region* region)
+void TextParserImpl::addRegion(int lno, int sx, int ex, const Region* region)
 {
   if (sx == -1 || region == nullptr) {
     return;
   }
   regionHandler->addRegion(lno, str, sx, ex, region);
 }
-
-void TextParser::Impl::enterScheme(int lno, int sx, int ex, const Region* region)
+void TextParserImpl::enterScheme(int lno, int sx, int ex, const Region* region)
 {
   regionHandler->enterScheme(lno, str, sx, ex, region, baseScheme);
 }
-
-void TextParser::Impl::leaveScheme(int lno, int sx, int ex, const Region* region)
+void TextParserImpl::leaveScheme(int lno, int sx, int ex, const Region* region)
 {
   regionHandler->leaveScheme(lno, str, sx, ex, region, baseScheme);
+  if (region != nullptr) {
+    picked = region;
+  }
 }
 
-void TextParser::Impl::enterScheme(int lno, const SMatches* match,
-                                   const SchemeNodeBlock* schemeNode)
+
+void TextParserImpl::enterScheme(int lno, SMatches* match, const SchemeNode* schemeNode)
 {
-  if (!schemeNode->innerRegion) {
+  int i;
+
+  if (schemeNode->innerRegion == false) {
     enterScheme(lno, match->s[0], match->e[0], schemeNode->region);
   }
 
-  for (int i = 0; i < match->cMatch; i++) {
+  for (i = 0; i < match->cMatch; i++) {
     addRegion(lno, match->s[i], match->e[i], schemeNode->regions[i]);
   }
-  for (int i = 0; i < match->cnMatch; i++) {
+  for (i = 0; i < match->cnMatch; i++) {
     addRegion(lno, match->ns[i], match->ne[i], schemeNode->regionsn[i]);
   }
 
-  if (schemeNode->innerRegion) {
+  if (schemeNode->innerRegion == true) {
     enterScheme(lno, match->e[0], match->e[0], schemeNode->region);
   }
 }
 
-void TextParser::Impl::leaveScheme(int /*lno*/, const SMatches* match,
-                                   const SchemeNodeBlock* schemeNode)
+void TextParserImpl::leaveScheme(int lno, SMatches* match, const SchemeNode* schemeNode)
 {
-  if (schemeNode->innerRegion) {
-    leaveScheme(current_parse_line, match->s[0], match->s[0], schemeNode->region);
+  int i;
+
+  if (schemeNode->innerRegion == true) {
+    leaveScheme(gy, match->s[0], match->s[0], schemeNode->region);
   }
 
-  for (int i = 0; i < match->cMatch; i++) {
-    addRegion(current_parse_line, match->s[i], match->e[i], schemeNode->regione[i]);
+  for (i = 0; i < match->cMatch; i++) {
+    addRegion(gy, match->s[i], match->e[i], schemeNode->regione[i]);
   }
-  for (int i = 0; i < match->cnMatch; i++) {
-    addRegion(current_parse_line, match->ns[i], match->ne[i], schemeNode->regionen[i]);
+  for (i = 0; i < match->cnMatch; i++) {
+    addRegion(gy, match->ns[i], match->ne[i], schemeNode->regionen[i]);
   }
 
-  if (!schemeNode->innerRegion) {
-    leaveScheme(current_parse_line, match->s[0], match->e[0], schemeNode->region);
+  if (schemeNode->innerRegion == false) {
+    leaveScheme(gy, match->s[0], match->e[0], schemeNode->region);
   }
 }
 
-void TextParser::Impl::fillInvisibleSchemes(ParseCache* ch)
+void TextParserImpl::fillInvisibleSchemes(ParseCache* ch)
 {
   if (!ch->parent || ch == cache) {
     return;
   }
   /* Fills output stream with valid "pseudo" enterScheme */
   fillInvisibleSchemes(ch->parent);
-  enterScheme(current_parse_line, 0, 0, ch->clender->region);
+  enterScheme(gy, 0, 0, ch->clender->region);
+  return;
 }
 
-int TextParser::Impl::searchKW(const SchemeNodeKeywords* node, int /*no*/, int lowlen,
-                               int /*hilen*/)
+int TextParserImpl::searchKW(const SchemeNode* node, int no, int lowlen, int hilen)
 {
-  if (node->kwList->count == 0 || node->kwList->minKeywordLength + gx > lowlen) {
+  if (!node->kwList->num) {
     return MATCH_NOTHING;
   }
 
-  if (gx < lowlen && !node->kwList->firstChar->contains((*str)[gx])) {
+  if (node->kwList->minKeywordLength + gx > lowlen) {
+    return MATCH_NOTHING;
+  }
+  if (gx < lowlen && !node->kwList->firstChar->inClass((*str)[gx])) {
     return MATCH_NOTHING;
   }
 
   int left = 0;
-  int right = node->kwList->count;
+  int right = node->kwList->num;
   while (true) {
     int pos = left + (right - left) / 2;
     int kwlen = node->kwList->kwList[pos].keyword->length();
@@ -214,296 +248,234 @@ int TextParser::Impl::searchKW(const SchemeNodeKeywords* node, int /*no*/, int l
       kwlen = lowlen - gx;
     }
 
-    int8_t compare_result;
+    int cr;
     if (node->kwList->matchCase) {
-      compare_result = node->kwList->kwList[pos].keyword->compare(UnicodeString(*str, gx, kwlen));
-    }
-    else {
-      compare_result =
-          UStr::caseCompare(*node->kwList->kwList[pos].keyword, UnicodeString(*str, gx, kwlen));
+      cr = node->kwList->kwList[pos].keyword->compareTo(DString(*str, gx, kwlen));
+    } else {
+      cr = node->kwList->kwList[pos].keyword->compareToIgnoreCase(DString(*str, gx, kwlen));
     }
 
-    if (compare_result == 0 && right - left == 1) {
+    if (cr == 0 && right - left == 1) {
       bool badbound = false;
       if (!node->kwList->kwList[pos].isSymbol) {
         if (!node->worddiv) {
-          // default word bound
-          if ((gx > 0 && (Character::isLetterOrDigit((*str)[gx - 1]) || (*str)[gx - 1] == L'_')) ||
-              (gx + kwlen < lowlen &&
-               (Character::isLetterOrDigit((*str)[gx + kwlen]) || (*str)[gx + kwlen] == L'_')))
-          {
+          if (gx && (Character::isLetterOrDigit((*str)[gx - 1]) || (*str)[gx - 1] == '_')) {
             badbound = true;
           }
-        }
-        else {
+          if (gx + kwlen < lowlen &&
+              (Character::isLetterOrDigit((*str)[gx + kwlen]) || (*str)[gx + kwlen] == '_')) {
+            badbound = true;
+          }
+        } else {
           // custom check for word bound
-          if ((gx > 0 && !node->worddiv->contains((*str)[gx - 1])) ||
-              (gx + kwlen < lowlen && !node->worddiv->contains((*str)[gx + kwlen])))
-          {
+          if (gx && !node->worddiv->inClass((*str)[gx - 1])) {
+            badbound = true;
+          }
+          if (gx + kwlen < lowlen &&
+              !node->worddiv->inClass((*str)[gx + kwlen])) {
             badbound = true;
           }
         }
       }
       if (!badbound) {
-        CTRACE(logger->trace("[TextParserImpl] KW matched. gx={0}, region={1}", gx,
-                             *node->kwList->kwList[pos].region->getName()));
-        addRegion(current_parse_line, gx, gx + kwlen, node->kwList->kwList[pos].region);
+        CTRACE(logger->trace("[TextParserImpl] KW matched. gx={0}, region={1}", gx, node->kwList->kwList[pos].region->getName()->getChars()));
+        addRegion(gy, gx, gx + kwlen, node->kwList->kwList[pos].region);
         gx += kwlen;
         return MATCH_RE;
       }
     }
     if (right - left == 1) {
-      left = node->kwList->kwList[pos].indexOfShorter;
+      left = node->kwList->kwList[pos].ssShorter;
       if (left != -1) {
         right = left + 1;
         continue;
       }
       break;
     }
-    if (compare_result == 1) {
+    if (cr == 1) {
       right = pos;
     }
-    else {  // if (compare_result == 0 || compare_result == -1)
+    if (cr == 0 || cr == -1) {
       left = pos;
     }
   }
   return MATCH_NOTHING;
 }
 
-int TextParser::Impl::searchIN(SchemeNodeInherit* node, int no, int lowLen, int hiLen)
+int TextParserImpl::searchRE(SchemeImpl* cscheme, int no, int lowLen, int hiLen)
 {
-  // Если для inherit схемы не задана реализация, то ничего не делаем.
-  // Не задана т.к. HrcLibrary::Imp::updateLinks не нашла
-  if (!node->scheme) {
-    return MATCH_NOTHING;
-  }
-
-  int re_result = MATCH_NOTHING;
-  // ищем для текущей схемы возможную замену через virtual предыдущих inherit
-  SchemeImpl* ssubst = vtlist->pushvirt(node->scheme);
-  if (!ssubst) {
-    // не нашли замену
-    // помещаем текущий inherit в список для будущих замен. True - если поместили, не было
-    // ограничений
-    bool b = vtlist->push(node);
-    // парсим текст по имплементации текущего inherit
-    re_result = searchMatch(node->scheme, no, lowLen, hiLen);
-    if (b) {
-      // достаем inherit из списка, больше он не нужен
-      vtlist->pop();
-    }
-  }
-  else {
-    // нашли замену, по ней далее парсим текст
-    re_result = searchMatch(ssubst, no, lowLen, hiLen);
-    vtlist->popvirt();
-  }
-  return re_result;
-}
-
-int TextParser::Impl::searchRE(SchemeNodeRegexp* node, int /*no*/, int lowLen, int hiLen)
-{
-  SMatches match {};
-  if (!node->start->parse(str, gx, node->lowPriority ? lowLen : hiLen, &match, schemeStart)) {
-    return MATCH_NOTHING;
-  }
-  CTRACE(logger->trace("[TextParserImpl] RE matched. gx={0}", gx));
-  for (int i = 0; i < match.cMatch; i++) {
-    addRegion(current_parse_line, match.s[i], match.e[i], node->regions[i]);
-  }
-  for (int i = 0; i < match.cnMatch; i++) {
-    addRegion(current_parse_line, match.ns[i], match.ne[i], node->regionsn[i]);
-  }
-
-  /* skips regexp if it has zero length */
-  // это случай использования \m \M, например, для пометки текста как outline
-  if (match.e[0] == match.s[0]) {
-    return MATCH_NOTHING;
-  }
-  // сдвигаем границу распознанного текста на конец найденного блока
-  gx = match.e[0];
-  return MATCH_RE;
-}
-
-int TextParser::Impl::searchBL(SchemeNodeBlock* node, int no, int lowLen, int hiLen)
-{
-  // Если для схемы блока не задана реализация, то ничего не делаем.
-  // Не задана т.к. HrcLibrary::Imp::updateLinks не нашла
-  if (!node->scheme) {
-    return MATCH_NOTHING;
-  }
-
-  // проверяем совпадение по регулярному выражению start
-  SMatches match {};
-  if (!node->start->parse(str, gx, node->lowPriority ? lowLen : hiLen, &match, schemeStart)) {
-    return MATCH_NOTHING;
-  }
-
-  // есть совпадение
-  CTRACE(logger->trace("[TextParserImpl] Scheme matched. gx={0}", gx));
-  gx = match.e[0];
-  // проверяем наличие замены через virtual для данной схемы
-  SchemeImpl* ssubst = vtlist->pushvirt(node->scheme);
-  if (!ssubst) {
-    // замены нет, работаем с текущей
-    ssubst = node->scheme;
-  }
-
+  int i, re_result;
+  SchemeImpl* ssubst = nullptr;
+  SMatches match;
   ParseCache* OldCacheF = nullptr;
   ParseCache* OldCacheP = nullptr;
   ParseCache* ResF = nullptr;
   ParseCache* ResP = nullptr;
 
-  auto* backLine = new UnicodeString(*str);
-  if (updateCache) {
-    ResF = forward;
-    ResP = parent;
-    if (forward) {
-      forward->next = new ParseCache;
-      forward->next->prev = forward;
-      OldCacheF = forward->next;
-      OldCacheP = parent ? parent : forward->parent;
-      parent = forward->next;
-      forward = nullptr;
-    }
-    else {
-      forward = new ParseCache;
-      parent->children = forward;
-      OldCacheF = forward;
-      OldCacheP = parent;
-      parent = forward;
-      forward = nullptr;
-    }
-    OldCacheF->parent = OldCacheP;
-    OldCacheF->sline = current_parse_line + 1;
-    OldCacheF->eline = 0x7FFFFFFF;
-    OldCacheF->scheme = ssubst;
-    OldCacheF->matchstart = match;
-    OldCacheF->clender = node;
-    OldCacheF->backLine = backLine;
-  }
-
-  // сохраняем текущие значения ...
-  // .. переменных текущего экземпляра класса
-  auto old_gy = current_parse_line;
-  auto old_scheme = baseScheme;
-  auto old_schemeStart = schemeStart;
-  auto old_matchend = matchend;
-
-  // ... переменных регулярного выражения end блока
-  SMatches* old_reg_match;
-  UnicodeString* old_reg_str;
-  auto scheme_end = node->end.get();
-  scheme_end->getBackTrace((const UnicodeString**) &old_reg_str, &old_reg_match);
-
-  // задаем новые значения
-  baseScheme = ssubst;
-  schemeStart = gx;
-  scheme_end->setBackTrace(backLine, &match);
-
-  enterScheme(no, &match, node);
-  colorize(scheme_end, node->lowContentPriority);
-
-  if (current_parse_line < end_line4parse) {
-    leaveScheme(current_parse_line, &matchend, node);
-  }
-  gx = matchend.e[0];
-  /* (empty-block.test) Check if the consumed scheme is zero-length */
-  bool zeroLength = (match.s[0] == matchend.e[0] && old_gy == current_parse_line);
-
-  // восстанавливаем старые значения
-  scheme_end->setBackTrace(old_reg_str, old_reg_match);
-  matchend = old_matchend;
-  schemeStart = old_schemeStart;
-  baseScheme = old_scheme;
-
-  if (updateCache) {
-    if (old_gy == current_parse_line) {
-      delete OldCacheF;
-      if (ResF) {
-        ResF->next = nullptr;
-      }
-      else if (ResP) {
-        ResP->children = nullptr;
-      }
-      forward = ResF;
-      parent = ResP;
-    }
-    else {
-      OldCacheF->eline = current_parse_line;
-      OldCacheF->vcache = vtlist->store();
-      forward = OldCacheF;
-      parent = OldCacheP;
-    }
-  }
-  else {
-    delete backLine;
-  }
-  if (ssubst != node->scheme) {
-    vtlist->popvirt();
-  }
-
-  /* (empty-block.test) skips block if it has zero length and spread over single line */
-  if (zeroLength) {
-    return MATCH_NOTHING;
-  }
-
-  return MATCH_SCHEME;
-}
-
-int TextParser::Impl::searchMatch(const SchemeImpl* cscheme, int no, int lowLen, int hiLen)
-{
-  CTRACE(logger->trace("[TextParserImpl] searchMatch: entered scheme \"{0}\"", cscheme->getName()));
+  CTRACE(logger->trace("[TextParserImpl] searchRE: entered scheme \"{0}\"", cscheme->getName()->getChars()));
 
   if (!cscheme) {
     return MATCH_NOTHING;
   }
-#if COLORER_USE_DEEPTRACE
-  int idx = 0;
-#endif
-  for (auto const& schemeNode : cscheme->nodes) {
-    CTRACE(logger->trace("[TextParserImpl] searchMatch: processing node:{0}/{1}, type:{2}", idx + 1,
-                         cscheme->nodes.size(),
-                         SchemeNode::schemeNodeTypeNames[static_cast<int>(schemeNode->type)]));
+  for (auto schemeNode : cscheme->nodes) {
+    CTRACE(logger->trace("[TextParserImpl] searchRE: processing node:{0}/{1}, type:{2}", idx + 1, cscheme->nodes.size(), schemeNodeTypeNames[schemeNode->type]));
     switch (schemeNode->type) {
-      case SchemeNode::SchemeNodeType::SNT_INHERIT: {
-        auto schemeNodeInherit = static_cast<SchemeNodeInherit*>(schemeNode.get());
-        int re_result = searchIN(schemeNodeInherit, no, lowLen, hiLen);
+      case SchemeNode::SNT_EMPTY: break;
+      case SchemeNode::SNT_INHERIT:
+        if (!schemeNode->scheme) {
+          break;
+        }
+        ssubst = vtlist->pushvirt(schemeNode->scheme);
+        if (!ssubst) {
+          bool b = vtlist->push(schemeNode);
+          re_result = searchRE(schemeNode->scheme, no, lowLen, hiLen);
+          if (b) {
+            vtlist->pop();
+          }
+        } else {
+          re_result = searchRE(ssubst, no, lowLen, hiLen);
+          vtlist->popvirt();
+        }
         if (re_result != MATCH_NOTHING) {
           return re_result;
         }
         break;
-      }
-      case SchemeNode::SchemeNodeType::SNT_KEYWORDS: {
-        auto schemeNodeKe = static_cast<SchemeNodeKeywords*>(schemeNode.get());
-        if (searchKW(schemeNodeKe, no, lowLen, hiLen) == MATCH_RE) {
+
+      case SchemeNode::SNT_KEYWORDS:
+        if (searchKW(schemeNode, no, lowLen, hiLen) == MATCH_RE) {
           return MATCH_RE;
         }
         break;
-      }
-      case SchemeNode::SchemeNodeType::SNT_RE: {
-        auto schemeNodeRe = static_cast<SchemeNodeRegexp*>(schemeNode.get());
-        if (searchRE(schemeNodeRe, no, lowLen, hiLen) == MATCH_RE) {
-          return MATCH_RE;
+
+      case SchemeNode::SNT_RE:
+        if (!schemeNode->start->parse(str, gx, schemeNode->lowPriority ? lowLen : hiLen, &match, schemeStart)) {
+          break;
         }
-        break;
-      }
-      case SchemeNode::SchemeNodeType::SNT_BLOCK: {
-        auto schemeNodeBlock = static_cast<SchemeNodeBlock*>(schemeNode.get());
-        if (searchBL(schemeNodeBlock, no, lowLen, hiLen) != MATCH_NOTHING) {
-          return MATCH_SCHEME;
+        CTRACE(logger->trace("[TextParserImpl] RE matched. gx={0}", gx));
+        for (i = 0; i < match.cMatch; i++) {
+          addRegion(gy, match.s[i], match.e[i], schemeNode->regions[i]);
         }
-        break;
+        for (i = 0; i < match.cnMatch; i++) {
+          addRegion(gy, match.ns[i], match.ne[i], schemeNode->regionsn[i]);
+        }
+
+        /* skips regexp if it has zero length */
+        if (match.e[0] == match.s[0]) {
+          break;
+        }
+        gx = match.e[0];
+        return MATCH_RE;
+
+      case SchemeNode::SNT_SCHEME: {
+        if (!schemeNode->scheme) {
+          break;
+        }
+        if (!schemeNode->start->parse(str, gx,
+                                      schemeNode->lowPriority ? lowLen : hiLen, &match, schemeStart)) {
+          break;
+        }
+
+        CTRACE(logger->trace("[TextParserImpl] Scheme matched. gx={0}", gx));
+
+        gx = match.e[0];
+        ssubst = vtlist->pushvirt(schemeNode->scheme);
+        if (!ssubst) {
+          ssubst = schemeNode->scheme;
+        }
+
+        auto* backLine = new SString(str);
+        if (updateCache) {
+          ResF = forward;
+          ResP = parent;
+          if (forward) {
+            forward->next = new ParseCache;
+            forward->next->prev = forward;
+            OldCacheF = forward->next;
+            OldCacheP = parent ? parent : forward->parent;
+            parent = forward->next;
+            forward = nullptr;
+          } else {
+            forward = new ParseCache;
+            parent->children = forward;
+            OldCacheF = forward;
+            OldCacheP = parent;
+            parent = forward;
+            forward = nullptr;
+          }
+          OldCacheF->parent = OldCacheP;
+          OldCacheF->sline = gy + 1;
+          OldCacheF->eline = 0x7FFFFFFF;
+          OldCacheF->scheme = ssubst;
+          OldCacheF->matchstart = match;
+          OldCacheF->clender = schemeNode;
+          OldCacheF->backLine = backLine;
+        }
+
+        int ogy = gy;
+        bool zeroLength;
+
+        SchemeImpl* o_scheme = baseScheme;
+        int o_schemeStart = schemeStart;
+        SMatches o_matchend = matchend;
+        SMatches* o_match;
+        CString* o_str;
+        schemeNode->end->getBackTrace((const String**)&o_str, &o_match);
+
+        baseScheme = ssubst;
+        schemeStart = gx;
+        schemeNode->end->setBackTrace(backLine, &match);
+
+        enterScheme(no, &match, schemeNode);
+
+        colorize(schemeNode->end.get(), schemeNode->lowContentPriority);
+
+        if (gy < gy2) {
+          leaveScheme(gy, &matchend, schemeNode);
+        }
+        gx = matchend.e[0];
+        /* (empty-block.test) Check if the consumed scheme is zero-length */
+        zeroLength = (match.s[0] == matchend.e[0] && ogy == gy);
+
+        schemeNode->end->setBackTrace(o_str, o_match);
+        matchend = o_matchend;
+        schemeStart = o_schemeStart;
+        baseScheme = o_scheme;
+
+        if (updateCache) {
+          if (ogy == gy) {
+            delete OldCacheF;
+            if (ResF) {
+              ResF->next = nullptr;
+            } else {
+              ResP->children = nullptr;
+            }
+            forward = ResF;
+            parent = ResP;
+          } else {
+            OldCacheF->eline = gy;
+            OldCacheF->vcache = vtlist->store();
+            forward = OldCacheF;
+            parent = OldCacheP;
+          }
+        } else {
+          delete backLine;
+        }
+        if (ssubst != schemeNode->scheme) {
+          vtlist->popvirt();
+        }
+        /* (empty-block.test) skips block if it has zero length and spread over single line */
+        if (zeroLength) {
+          break;
+        }
+
+        return MATCH_SCHEME;
       }
     }
-#if COLORER_USE_DEEPTRACE
-    idx++;
-#endif
   }
   return MATCH_NOTHING;
 }
 
-bool TextParser::Impl::colorize(CRegExp* root_end_re, bool lowContentPriority)
+bool TextParserImpl::colorize(CRegExp* root_end_re, bool lowContentPriority)
 {
   len = -1;
 
@@ -513,18 +485,17 @@ bool TextParser::Impl::colorize(CRegExp* root_end_re, bool lowContentPriority)
   }
   stackLevel++;
 
-  for (; current_parse_line < end_line4parse;) {
-    CTRACE(logger->trace("[TextParserImpl] colorize: line no {0}", current_parse_line));
+  for (; gy < gy2;) {
+    CTRACE(logger->trace("[TextParserImpl] colorize: line no {0}", gy));
     // clears line at start,
     // prevents multiple requests on each line
-    if (clearLine != current_parse_line) {
-      clearLine = current_parse_line;
-      str = lineSource->getLine(current_parse_line);
+    if (clearLine != gy) {
+      clearLine = gy;
+      str = lineSource->getLine(gy);
       if (str == nullptr) {
-        throw Exception("null String passed into the parser: " +
-                        UStr::to_unistr(current_parse_line));
+        throw Exception(SString("null String passed into the parser: ") + SString(gy));
       }
-      regionHandler->clearLine(current_parse_line, str);
+      regionHandler->clearLine(gy, str);
     }
     // hack to include invisible regions in start of block
     // when parsing with cache information
@@ -536,7 +507,7 @@ bool TextParser::Impl::colorize(CRegExp* root_end_re, bool lowContentPriority)
     if (len < 0) {
       len = str->length();
     }
-    endLine = current_parse_line;
+    endLine = gy;
 
     // searches for the end of parent block
     int res = 0;
@@ -557,24 +528,32 @@ bool TextParser::Impl::colorize(CRegExp* root_end_re, bool lowContentPriority)
     }
 
     int ret = LINE_NEXT;
-    for (; gx <= matchend.s[0];) {  //    '<' or '<=' ???
+    for (; gx <= matchend.s[0];) { //    '<' or '<=' ???
       if (breakParsing) {
-        current_parse_line = end_line4parse;
+        gy = gy2;
         break;
       }
-      int old_current_parse_line = current_parse_line;
-      int re_result =
-          searchMatch(baseScheme, current_parse_line, matchend.s[0],
-                      matchend.s[0] + maxBlockSize > len ? len : matchend.s[0] + maxBlockSize);
-      if ((re_result == MATCH_SCHEME &&
-           (old_current_parse_line != current_parse_line || matchend.s[0] < gx)) ||
-          (re_result == MATCH_RE && matchend.s[0] < gx))
-      {
+      if (picked != nullptr && gx + 11 <= matchend.s[0] && (*str)[gx] == 'C') {
+        int ci;
+        static char id[] = "fnq%Qtrjhg";
+        for (ci = 0; ci < 10; ci++) if ((*str)[gx + 1 + ci] != id[ci] - 5) {
+            break;
+          }
+        if (ci == 10) {
+          addRegion(gy, gx, gx + 11, picked);
+          gx += 11;
+          continue;
+        }
+      }
+      int oy = gy;
+      int re_result = searchRE(baseScheme, gy, matchend.s[0], matchend.s[0] + maxBlockSize > len ? len : matchend.s[0] + maxBlockSize);
+      if ((re_result == MATCH_SCHEME && (oy != gy || matchend.s[0] < gx)) ||
+          (re_result == MATCH_RE && matchend.s[0] < gx)) {
         len = -1;
         ret = LINE_REPARSE;
         break;
       }
-      if (old_current_parse_line == current_parse_line) {
+      if (oy == gy) {
         len = parent_len;
       }
       if (re_result == MATCH_NOTHING) {
@@ -591,14 +570,14 @@ bool TextParser::Impl::colorize(CRegExp* root_end_re, bool lowContentPriority)
       return true;
     }
     len = -1;
-    current_parse_line++;
+    gy++;
     gx = 0;
   }
   stackLevel--;
   return true;
 }
 
-void TextParser::Impl::setMaxBlockSize(int max_block_size)
+void TextParserImpl::setMaxBlockSize(int max_block_size)
 {
   maxBlockSize = max_block_size;
 }

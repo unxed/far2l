@@ -536,32 +536,26 @@ static void InitInFileSearchHex()
 
 static void InitInFileSearch()
 {
-	if (InFileSearchInited)
-		return;
+	if (!InFileSearchInited && !strFindStr.IsEmpty())
+		try {
 
-	if (strFindStr.IsEmpty()) {
-		findPattern.reset();
-		return;
-	}
+			findPattern.reset(new FindPattern(CmpCase != 0 && !SearchHex, WholeWords != 0 && !SearchHex));
 
-	try {
-		findPattern.reset(new FindPattern(CmpCase != 0 && !SearchHex, WholeWords != 0 && !SearchHex));
+			if (SearchHex) {
+				InitInFileSearchHex();
 
-		if (SearchHex) {
-			InitInFileSearchHex();
+			} else {
+				InitInFileSearchText();
+			}
 
-		} else {
-			InitInFileSearchText();
+			findPattern->GetReady();
+			InFileSearchInited = true;
+
+		} catch (std::exception &e) {
+			fprintf(stderr, "%s: %s\n", __FUNCTION__, e.what());
+			FARString err_str(e.what());
+			Message(MSG_WARNING, 1, Msg::Error, err_str, Msg::Ok);
 		}
-
-		findPattern->GetReady();
-		InFileSearchInited = true;
-
-	} catch (std::exception &e) {
-		fprintf(stderr, "%s: %s\n", __FUNCTION__, e.what());
-		FARString err_str(e.what());
-		Message(MSG_WARNING, 1, Msg::Error, err_str, Msg::Ok);
-	}
 }
 
 static void ReleaseInFileSearch()
@@ -1034,11 +1028,11 @@ static bool ScanFileByMapping(const char *Name)
 		size_t Length = smm.Length();
 		for (UINT LastPercents = 0;;) {
 			const bool FirstFragment = (FilePos == 0);
-			const bool LastFragment = (FilePos + off_t(smm.Length()) >= FileSize);
-			if (findPattern->FindMatch(View, Length, FirstFragment, LastFragment).first != (size_t)-1) {
+			const bool LastFragement = (FilePos + off_t(smm.Length()) >= FileSize);
+			if (findPattern->FindMatch(View, Length, FirstFragment, LastFragement).first != (size_t)-1) {
 				return true;
 			}
-			if (LastFragment) {
+			if (LastFragement) {
 				break;
 			}
 			UINT Percents = static_cast<UINT>(FileSize ? FilePos * 100 / FileSize : 0);
@@ -1260,11 +1254,11 @@ class FindDlg_TempFileHolder : public TempFileUploadHolder
 		//		FARString strTempName = FileName;
 
 		bool out = false;
-		if (FileList::FileNameToPluginItem(GetPathName(), &PanelItem)) {
+		if (FileList::FileNameToPluginItem(TempFileName(), &PanelItem)) {
 			out = (CtrlObject->Plugins.PutFiles(ArcItem.hPlugin, &PanelItem, 1, FALSE, OPM_EDIT) != 0);
 
 			if (!out) {
-				Message(MSG_WARNING, 1, Msg::Error, Msg::CannotSaveFile, Msg::TextSavedToTemp, GetPathName(),
+				Message(MSG_WARNING, 1, Msg::Error, Msg::CannotSaveFile, Msg::TextSavedToTemp, TempFileName(),
 						Msg::Ok);
 			}
 		}
@@ -1594,8 +1588,8 @@ static LONG_PTR WINAPI FindDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Pa
 							SendDlgMessage(hDlg, DM_SHOWDIALOG, FALSE, 0);
 							SendDlgMessage(hDlg, DM_ENABLEREDRAW, FALSE, 0);
 							{
-								FileViewer ShellViewer(std::make_shared<FileHolder>(strSearchFileName),
-										FALSE, FALSE, FALSE, -1, nullptr, (FindItem.ArcIndex != LIST_INDEX_NONE)
+								FileViewer ShellViewer(strSearchFileName, FALSE, FALSE, FALSE, -1, nullptr,
+										(FindItem.ArcIndex != LIST_INDEX_NONE)
 												? nullptr
 												: (Opt.FindOpt.CollectFiles ? &ViewList : nullptr));
 								ShellViewer.SetDynamicallyBorn(FALSE);
@@ -1670,20 +1664,22 @@ static LONG_PTR WINAPI FindDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Pa
 															else
 								*/
 								{
-									FileHolderPtr TFH;
+									std::shared_ptr<FindDlg_TempFileHolder> TFH;
+									FileEditor ShellEditor(strSearchFileName, CP_AUTODETECT, 0);
+									ShellEditor.SetDynamicallyBorn(FALSE);
+									ShellEditor.SetEnableF6(TRUE);
+
+									// FindFileArcIndex нельзя здесь использовать
+									// Он может быть уже другой.
 									if (FindItem.ArcIndex != LIST_INDEX_NONE) {
 										TFH = std::make_shared<FindDlg_TempFileHolder>(strSearchFileName,
 												FindItem.ArcIndex, FindItem.FindData);
-									} else {
-										TFH = std::make_shared<FileHolder>(strSearchFileName);
+										ShellEditor.SetFileHolder(TFH);
 									}
-									FileEditor ShellEditor(TFH, CP_AUTODETECT, 0);
-									ShellEditor.SetDynamicallyBorn(FALSE);
-									ShellEditor.SetEnableF6(TRUE);
-									// FindFileArcIndex нельзя здесь использовать
-									// Он может быть уже другой.
 									FrameManager->ExecuteModalEV();
-									TFH->CheckForChanges();
+									if (TFH) {
+										TFH->UploadIfTimestampChanged();
+									}
 									// заставляем рефрешиться экран
 									FrameManager->ProcessKey(KEY_CONSOLE_BUFFER_RESIZE);
 								}

@@ -164,7 +164,6 @@ enum enumShellCopy
 	ID_SC_USECOW,
 	ID_SC_COPYSYMLINK_TEXT,
 	ID_SC_COPYSYMLINK_COMBO,
-	ID_SC_COPYSYMLINK_EXPLAIN_TEXT,
 	ID_SC_SEPARATOR3,
 	ID_SC_USEFILTER,
 	ID_SC_SEPARATOR4,
@@ -193,8 +192,8 @@ class CopyProgress
 {
 	ConsoleTitle CopyTitle;
 	wakeful W;
-	SMALL_RECT Rect{};
-	wchar_t Bar[100]{};
+	SMALL_RECT Rect;
+	wchar_t Bar[100];
 	size_t BarSize;
 	bool Move, Total, Time;
 	bool BgInit, ScanBgInit;
@@ -212,7 +211,7 @@ class CopyProgress
 public:
 	CopyProgress(bool Move, bool Total, bool Time);
 	void CreateBackground();
-	bool Cancelled() { return IsCancelled; }
+	bool Cancelled() { return IsCancelled; };
 	void SetScanName(const wchar_t *Name);
 	void SetNames(const wchar_t *Src, const wchar_t *Dst);
 	void SetProgressValue(UINT64 CompletedSize, UINT64 TotalSize)
@@ -634,8 +633,7 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 	 *** Prepare Dialog Controls
 	 ***********************************************************************
 	 */
-	int msh = Move ? 1 : 0;
-	int DLG_HEIGHT = 19 + msh, DLG_WIDTH = 76;
+	int DLG_HEIGHT = 19, DLG_WIDTH = 76;
 
 	DialogDataEx CopyDlgData[] = {
 		{DI_DOUBLEBOX, 3,  1,  (SHORT)(DLG_WIDTH - 4), (SHORT)(DLG_HEIGHT - 2), {}, 0, Msg::CopyDlgTitle},
@@ -652,14 +650,13 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 		{DI_CHECKBOX,  5,  11, 0,  11, {}, 0, Msg::CopyUseCOW},
 		{DI_TEXT,      5,  12, 0,  12, {}, 0, Msg::CopySymLinkText},
 		{DI_COMBOBOX,  29, 12, 70, 12, {}, DIF_DROPDOWNLIST | DIF_LISTNOAMPERSAND | DIF_LISTWRAPMODE, L""},
-		{DI_TEXT,      5,  13, 0,  13, {}, DIF_HIDDEN, Msg::LinkCopyMoveExplainText},
-		{DI_TEXT,      3,  (SHORT)(13 + msh), 0,  (SHORT)(13 + msh), {}, DIF_SEPARATOR, L""},
-		{DI_CHECKBOX,  5,  (SHORT)(14 + msh), 0,  (SHORT)(14 + msh), {UseFilter ? BSTATE_CHECKED : BSTATE_UNCHECKED}, DIF_AUTOMATION, Msg::CopyUseFilter},
-		{DI_TEXT,      3,  (SHORT)(15 + msh), 0,  (SHORT)(15 + msh), {}, DIF_SEPARATOR, L""},
-		{DI_BUTTON,    0,  (SHORT)(16 + msh), 0,  (SHORT)(16 + msh), {}, DIF_DEFAULT | DIF_CENTERGROUP, Msg::CopyDlgCopy},
-		{DI_BUTTON,    0,  (SHORT)(16 + msh), 0,  (SHORT)(16 + msh), {}, DIF_CENTERGROUP | DIF_BTNNOCLOSE, Msg::CopyDlgTree},
-		{DI_BUTTON,    0,  (SHORT)(16 + msh), 0,  (SHORT)(16 + msh), {}, DIF_CENTERGROUP | DIF_BTNNOCLOSE | DIF_AUTOMATION | (UseFilter ? 0 : DIF_DISABLE), Msg::CopySetFilter},
-		{DI_BUTTON,    0,  (SHORT)(16 + msh), 0,  (SHORT)(16 + msh), {}, DIF_CENTERGROUP, Msg::CopyDlgCancel},
+		{DI_TEXT,      3,  13, 0,  13, {}, DIF_SEPARATOR, L""},
+		{DI_CHECKBOX,  5,  14, 0,  14, {UseFilter ? BSTATE_CHECKED : BSTATE_UNCHECKED}, DIF_AUTOMATION, Msg::CopyUseFilter},
+		{DI_TEXT,      3,  15, 0,  15, {}, DIF_SEPARATOR, L""},
+		{DI_BUTTON,    0,  16, 0,  16, {}, DIF_DEFAULT | DIF_CENTERGROUP, Msg::CopyDlgCopy},
+		{DI_BUTTON,    0,  16, 0,  16, {}, DIF_CENTERGROUP | DIF_BTNNOCLOSE, Msg::CopyDlgTree},
+		{DI_BUTTON,    0,  16, 0,  16, {}, DIF_CENTERGROUP | DIF_BTNNOCLOSE | DIF_AUTOMATION | (UseFilter ? 0 : DIF_DISABLE), Msg::CopySetFilter},
+		{DI_BUTTON,    0,  16, 0,  16, {}, DIF_CENTERGROUP, Msg::CopyDlgCancel                          },
 		{DI_TEXT,      5,  2,  0,  2,  {}, DIF_SHOWAMPERSAND, L""}
 	};
 	MakeDialogItemsEx(CopyDlgData, CopyDlg);
@@ -700,7 +697,6 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 		{
 			CopyDlg[ID_SC_MULTITARGET].Selected = 0;
 			CopyDlg[ID_SC_MULTITARGET].Flags|= DIF_DISABLE;
-			CopyDlg[ID_SC_COPYSYMLINK_EXPLAIN_TEXT].Flags = DIF_DISABLE;
 		}
 		//		else // секция про копирование
 		//		{
@@ -719,7 +715,7 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 				strNewDir.Truncate(pos);
 
 				if (!pos || strNewDir.At(pos - 1) == L':')
-					strNewDir+= WGOOD_SLASH;
+					strNewDir+= L"/";
 
 				FarChDir(strNewDir);
 			}
@@ -908,8 +904,7 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 			ComboList.Items[0].Text = Msg::LinkTypeHardlink;
 			ComboList.Items[1].Text = Msg::LinkTypeSymlink;
 
-			//ComboList.Items[CDP.FilesPresent ? 0 : 1].Flags|= LIF_SELECTED;
-			ComboList.Items[(Opt.MakeLinkSuggestSymlinkAlways || CDP.FolderPresent) ? 1 : 0].Flags|= LIF_SELECTED;
+			ComboList.Items[CDP.FilesPresent ? 0 : 1].Flags|= LIF_SELECTED;
 		} else {
 			ComboList.ItemsNumber = ARRAYSIZE(CopyModeItems);
 			ComboList.Items = CopyModeItems;
@@ -920,14 +915,7 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 			ComboList.Items[CM_APPEND].Text = Msg::CopyAppend;
 			ComboList.Items[CM_ONLYNEWER].Text = Msg::CopyOnlyNewerFiles;
 			ComboList.Items[CM_ASKRO].Text = Msg::CopyAskRO;
-			// if uncehcked in Options->Confirmations then disable variants & set only Overwrite
-			if ( (Move && !Opt.Confirm.Move) || (!Move && !Opt.Confirm.Copy) ) {
-				ComboList.Items[CM_OVERWRITE].Flags= LIF_SELECTED;
-				CopyDlg[ID_SC_COMBO].Flags|= DIF_DISABLE;
-				CopyDlg[ID_SC_COMBOTEXT].Flags|= DIF_DISABLE;
-			}
-			else
-				ComboList.Items[CM_ASK].Flags = LIF_SELECTED;
+			ComboList.Items[CM_ASK].Flags = LIF_SELECTED;
 			ComboList.Items[CM_SEPARATOR].Flags = LIF_SEPARATOR;
 
 			if (Opt.Confirm.RO) {
@@ -1155,7 +1143,7 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 
 				// Если выделенных элементов больше 1 и среди них есть каталог, то всегда
 				// делаем так, чтобы на конце был '/'
-				// делаем так не всегда, а только когда NameTmp не является маской.
+				// деламем так не всегда, а только когда NameTmp не является маской.
 				if (AddSlash && !strNameTmp.ContainsAnyOf("*?"))
 					AddEndSlash(strNameTmp);
 
@@ -1179,7 +1167,7 @@ ShellCopy::ShellCopy(Panel *SrcPanel,		// исходная панель (акт�
 				SrcPanel->SaveSelection();
 				const auto OldFlagsSYMLINK = Flags.SYMLINK;
 				// собственно - один проход копирования
-				// Mantis#45: Необходимо привести копирование ссылок на папки с NTFS на FAT к более логичному виду
+				// Mantis#45: Необходимо привсти копирование ссылок на папки с NTFS на FAT к более логичному виду
 				{
 					// todo: If dst does not support symlinks
 					// Flags.SYMLINK = COPY_SYMLINK_ASFILE;
@@ -1461,7 +1449,7 @@ LONG_PTR WINAPI CopyDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Param2)
 
 ShellCopy::~ShellCopy()
 {
-	_tran(SysLog(L"[%p] ShellCopy::~ShellCopy(), CopyBuffer=%p", this, CopyBuffer));
+	_tran(SysLog(L"[%p] ShellCopy::~ShellCopy(), CopyBufer=%p", this, CopyBuffer));
 
 	// $ 26.05.2001 OT Разрешить перерисовку панелей
 	_tran(SysLog(L"call (*FrameManager)[0]->UnlockRefresh()"));
@@ -1709,7 +1697,7 @@ COPY_CODES ShellCopy::CopyFileTree(const wchar_t *Dest)
 				FARString strFullName;
 				ScanTree ScTree(TRUE, TRUE, Flags.SYMLINK == COPY_SYMLINK_ASFILE);
 				strSubName = strSelName;
-				strSubName+= WGOOD_SLASH;
+				strSubName+= L"/";
 
 				if (DestAttr == INVALID_FILE_ATTRIBUTES)
 					KeepPathPos = (int)strSubName.GetLength();
@@ -1760,12 +1748,12 @@ COPY_CODES ShellCopy::CopyFileTree(const wchar_t *Dest)
 								}
 								case COPY_SUCCESS:
 
-									if (!NeedRename)	// вариант при перемещении содержимого симлинка с опцией "копировать содержимое сим..."
+									if (!NeedRename)	// вариант при перемещении содержимого симлика с опцией "копировать содержимое сим..."
 									{
 										uint64_t CurSize = SrcData.nFileSize;
 										TotalCopiedSize = TotalCopiedSize - CurCopiedSize + CurSize;
 										TotalSkippedSize = TotalSkippedSize + CurSize - CurCopiedSize;
-										continue;	// ... т.к. мы ЭТО не мувили, а скопировали, то все, на этом закончим бодаться с этим файлов
+										continue;	// ... т.к. мы ЭТО не мувили, а скопировали, то все, на этом закончим бадаться с этим файлов
 									}
 							}
 						}
@@ -1992,7 +1980,7 @@ ShellCopy::CopySymLink(const wchar_t *ExistingName, const wchar_t *NewName, cons
 	guarantees that its target is within copied tree, so link will be valid
 	*/
 	if (Flags.SYMLINK != COPY_SYMLINK_SMART
-			|| (LinkTarget[0] != GOOD_SLASH && !InSameDirectory(ExistingName, NewName))
+			|| (LinkTarget[0] != '/' && !InSameDirectory(ExistingName, NewName))
 			|| ((SrcData.dwFileAttributes & FILE_ATTRIBUTE_BROKEN) != 0
 					&& !IsSymlinkTargetAlsoCopied(ExistingName))) {
 		FARString strNewName;
@@ -2024,7 +2012,7 @@ ShellCopy::CopySymLink(const wchar_t *ExistingName, const wchar_t *NewName, cons
 	for (size_t i = common_anchestors_count; i < partsRealName.size(); ++i) {
 		relative_target+= partsRealName[i];
 		if (i + 1 < partsRealName.size()) {
-			relative_target+= GOOD_SLASH;
+			relative_target+= '/';
 		}
 	}
 	if (relative_target.empty()) {
@@ -2061,7 +2049,7 @@ COPY_CODES ShellCopy::ShellCopyOneFileNoRetry(const wchar_t *Src, const FAR_FIND
 
 	FARString strDestPath = strDest;
 	const wchar_t *NamePtr = PointToName(strDestPath);
-	DWORD DestAttr = (strDestPath == WGOOD_SLASH || !*NamePtr || TestParentFolderName(NamePtr))
+	DWORD DestAttr = (strDestPath == L"/" || !*NamePtr || TestParentFolderName(NamePtr))
 			? FILE_ATTRIBUTE_DIRECTORY
 			: INVALID_FILE_ATTRIBUTES;
 
@@ -2102,7 +2090,7 @@ COPY_CODES ShellCopy::ShellCopyOneFileNoRetry(const wchar_t *Src, const FAR_FIND
 			int Length = (int)strDestPath.GetLength();
 
 			if (!IsSlash(strDestPath.At(Length - 1)) && strDestPath.At(Length - 1) != L':')
-				strDestPath+= WGOOD_SLASH;
+				strDestPath+= L"/";
 
 			const wchar_t *PathPtr = Src + KeepPathPos;
 
@@ -2776,15 +2764,6 @@ DWORD ShellFileTransfer::PieceWrite(const void *Data, DWORD Size)
 
 /////////////////////////////////////////////////////////// END OF ShellFileTransfer
 
-static dev_t GetRDev(FARString SrcName)
-{
-    struct stat st{};
-    if (sdc_stat(SrcName.GetMB().c_str(), &st) == 0) {
-        return st.st_rdev;
-    }
-    return 0;
-}
-
 int ShellCopy::ShellCopyFile(const wchar_t *SrcName, const FAR_FIND_DATA_EX &SrcData, FARString &strDestName,
 		int Append)
 {
@@ -2799,16 +2778,6 @@ int ShellCopy::ShellCopyFile(const wchar_t *SrcName, const FAR_FIND_DATA_EX &Src
 			return (MkSymLink(SrcName, strDestName, RPT, true) ? COPY_SUCCESS : COPY_FAILURE);
 		}
 	}
-    if (SrcData.dwFileAttributes & (FILE_ATTRIBUTE_DEVICE_FIFO | FILE_ATTRIBUTE_DEVICE_BLOCK | FILE_ATTRIBUTE_DEVICE_CHAR)) {
-        int r = (SrcData.dwFileAttributes & FILE_ATTRIBUTE_DEVICE_FIFO)
-                    ? sdc_mkfifo(strDestName.GetMB().c_str(), SrcData.dwUnixMode)
-                    : sdc_mknod(strDestName.GetMB().c_str(), SrcData.dwUnixMode, GetRDev(SrcName));
-        if (r == -1) {
-            _localLastError = errno;
-            return COPY_FAILURE;
-        }
-        return COPY_SUCCESS;
-    }
 
 	try {
 #if defined(COW_SUPPORTED) && defined(__APPLE__)
@@ -2901,11 +2870,10 @@ LONG_PTR WINAPI WarnDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Param2)
 						break;
 				}
 
-				FileViewer Viewer(
-					// а этот трюк не даст пользователю сменить текущий каталог по CtrlF10 и этим ввести в заблуждение копир: TODODODO
-					std::make_shared<FileHolder>(ViewName, true),
-					FALSE, FALSE, TRUE, -1, nullptr, nullptr, FALSE);
+				FileViewer Viewer(ViewName, FALSE, FALSE, TRUE, -1, nullptr, nullptr, FALSE);
 				Viewer.SetDynamicallyBorn(FALSE);
+				// а этот трюк не даст пользователю сменить текущий каталог по CtrlF10 и этим ввести в заблуждение копир:
+				Viewer.SetFileHolder(std::make_shared<DummyFileHolder>());
 				FrameManager->ExecuteModalEV();
 				FrameManager->ProcessKey(KEY_CONSOLE_BUFFER_RESIZE);
 			}

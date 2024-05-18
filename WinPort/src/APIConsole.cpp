@@ -2,98 +2,42 @@
 #include <map>
 #include <vector>
 #include <stdexcept>
-#include <debug.h>
 
 #include "WinPort.h"
 #include "Backend.h"
 
-#define FORKED_CONSOLE_MAGIC 0xc001ba11f00dbabe
-
-struct ForkedConsole
-{
-	uint64_t magic{FORKED_CONSOLE_MAGIC};
-	IConsoleInput *con_in{nullptr};
-	IConsoleOutput *con_out{nullptr};
-};
-
-static IConsoleOutput *ChooseConOut(HANDLE hConsole)
-{
-	if (!hConsole) {
-		return g_winport_con_out;
-	}
-	ForkedConsole *fc = (ForkedConsole *)hConsole;
-	ASSERT(fc->magic == FORKED_CONSOLE_MAGIC);
-	return fc->con_out;
-}
-
-static IConsoleInput *ChooseConIn(HANDLE hConsole)
-{
-	if (!hConsole) {
-		return g_winport_con_in;
-	}
-	ForkedConsole *fc = (ForkedConsole *)hConsole;
-	ASSERT(fc->magic == FORKED_CONSOLE_MAGIC);
-	return fc->con_in;
-}
+static DWORD g_winport_con_mode = ENABLE_QUICK_EDIT_MODE | ENABLE_EXTENDED_FLAGS;
+static std::mutex g_winport_con_mode_mutex;
 
 extern "C" {
-
-	WINPORT_DECL(ForkConsole,HANDLE,())
-	{
-		ForkedConsole *fc = NULL;
-		try {
-			fc = new ForkedConsole;
-			fc->con_in = g_winport_con_in->ForkConsoleInput(fc);
-			fc->con_out = g_winport_con_out->ForkConsoleOutput(fc);
-
-		} catch(...) {
-			WINPORT(JoinConsole)(fc);
-			fc = NULL;
-		}
-		return fc;
-	}
-
-	WINPORT_DECL(JoinConsole,VOID,(HANDLE hConsole))
-	{
-		if (hConsole) {
-			ForkedConsole *fc = (ForkedConsole *)hConsole;
-			ASSERT(fc->magic == FORKED_CONSOLE_MAGIC);
-			fc->magic^= 0x0f0f0f0f0f0f0f0f;
-			if (fc->con_in)
-				g_winport_con_in->JoinConsoleInput(fc->con_in);
-			if (fc->con_out)
-				g_winport_con_out->JoinConsoleOutput(fc->con_out);
-			delete fc;
-		}
-	}
 	
 	WINPORT_DECL(GetLargestConsoleWindowSize,COORD,(HANDLE hConsoleOutput))
 	{
-		return ChooseConOut(hConsoleOutput)->GetLargestConsoleWindowSize();
+		return g_winport_con_out->GetLargestConsoleWindowSize();
 	}
 
 	WINPORT_DECL(SetConsoleWindowInfo,BOOL,(HANDLE hConsoleOutput, BOOL bAbsolute, const SMALL_RECT *lpConsoleWindow))
 	{
-		ChooseConOut(hConsoleOutput)->SetWindowInfo(bAbsolute!=FALSE, *lpConsoleWindow);
+		g_winport_con_out->SetWindowInfo(bAbsolute!=FALSE, *lpConsoleWindow);
 		return TRUE;
 	}
 
-	WINPORT_DECL(SetConsoleTitle,BOOL,(HANDLE hConsoleOutput, const WCHAR *title))
+	WINPORT_DECL(SetConsoleTitle,BOOL,(const WCHAR *title))
 	{
-		ChooseConOut(hConsoleOutput)->SetTitle(title);
+		g_winport_con_out->SetTitle(title);
 		return TRUE;
 	}
 
-	WINPORT_DECL(GetConsoleTitle,DWORD,(HANDLE hConsoleOutput, WCHAR *title, DWORD max_size))
+	WINPORT_DECL(GetConsoleTitle,DWORD,(WCHAR *title, DWORD max_size))
 	{
-		const std::wstring &s = ChooseConOut(hConsoleOutput)->GetTitle();
+		const std::wstring &s = g_winport_con_out->GetTitle();
 		wcsncpy(title, s.c_str(), max_size);
 		return (DWORD)(s.size() + 1);
 	}
 
 	WINPORT_DECL(SetConsoleScreenBufferSize,BOOL,(HANDLE hConsoleOutput,COORD dwSize))
 	{
-		ChooseConOut(hConsoleOutput)->SetSize(dwSize.X, dwSize.Y);
+		g_winport_con_out->SetSize(dwSize.X, dwSize.Y);
 		return TRUE;
 	}
 
@@ -101,17 +45,15 @@ extern "C" {
 	{
 		return (ModeFlags==CONSOLE_WINDOWED_MODE) ? TRUE : FALSE;
 	}
-
 	WINPORT_DECL(GetConsoleDisplayMode,BOOL,(LPDWORD lpModeFlags))
 	{
 		*lpModeFlags = 0;//WTF??? GetConsoleDisplayMode/SetConsoleDisplayMode returns different meanings!!!
 		return TRUE;
 	}
-
 	WINPORT_DECL(ScrollConsoleScreenBuffer,BOOL,(HANDLE hConsoleOutput, const SMALL_RECT *lpScrollRectangle, 
 		const SMALL_RECT *lpClipRectangle, COORD dwDestinationOrigin, const CHAR_INFO *lpFill))
 	{
-		return ChooseConOut(hConsoleOutput)->Scroll(lpScrollRectangle, lpClipRectangle, dwDestinationOrigin, lpFill) ? TRUE : FALSE;
+		return g_winport_con_out->Scroll(lpScrollRectangle, lpClipRectangle, dwDestinationOrigin, lpFill) ? TRUE : FALSE;
 	}
 
 	WINPORT_DECL(SetConsoleWindowMaximized,VOID,(BOOL Maximized))
@@ -123,10 +65,9 @@ extern "C" {
 	WINPORT_DECL(GetConsoleScreenBufferInfo,BOOL,(HANDLE hConsoleOutput,CONSOLE_SCREEN_BUFFER_INFO *lpConsoleScreenBufferInfo))
 	{
 		unsigned int width = 0, height = 0;
-		auto *con_out = ChooseConOut(hConsoleOutput);
-		con_out->GetSize(width, height);
-		lpConsoleScreenBufferInfo->dwCursorPosition = con_out->GetCursor();
-		lpConsoleScreenBufferInfo->wAttributes = con_out->GetAttributes();
+		g_winport_con_out->GetSize(width, height);
+		lpConsoleScreenBufferInfo->dwCursorPosition = g_winport_con_out->GetCursor();
+		lpConsoleScreenBufferInfo->wAttributes = g_winport_con_out->GetAttributes();
 		lpConsoleScreenBufferInfo->dwSize.X = width;
 		lpConsoleScreenBufferInfo->dwSize.Y = height;
 		lpConsoleScreenBufferInfo->srWindow.Left = 0;
@@ -141,7 +82,7 @@ extern "C" {
 
 	WINPORT_DECL(SetConsoleCursorPosition,BOOL,(HANDLE hConsoleOutput,COORD dwCursorPosition))
 	{
-		ChooseConOut(hConsoleOutput)->SetCursor(dwCursorPosition);
+		g_winport_con_out->SetCursor(dwCursorPosition);
 		return TRUE;
 	}
 
@@ -150,20 +91,15 @@ extern "C" {
 		DWORD height = lpConsoleCursorInfo->dwSize;
 		if (height > 100) height = 100;
 		else if (height == 0) height = 1;
-		ChooseConOut(hConsoleOutput)->SetCursor((UCHAR)height, lpConsoleCursorInfo->bVisible!=FALSE);
+		g_winport_con_out->SetCursor((UCHAR)height, lpConsoleCursorInfo->bVisible!=FALSE);
 		return TRUE;
-	}
-
-	WINPORT_DECL(SetConsoleCursorBlinkTime,VOID,(HANDLE hConsoleOutput, DWORD dwMilliseconds ))
-	{
-		ChooseConOut(hConsoleOutput)->SetCursorBlinkTime(dwMilliseconds);
 	}
 
 	WINPORT_DECL(GetConsoleCursorInfo,BOOL,(HANDLE hConsoleOutput,CONSOLE_CURSOR_INFO *lpConsoleCursorInfo))
 	{
 		UCHAR height;
 		bool visible;
-		ChooseConOut(hConsoleOutput)->GetCursor(height, visible);
+		g_winport_con_out->GetCursor(height, visible);
 		lpConsoleCursorInfo->dwSize = height;
 		lpConsoleCursorInfo->bVisible = visible ? TRUE : FALSE;
 		return TRUE;
@@ -171,56 +107,64 @@ extern "C" {
 
 	WINPORT_DECL(GetConsoleMode,BOOL,(HANDLE hConsoleHandle,LPDWORD lpMode))
 	{
-		*lpMode = ChooseConOut(hConsoleHandle)->GetMode();
+		std::lock_guard<std::mutex> lock(g_winport_con_mode_mutex);
+		*lpMode = g_winport_con_mode;
+		*lpMode|= g_winport_con_out->GetMode();
 		return TRUE;
 	}
 	
 	WINPORT_DECL(SetConsoleMode,BOOL,(HANDLE hConsoleHandle, DWORD dwMode))
 	{
-		ChooseConOut(hConsoleHandle)->SetMode(dwMode);
+		std::lock_guard<std::mutex> lock(g_winport_con_mode_mutex);
+		if ((dwMode&ENABLE_EXTENDED_FLAGS)==0) {
+			dwMode&= ~(ENABLE_QUICK_EDIT_MODE|ENABLE_INSERT_MODE);
+			dwMode|= (g_winport_con_mode & (ENABLE_QUICK_EDIT_MODE|ENABLE_INSERT_MODE));
+		}
+		g_winport_con_mode = dwMode;
+		g_winport_con_out->SetMode(g_winport_con_mode);
 		return TRUE;
 	}
 
 
 	WINPORT_DECL(SetConsoleTextAttribute,BOOL,(HANDLE hConsoleOutput, DWORD64 qAttributes))
 	{
-		ChooseConOut(hConsoleOutput)->SetAttributes(qAttributes);
+		g_winport_con_out->SetAttributes(qAttributes);
 		return TRUE;
 	}
 
 	WINPORT_DECL(WriteConsole,BOOL,(HANDLE hConsoleOutput, const WCHAR *lpBuffer, DWORD nNumberOfCharsToWrite, LPDWORD lpNumberOfCharsWritten, LPVOID lpReserved))
 	{
-		*lpNumberOfCharsWritten = ChooseConOut(hConsoleOutput)->WriteString(lpBuffer, nNumberOfCharsToWrite);
+		*lpNumberOfCharsWritten = g_winport_con_out->WriteString(lpBuffer, nNumberOfCharsToWrite);
 		return TRUE;
 	}
 
 	WINPORT_DECL(WriteConsoleOutput,BOOL,(HANDLE hConsoleOutput,const CHAR_INFO *lpBuffer,COORD dwBufferSize,COORD dwBufferCoord,PSMALL_RECT lpScreenRegion))
 	{
-		ChooseConOut(hConsoleOutput)->Write(lpBuffer, dwBufferSize, dwBufferCoord, *lpScreenRegion);
+		g_winport_con_out->Write(lpBuffer, dwBufferSize, dwBufferCoord, *lpScreenRegion);
 		return TRUE;
 	}
 
 	WINPORT_DECL(ReadConsoleOutput, BOOL, (HANDLE hConsoleOutput, CHAR_INFO *lpBuffer, COORD dwBufferSize, COORD dwBufferCoord, PSMALL_RECT lpScreenRegion))
 	{
-		ChooseConOut(hConsoleOutput)->Read(lpBuffer, dwBufferSize, dwBufferCoord, *lpScreenRegion);
+		g_winport_con_out->Read(lpBuffer, dwBufferSize, dwBufferCoord, *lpScreenRegion);
 		return TRUE;
 	}
 
 	WINPORT_DECL(WriteConsoleOutputCharacter,BOOL,(HANDLE hConsoleOutput, const WCHAR *lpCharacter, DWORD nLength, COORD dwWriteCoord, LPDWORD lpNumberOfCharsWritten))
 	{
-		*lpNumberOfCharsWritten = ChooseConOut(hConsoleOutput)->WriteStringAt(lpCharacter, nLength, dwWriteCoord);
+		*lpNumberOfCharsWritten = g_winport_con_out->WriteStringAt(lpCharacter, nLength, dwWriteCoord);
 		return TRUE;
 	}
 
 	WINPORT_DECL(FillConsoleOutputAttribute, BOOL, (HANDLE hConsoleOutput, DWORD64 qAttributes, DWORD nLength, COORD dwWriteCoord, LPDWORD lpNumberOfAttrsWritten))
 	{
-		*lpNumberOfAttrsWritten = ChooseConOut(hConsoleOutput)->FillAttributeAt(qAttributes, nLength, dwWriteCoord);
+		*lpNumberOfAttrsWritten = g_winport_con_out->FillAttributeAt(qAttributes, nLength, dwWriteCoord);
 		return TRUE;
 	}
 
 	WINPORT_DECL(FillConsoleOutputCharacter, BOOL, (HANDLE hConsoleOutput, WCHAR cCharacter, DWORD nLength, COORD dwWriteCoord, LPDWORD lpNumberOfCharsWritten))
 	{
-		*lpNumberOfCharsWritten = ChooseConOut(hConsoleOutput)->FillCharacterAt(cCharacter, nLength, dwWriteCoord);
+		*lpNumberOfCharsWritten = g_winport_con_out->FillCharacterAt(cCharacter, nLength, dwWriteCoord);
 		return TRUE;
 	}
 
@@ -231,19 +175,19 @@ extern "C" {
 
 	WINPORT_DECL(FlushConsoleInputBuffer,BOOL,(HANDLE hConsoleInput))
 	{
-		ChooseConIn(hConsoleInput)->Flush();
+		g_winport_con_in->Flush();
 		return TRUE;
 	}
 
 	WINPORT_DECL(GetNumberOfConsoleInputEvents,BOOL,(HANDLE hConsoleInput, LPDWORD lpcNumberOfEvents))
 	{
-		*lpcNumberOfEvents = ChooseConIn(hConsoleInput)->Count();
+		*lpcNumberOfEvents = g_winport_con_in->Count();
 		return TRUE;
 	}
 
 	WINPORT_DECL(PeekConsoleInput,BOOL,(HANDLE hConsoleInput, PINPUT_RECORD lpBuffer, DWORD nLength, LPDWORD lpNumberOfEventsRead))
 	{
-		*lpNumberOfEventsRead = ChooseConIn(hConsoleInput)->Peek(lpBuffer, nLength);
+		*lpNumberOfEventsRead = g_winport_con_in->Peek(lpBuffer, nLength);
 		return TRUE;
 	}
 
@@ -251,14 +195,14 @@ extern "C" {
 	{
 		*lpNumberOfEventsRead = 0;
 		while (nLength) {
-			DWORD cnt = ChooseConIn(hConsoleInput)->Dequeue(lpBuffer, nLength);
+			DWORD cnt = g_winport_con_in->Dequeue(lpBuffer, nLength);
 			if (cnt) {
 				*lpNumberOfEventsRead+= cnt;
 				nLength-= cnt;
 				lpBuffer+= cnt;
 				break;//or not break?
 			} else
-				ChooseConIn(hConsoleInput)->WaitForNonEmpty();
+				g_winport_con_in->WaitForNonEmpty();
 		}
 		return TRUE;
 	}
@@ -267,9 +211,9 @@ extern "C" {
 	{
 		std::vector<INPUT_RECORD> backlog;
 		DWORD out = 0;
-		while (ChooseConIn(hConsoleInput)->WaitForNonEmptyWithTimeout(0)) {
+		while (g_winport_con_in->WaitForNonEmptyWithTimeout(0)) {
 			INPUT_RECORD rec;
-			if (!ChooseConIn(hConsoleInput)->Dequeue(&rec, 1)) {
+			if (!g_winport_con_in->Dequeue(&rec, 1)) {
 				break;
 			}
 			if (rec.EventType == KEY_EVENT) {
@@ -297,26 +241,27 @@ extern "C" {
 			}
 		}
 		if (!backlog.empty()) {
-			ChooseConIn(hConsoleInput)->Enqueue(backlog.data(), backlog.size());
+			g_winport_con_in->Enqueue(backlog.data(), backlog.size());
 		}
 		return out;
 	}
 
-	WINPORT_DECL(WaitConsoleInput,BOOL,(HANDLE hConsoleInput, DWORD dwTimeout))
+	WINPORT_DECL(WaitConsoleInput,BOOL,(DWORD dwTimeout))
 	{
 		if (dwTimeout == INFINITE) {
-			ChooseConIn(hConsoleInput)->WaitForNonEmpty();
+			g_winport_con_in->WaitForNonEmpty();
 			return TRUE;
 		}
-		return ChooseConIn(hConsoleInput)->WaitForNonEmptyWithTimeout(dwTimeout) ? TRUE : FALSE;
+		return g_winport_con_in->WaitForNonEmptyWithTimeout(dwTimeout) ? TRUE : FALSE;
 	}
 
 	WINPORT_DECL(WriteConsoleInput,BOOL,(HANDLE hConsoleInput, const INPUT_RECORD *lpBuffer, DWORD nLength, LPDWORD lpNumberOfEventsWritten))
 	{
-		ChooseConIn(hConsoleInput)->Enqueue(lpBuffer, nLength);
+		g_winport_con_in->Enqueue(lpBuffer, nLength);
 		*lpNumberOfEventsWritten = nLength;
 		return TRUE;
 	}
+
 
 	static PHANDLER_ROUTINE gHandlerRoutine = NULL;
 
@@ -347,24 +292,27 @@ extern "C" {
 	
 	WINPORT_DECL(SetConsoleScrollRegion, VOID, (HANDLE hConsoleOutput, SHORT top, SHORT bottom))
 	{
-		ChooseConOut(hConsoleOutput)->SetScrollRegion(top, bottom);
+		g_winport_con_out->SetScrollRegion(top, bottom);
 	}
 	
 	WINPORT_DECL(GetConsoleScrollRegion, VOID, (HANDLE hConsoleOutput, SHORT *top, SHORT *bottom))
 	{
-		ChooseConOut(hConsoleOutput)->GetScrollRegion(*top, *bottom);
+		g_winport_con_out->GetScrollRegion(*top, *bottom);
 	}
 	
 	WINPORT_DECL(SetConsoleScrollCallback, VOID, (HANDLE hConsoleOutput, PCONSOLE_SCROLL_CALLBACK pCallback, PVOID pContext))
 	{
-		ChooseConOut(hConsoleOutput)->SetScrollCallback(pCallback, pContext);
+		g_winport_con_out->SetScrollCallback(pCallback, pContext);
 	}
 	
 	WINPORT_DECL(BeginConsoleAdhocQuickEdit, BOOL, ())
 	{
-		if (g_winport_con_out->GetMode() & ENABLE_QUICK_EDIT_MODE) {
-			fprintf(stderr, "BeginConsoleAdhocQuickEdit: meaningless when enabled ENABLE_QUICK_EDIT_MODE\n");
-			return FALSE;
+		{
+			std::lock_guard<std::mutex> lock(g_winport_con_mode_mutex);
+			if (g_winport_con_mode & ENABLE_QUICK_EDIT_MODE) {
+				fprintf(stderr, "BeginConsoleAdhocQuickEdit: meaningless when enabled ENABLE_QUICK_EDIT_MODE\n");
+				return FALSE;
+			}
 		}
 		
 		//here is possible non-critical race with enabling ENABLE_QUICK_EDIT_MODE
@@ -402,27 +350,27 @@ extern "C" {
 		return g_winport_con_out->ConsoleBackgroundMode(TryEnterBackgroundMode != FALSE) ? TRUE : FALSE;
 	}
 
-	WINPORT_DECL(SetConsoleFKeyTitles, BOOL, (HANDLE hConsoleOutput, const CHAR **titles))
+	WINPORT_DECL(SetConsoleFKeyTitles, BOOL, (const CHAR **titles))
 	{
-		return ChooseConOut(hConsoleOutput)->SetFKeyTitles(titles) ? TRUE : FALSE;
+		return g_winport_con_out->SetFKeyTitles(titles) ? TRUE : FALSE;
 	}
 
-	WINPORT_DECL(GetConsoleColorPalette,BYTE,(HANDLE hConsoleOutput))
+	WINPORT_DECL(GetConsoleColorPalette,BYTE,())
 	{
-		return ChooseConOut(hConsoleOutput)->GetColorPalette();
+		return g_winport_con_out->GetColorPalette();
 	}
 
-	WINPORT_DECL(OverrideConsoleColor, VOID, (HANDLE hConsoleOutput, DWORD Index, DWORD *ColorFG, DWORD *ColorBK))
+	WINPORT_DECL(OverrideConsoleColor, VOID, (DWORD Index, DWORD *ColorFG, DWORD *ColorBK))
 	{
-		return ChooseConOut(hConsoleOutput)->OverrideColor(Index, ColorFG, ColorBK);
+		return g_winport_con_out->OverrideColor(Index, ColorFG, ColorBK);
 	}
 
-	WINPORT_DECL(SetConsoleRepaintsDefer, VOID, (HANDLE hConsoleOutput, BOOL Deferring))
+	WINPORT_DECL(SetConsoleRepaintsDefer, VOID, (BOOL Deferring))
 	{
 		if (Deferring) {
-			ChooseConOut(hConsoleOutput)->RepaintsDeferStart();
+			g_winport_con_out->RepaintsDeferStart();
 		} else {
-			ChooseConOut(hConsoleOutput)->RepaintsDeferFinish();
+			g_winport_con_out->RepaintsDeferFinish();
 		}
 	}
 
@@ -484,5 +432,10 @@ extern "C" {
 			return L"\u2022";
 		}
 		return s_composite_chars.id2str[id];
+	}
+
+	WINPORT_DECL(WinPortViewImg, VOID, (const char *path))
+	{
+		g_winport_con_out->WinPortViewImg(path);
 	}
 }

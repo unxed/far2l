@@ -139,10 +139,10 @@ void ShellMakeDir(Panel *SrcPanel)
 			}
 			for (wchar_t *ChPtr = lpwszDirName; *ChPtr; ChPtr++) {
 				if (IsSlash(*ChPtr)) {
-					wchar_t Ch = ChPtr[1];
+					WCHAR Ch = ChPtr[1];
 					ChPtr[1] = 0;
 
-					if ((apiGetFileAttributes(lpwszDirName) == INVALID_FILE_ATTRIBUTES)
+					if (*lpwszDirName && (apiGetFileAttributes(lpwszDirName) == INVALID_FILE_ATTRIBUTES)
 							&& apiCreateDirectory(lpwszDirName, nullptr)) {
 						TreeList::AddTreeName(lpwszDirName);
 						bSuccess = true;
@@ -159,21 +159,18 @@ void ShellMakeDir(Panel *SrcPanel)
 			while (!(bSuccess2 = apiCreateDirectory(strDirName, nullptr))) {
 				int LastError = WINPORT(GetLastError)();
 
-				if (LastError == ERROR_ALREADY_EXISTS) {
-					Message(MSG_WARNING | MSG_ERRORTYPE, 1, Msg::Error, Msg::CannotCreateFolder,
-							strOriginalDirName, Msg::Ok);
-					bSkip = !DirList.IsLastElement(DI);
-					break; // Jump to directory always if it existed before creation attempt
-				} else if (LastError == ERROR_INVALID_NAME || LastError == ERROR_DIRECTORY) {
+				if (LastError == ERROR_ALREADY_EXISTS || LastError == ERROR_INVALID_NAME
+						|| LastError == ERROR_DIRECTORY) {
+					int ret;
 
-					if (DirList.IsLastElement(DI)) {
-						Message(MSG_WARNING | MSG_ERRORTYPE, 1, Msg::Error, Msg::CannotCreateFolder,
-								strOriginalDirName, Msg::Ok);
-						bSkip = false;
-					}
+					if (DirList.IsLastElement(DI))
+						ret = Message(MSG_WARNING | MSG_ERRORTYPE, 1, Msg::Error, Msg::CannotCreateFolder,
+								strOriginalDirName, Msg::Cancel);
 					else
-						bSkip = (0==Message(MSG_WARNING | MSG_ERRORTYPE, 2, Msg::Error, Msg::CannotCreateFolder,
-											strOriginalDirName, Msg::Skip, Msg::Cancel));
+						ret = Message(MSG_WARNING | MSG_ERRORTYPE, 2, Msg::Error, Msg::CannotCreateFolder,
+								strOriginalDirName, Msg::Ok, Msg::Skip);
+
+					bSkip = ret == 1;
 
 					if (bSuccess || bSkip)
 						break;

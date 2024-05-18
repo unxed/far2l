@@ -1,13 +1,11 @@
 #ifndef _COLORER_BASEEDITOR_H_
 #define _COLORER_BASEEDITOR_H_
 
-#include "colorer/LineSource.h"
-#include "colorer/ParserFactory.h"
-#include "colorer/TextParser.h"
-#include "colorer/editor/EditorListener.h"
-#include "colorer/editor/PairMatch.h"
-#include "colorer/handlers/LineRegionsCompactSupport.h"
-#include "colorer/handlers/LineRegionsSupport.h"
+#include <colorer/parsers/ParserFactory.h>
+#include <colorer/handlers/LineRegionsSupport.h>
+#include <colorer/handlers/LineRegionsCompactSupport.h>
+#include <colorer/editor/EditorListener.h>
+#include <colorer/editor/PairMatch.h>
 
 /**
  * Base Editor functionality.
@@ -21,7 +19,7 @@
  */
 class BaseEditor : public RegionHandler
 {
- public:
+public:
   /**
    * Initial constructor.
    * Creates uninitialized base editor functionality support.
@@ -31,7 +29,7 @@ class BaseEditor : public RegionHandler
    *        text data in line-separated form. Can't be null.
    */
   BaseEditor(ParserFactory* pf, LineSource* lineSource);
-  ~BaseEditor() override;
+  ~BaseEditor();
 
   /**
    * This method informs handler about internal form of
@@ -61,7 +59,7 @@ class BaseEditor : public RegionHandler
    * @param hrdClass Class of RegionMapper instance
    * @param hrdName  Name of RegionMapper instance
    */
-  void setRegionMapper(const UnicodeString* hrdClass, const UnicodeString* hrdName);
+  void setRegionMapper(const String* hrdClass, const String* hrdName);
 
   /**
    * Specifies number of lines, for which parser
@@ -70,7 +68,7 @@ class BaseEditor : public RegionHandler
    * @param backParse Number of lines. If <= 0, dropped into default
    * value.
    */
-  void setBackParse(int _backParse);
+  void setBackParse(int backParse);
 
   /**
    * Initial HRC type, used for parse processing.
@@ -82,12 +80,12 @@ class BaseEditor : public RegionHandler
    * Initial HRC type, used for parse processing.
    * If changed during processing, all text information is invalidated.
    */
-  FileType* setFileType(const UnicodeString& fileType);
+  FileType* setFileType(const String& fileType);
   /**
    * Tries to choose appropriate file type from HRC database
    * using passed fileName and first line of text (if available through lineSource)
    */
-  FileType* chooseFileType(const UnicodeString* fileName);
+  FileType* chooseFileType(const String* fileName);
 
   /**
    * Returns currently used HRC file type
@@ -121,7 +119,7 @@ class BaseEditor : public RegionHandler
    * @param pos Position in line, where paired region to be searched.
    *        Paired Region is found, if it includes specified position
    *        or ends directly at one char before line position.
-   */
+  */
   PairMatch* searchLocalPair(int lineNo, int pos);
 
   /**
@@ -150,6 +148,7 @@ class BaseEditor : public RegionHandler
    * @param pm PairMatch object to free.
    */
   void releasePairMatch(PairMatch* pm);
+
 
   /**
    * Return parsed and colored LineRegions of requested line.
@@ -231,25 +230,24 @@ class BaseEditor : public RegionHandler
   const Region* def_PairEnd;
 
   /** Basic HRC region mapping */
-  const RegionDefine *rd_def_Text, *rd_def_HorzCross, *rd_def_VertCross;
+  const RegionDefine* rd_def_Text, *rd_def_HorzCross, *rd_def_VertCross;
 
-  void startParsing(size_t lno) override;
-  void endParsing(size_t lno) override;
-  void clearLine(size_t lno, UnicodeString* line) override;
-  void addRegion(size_t lno, UnicodeString* line, int sx, int ex, const Region* region) override;
-  void enterScheme(size_t lno, UnicodeString* line, int sx, int ex, const Region* region,
-                   const Scheme* scheme) override;
-  void leaveScheme(size_t lno, UnicodeString* line, int sx, int ex, const Region* region,
-                   const Scheme* scheme) override;
+  void startParsing(size_t lno);
+  void endParsing(size_t lno);
+  void clearLine(size_t lno, String* line);
+  void addRegion(size_t lno, String* line, int sx, int ex, const Region* region);
+  void enterScheme(size_t lno, String* line, int sx, int ex, const Region* region, const Scheme* scheme);
+  void leaveScheme(size_t lno, String* line, int sx, int ex, const Region* region, const Scheme* scheme);
 
   bool haveInvalidLine();
   void setMaxBlockSize(int max_block_size);
 
- private:
-  FileType* chooseFileTypeCh(const UnicodeString* fileName, int chooseStr, int chooseLen);
-  PairMatch* searchPair(int lineNo, int pos, int start_line, int end_line);
+private:
 
-  std::unique_ptr<TextParser> textParser;
+  FileType* chooseFileTypeCh(const String* fileName, int chooseStr, int chooseLen);
+
+  HRCParser* hrcParser;
+  TextParser* textParser;
   ParserFactory* parserFactory;
   LineSource* lineSource;
   RegionMapper* regionMapper;
@@ -271,10 +269,13 @@ class BaseEditor : public RegionHandler
 
  public:
   int getInvalidLine() const;
-
  private:
+  // no lines structure changes, just single line change
+  int changedLine;
+
   bool internalRM;
   bool regionCompact;
+  bool breakParse;
 
   inline int getLastVisibleLine();
   void remapLRS(bool recreate);
@@ -286,3 +287,5 @@ class BaseEditor : public RegionHandler
 };
 
 #endif
+
+

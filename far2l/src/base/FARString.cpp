@@ -201,9 +201,9 @@ void FARString::PrepareForModify(size_t nCapacity)
 
 void FARString::PrepareForModify()
 {
-	// invoke PrepareForModify with current length but not capacity intentionally
+	// invoke PrepareForModify with current length but not capacity intentially
 	// so in case of single owner this will not alter things but in case of
-	// not single owner then new copy will be allocated with capacity == length
+	// not single owner then new copy will be alloced with capacity == length
 	PrepareForModify(m_pContent->GetLength());
 }
 
@@ -318,7 +318,7 @@ FARString& FARString::Append(const char *lpszAdd, UINT CodePage)
 	{
 		int nAddSize = WINPORT(MultiByteToWideChar)(CodePage,0,lpszAdd,-1,nullptr,0);
 		if (nAddSize > 0) {
-			size_t nNewLength = m_pContent->GetLength() + nAddSize - 1; // minus NUL char that implicitly there
+			size_t nNewLength = m_pContent->GetLength() + nAddSize - 1; // minus NUL char that implicitely there
 			PrepareForModify(nNewLength);
 			WINPORT(MultiByteToWideChar)(CodePage, 0, lpszAdd, -1, m_pContent->GetData() + m_pContent->GetLength(), nAddSize);
 			m_pContent->SetLength(nNewLength);
@@ -463,7 +463,7 @@ void FARString::Reserve(size_t DesiredCapacity)
 	}
 }
 
-void FARStringFmtV(FARString &str, bool append, const wchar_t *format, va_list argptr)
+static void FARStringFmt(FARString &str, bool append, const wchar_t *format, va_list argptr)
 {
 	const size_t StartSize = 0x200;		// 512 bytes ought to be enough for mosts
 	const size_t MaxSize = 0x1000000;	// 16 megs ought to be enough for anybody
@@ -497,7 +497,7 @@ FARString& FARString::Format(const wchar_t * format, ...)
 {
 	va_list argptr;
 	va_start(argptr, format);
-	FARStringFmtV(*this, false, format, argptr);
+	FARStringFmt(*this, false, format, argptr);
 	va_end(argptr);
 	return *this;
 }
@@ -506,7 +506,7 @@ FARString& FARString::AppendFormat(const wchar_t * format, ...)
 {
 	va_list argptr;
 	va_start(argptr, format);
-	FARStringFmtV(*this, true, format, argptr);
+	FARStringFmt(*this, true, format, argptr);
 	va_end(argptr);
 	return *this;
 }

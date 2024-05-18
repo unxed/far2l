@@ -1,26 +1,23 @@
 #pragma once
 #include <string>
-#include <map>
 #include <windows.h>
 #include "../DialogUtils.h"
 #include "../../SitesConfig.h"
 
 class SiteConnectionEditor : protected BaseDialog
 {
-	friend class ProtocolOptionsScope;
 	SitesConfigLocation _sites_cfg_location;
 	std::string _initial_display_name, _display_name;
-	std::string _protocol, _host, _username, _password, _directory;
-	std::map<std::string, std::string> _protocols_options;
+	std::string _initial_protocol, _protocol, _host, _username, _password, _directory, _protocol_options;
 	unsigned int _login_mode = 0;
 	unsigned int _initial_port = 0, _port = 0;
+	int _keepalive = 0, _codepage = 0;
 
 	int _i_display_name = -1, _i_display_name_autogen = -1;
 	int _i_protocol = -1, _i_host = -1, _i_port_text = 1, _i_port = -1;
 	int _i_login_mode_text = -1, _i_username_text = -1, _i_password_text = -1;
 	int _i_login_mode = -1, _i_username = -1, _i_password = -1;
-	int _i_directory = -1;
-	int _i_proxy_options = -1, _i_extra_options = -1, _i_protocol_options = -1;
+	int _i_directory = -1, _i_keepalive = -1, _i_codepage = -1, _i_protocol_options = -1;
 	int _i_save = -1, _i_connect = -1, _i_cancel = -1;
 
 	unsigned int _autogen_pending = 0;
@@ -28,6 +25,7 @@ class SiteConnectionEditor : protected BaseDialog
 
 	FarListWrapper _di_protocols;
 	FarListWrapper _di_login_mode;
+	FarListWrapper _di_codepages;
 
 	void UpdateEnabledButtons();
 	void UpdatePerProtocolState(bool reset_port);
@@ -43,7 +41,6 @@ class SiteConnectionEditor : protected BaseDialog
 
 	void Load();
 	bool Save();
-	void EnsureTimeStamp(std::string &protocol_options);
 
 public:
 	SiteConnectionEditor(const SitesConfigLocation &sites_cfg_location, const std::string &display_name);

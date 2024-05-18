@@ -256,9 +256,7 @@ bool ProcessLocalFileTypes(const wchar_t *Name, int Mode, bool CanAddHistory, FA
 
 			// ProcessOSAliases(strCommand);
 
-			if (CtrlObject->CmdLine->ProcessFarCommands(strCommand))	// far commands always not silent
-				;
-			else if (!isSilent) {
+			if (!isSilent) {
 				CtrlObject->CmdLine->ExecString(strCommand, false, false, ListFileUsed);
 			} else {
 #if 1
@@ -592,7 +590,7 @@ void EditFileTypes()
 				MenuModified = false;
 			}
 
-			const auto Key = TypesMenu.ReadInput();
+			DWORD Key = TypesMenu.ReadInput();
 			MenuPos = TypesMenu.GetSelectPos();
 
 			switch (Key) {

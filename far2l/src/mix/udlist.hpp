@@ -62,10 +62,6 @@ public:
 	{}
 	bool operator==(const UserDefinedListItem &rhs) const;
 	int operator<(const UserDefinedListItem &rhs) const;
-	UserDefinedListItem(const UserDefinedListItem &rhs)
-	{
-		operator=(rhs);
-	}
 	const UserDefinedListItem &operator=(const UserDefinedListItem &rhs);
 	const UserDefinedListItem &operator=(const wchar_t *rhs);
 	wchar_t *set(const wchar_t *Src, size_t size);

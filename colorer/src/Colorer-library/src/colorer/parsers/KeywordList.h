@@ -1,22 +1,20 @@
-#ifndef COLORER_KEYWORDLIST_H
-#define COLORER_KEYWORDLIST_H
+#ifndef _COLORER_KEYWORDLIST_H_
+#define _COLORER_KEYWORDLIST_H_
 
-#include <climits>
-#include "colorer/Common.h"
-#include "colorer/Region.h"
+#include <colorer/Common.h>
+#include <colorer/Region.h>
+#include <colorer/unicode/CharacterClass.h>
 
 /** Information about one parsed keyword.
     Contains keyword, symbol specifier, region reference
     and internal optimization field.
     @ingroup colorer_parsers
 */
-struct KeywordInfo
-{
-  enum class KeywordType { KT_WORD, KT_SYMB };
-  std::unique_ptr<const UnicodeString> keyword;
-  const Region* region = nullptr;
-  bool isSymbol = false;
-  int indexOfShorter = -1;
+struct KeywordInfo {
+  std::unique_ptr<const SString> keyword;
+  const Region* region;
+  bool isSymbol;
+  int  ssShorter;
 };
 
 /** List of keywords.
@@ -24,16 +22,20 @@ struct KeywordInfo
 */
 class KeywordList
 {
- public:
-  bool matchCase = false;
-  int count = 0;
-  int minKeywordLength = INT_MAX;
+public:
+  int num;
+  bool matchCase;
+  unsigned int minKeywordLength;
   std::unique_ptr<CharacterClass> firstChar;
-  KeywordInfo* kwList = nullptr;
-  explicit KeywordList(size_t list_size);
+  KeywordInfo* kwList;
+  KeywordList();
   ~KeywordList();
   void sortList();
   void substrIndex();
+
+
 };
 
-#endif  //COLORER_KEYWORDLIST_H
+#endif //_COLORER_KEYWORDLIST_H_
+
+

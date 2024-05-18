@@ -2,7 +2,6 @@
 #include <vector>
 #include <mutex>
 #include <utils.h>
-#include <time.h>
 #include <windows.h>
 #include <StringConfig.h>
 #include "SiteConnectionEditor.h"
@@ -20,9 +19,10 @@
 | Password mode:         [COMBOBOX                         ] |
 | Password:              [PSWDEDIT                         ] |
 | Directory:             [TEXTEDIT                         ] |
+| Keep alive:            [INTE]                              |
+| Codepage:              [COMBOBOX                         ] |
 |------------------------------------------------------------|
-|   [Extra settings]  [Protocol settings] [Proxy settings]   |
-|------------------------------------------------------------|
+|      [             Protocol settings         ]             |
 |  [     Save     ]  [    Connect   ]     [  Cancel      ]   |
  =============================================================
    6              21 24             39    45             60
@@ -40,8 +40,48 @@ static int DefaultPortForProtocol(const char *protocol)
 	return -1;
 }
 
-void ConfigureExtraSiteSettings(std::string &options);
-void ConfigureProxySettings(std::string &options);
+struct CodePage
+{
+	int id;
+	std::string name;
+};
+
+static struct Codepages : std::vector<CodePage>, std::mutex
+{
+	void Add(int id, const wchar_t *name)
+	{
+		emplace_back();
+		auto &cp = back();
+		cp.id = id;
+		cp.name = StrPrintf("%u", id);
+		if (cp.name.size() < 6) {
+			cp.name.append(6 - cp.name.size(), ' ');
+		}
+		if (G.fsf.BoxSymbols) {
+			Wide2MB(&G.fsf.BoxSymbols[BS_V1], 1, cp.name, true);
+		} else {
+			cp.name+= '|';
+		}
+		cp.name+= ' ';
+		Wide2MB(name, cp.name, true);
+	}
+
+} s_codepages;
+
+
+static BOOL __stdcall EnumCodePagesProc(LPWSTR lpwszCodePage)
+{
+	const int id = _wtoi(lpwszCodePage);
+
+	CPINFOEX cpiex{};
+	if (id != CP_UTF8 && id != CP_UTF16LE && id != CP_UTF16BE && id != CP_UTF32LE && id != CP_UTF32BE) {
+		if (WINPORT(GetCPInfoEx)((UINT)id, 0, &cpiex)) {
+			s_codepages.Add(id, cpiex.CodePageName);
+		}
+	}
+
+	return TRUE;
+}
 
 SiteConnectionEditor::SiteConnectionEditor(const SitesConfigLocation &sites_cfg_location, const std::string &display_name)
 	: _sites_cfg_location(sites_cfg_location), _initial_display_name(display_name), _display_name(display_name)
@@ -69,6 +109,17 @@ SiteConnectionEditor::SiteConnectionEditor(const SitesConfigLocation &sites_cfg_
 	if (!_di_login_mode.SelectIndex(_login_mode)) {
 		_login_mode = 0;
 		_di_login_mode.SelectIndex(_login_mode);
+	}
+
+	{
+		std::lock_guard<std::mutex> codepages_locker(s_codepages);
+		if (s_codepages.empty()) {
+			s_codepages.Add(CP_UTF8, L"UTF8");
+			WINPORT(EnumSystemCodePages)(EnumCodePagesProc, 0);
+		}
+		for (const auto &cp : s_codepages) {
+			_di_codepages.Add(cp.name.c_str(), (cp.id == _codepage) ? LIF_SELECTED : 0);
+		}
 	}
 
 	if (_port == 0) {
@@ -116,15 +167,20 @@ SiteConnectionEditor::SiteConnectionEditor(const SitesConfigLocation &sites_cfg_
 	_i_directory = _di.AddAtLine(DI_EDIT, 28,62, DIF_HISTORY, _directory.c_str(), "NetRocks_History_Dir");
 
 	_di.NextLine();
+	_di.AddAtLine(DI_TEXT, 5,27, 0, MKeepAlive);
+	itoa(_keepalive, sz, 10);
+	_i_keepalive = _di.AddAtLine(DI_FIXEDIT, 28,33, DIF_MASKEDIT, sz, "99999");
+
+	_di.NextLine();
+	_di.AddAtLine(DI_TEXT, 5,27, 0, MCodepage);
+	_i_codepage = _di.AddAtLine(DI_COMBOBOX, 28,62, DIF_DROPDOWNLIST | DIF_LISTAUTOHIGHLIGHT | DIF_LISTNOAMPERSAND, "");
+	_di[_i_codepage].ListItems = _di_codepages.Get();
+
+	_di.NextLine();
 	_di.AddAtLine(DI_TEXT, 4,63, DIF_BOXCOLOR | DIF_SEPARATOR);
 
 	_di.NextLine();
-	_i_extra_options = _di.AddAtLine(DI_BUTTON, 10,50, DIF_CENTERGROUP, MExtraOptions);
 	_i_protocol_options = _di.AddAtLine(DI_BUTTON, 10,50, DIF_CENTERGROUP, MProtocolOptions);
-	_i_proxy_options = _di.AddAtLine(DI_BUTTON, 10,50, DIF_CENTERGROUP, MProxyOptions);
-
-	_di.NextLine();
-	_di.AddAtLine(DI_TEXT, 4,63, DIF_BOXCOLOR | DIF_SEPARATOR);
 
 	_di.NextLine();
 	_i_save = _di.AddAtLine(DI_BUTTON, 61,21, DIF_CENTERGROUP, MSave);
@@ -135,48 +191,21 @@ SiteConnectionEditor::SiteConnectionEditor(const SitesConfigLocation &sites_cfg_
 	SetDefaultDialogControl(_i_connect);
 }
 
-class ProtocolOptionsScope
-{
-	SiteConnectionEditor &_sce;
-	std::string _original_options, _options;
-
-public:
-	ProtocolOptionsScope(SiteConnectionEditor &sce)
-		: _sce(sce)
-	{
-		auto it = _sce._protocols_options.find(_sce._protocol);
-		if (it == _sce._protocols_options.end()) {
-			SitesConfig sc(_sce._sites_cfg_location);
-			_options = sc.GetProtocolOptions(_sce._display_name, _sce._protocol);
-		} else {
-			_options = it->second;
-		}
-		_original_options = _options;
-	}
-
-	~ProtocolOptionsScope()
-	{
-		if (_original_options != _options) {
-			_sce._protocols_options[_sce._protocol] = _options;
-		}
-	}
-
-	operator std::string &()
-	{
-		return _options;
-	}
-};
-
 void SiteConnectionEditor::Load()
 {
 	SitesConfig sc(_sites_cfg_location);
-	_protocol = sc.GetProtocol(_display_name);
+	_initial_protocol = _protocol = sc.GetProtocol(_display_name);
 	_host = sc.GetHost(_display_name);
 	_initial_port = _port = sc.GetPort(_display_name);
 	_login_mode = sc.GetLoginMode(_display_name);
 	_username = sc.GetUsername(_display_name);
 	_password = sc.GetPassword(_display_name);
 	_directory = sc.GetDirectory(_display_name);
+	_protocol_options = sc.GetProtocolOptions(_display_name, _protocol);
+
+	StringConfig sc_protocol_options(_protocol_options);
+	_keepalive = sc_protocol_options.GetInt("KeepAlive", 0);
+	_codepage = sc_protocol_options.GetInt("CodePage", CP_UTF8);
 }
 
 bool SiteConnectionEditor::Save()
@@ -187,10 +216,9 @@ bool SiteConnectionEditor::Save()
 			return false;
 	}
 
-	{
-		ProtocolOptionsScope pos(*this);
-		EnsureTimeStamp(pos);
-	}
+	StringConfig protocol_options_cfg(_protocol_options);
+	protocol_options_cfg.SetInt("KeepAlive", (_keepalive > 0) ? _keepalive : 0);
+	protocol_options_cfg.SetInt("CodePage", _codepage);
 
 	SitesConfig sc(_sites_cfg_location);
 	sc.SetProtocol(_display_name, _protocol);
@@ -200,26 +228,12 @@ bool SiteConnectionEditor::Save()
 	sc.SetUsername(_display_name, _username);
 	sc.SetPassword(_display_name, _password);
 	sc.SetDirectory(_display_name, _directory);
-
-	for (const auto &it : _protocols_options) {
-		sc.SetProtocolOptions(_display_name, it.first, it.second);
-	}
+	sc.SetProtocolOptions(_display_name, _protocol, protocol_options_cfg.Serialize());
 
 	if (_display_name != _initial_display_name && !_initial_display_name.empty()) {
 		sc.RemoveSite(_initial_display_name);
 	}
 	return true;
-}
-
-void SiteConnectionEditor::EnsureTimeStamp(std::string &protocol_options)
-{
-	StringConfig sc(protocol_options);
-	unsigned long long ts = sc.GetHexULL("TS");
-	if (!ts) {
-		ts = time(NULL);
-		sc.SetHexULL("TS", ts);
-		protocol_options = sc.Serialize();
-	}
 }
 
 bool SiteConnectionEditor::Edit()
@@ -256,7 +270,6 @@ void SiteConnectionEditor::UpdatePerProtocolState(bool reset_port)
 	TextFromDialogControl(_i_protocol, protocol);
 	auto pi = ProtocolInfoLookup(protocol.c_str());
 	if (pi) {
-		_protocol = pi->name;
 		if (reset_port && pi->default_port != -1) {
 			LongLongToDialogControl(_i_port, pi->default_port);
 		}
@@ -287,17 +300,6 @@ LONG_PTR SiteConnectionEditor::DlgProc(int msg, int param1, LONG_PTR param2)
 		} break;
 
 		case DN_BTNCLICK:
-			if (param1 == _i_extra_options) {
-				ProtocolOptionsScope pos(*this);
-				ConfigureExtraSiteSettings(pos);
-				return TRUE;
-			}
-			if (param1 == _i_proxy_options) {
-				ProtocolOptionsScope pos(*this);
-				ConfigureProxySettings(pos);
-				return TRUE;
-			}
-
 			if (param1 == _i_protocol_options) {
 				ProtocolOptions();
 				return TRUE;
@@ -306,8 +308,8 @@ LONG_PTR SiteConnectionEditor::DlgProc(int msg, int param1, LONG_PTR param2)
 			if (param1 == _i_display_name_autogen) {
 				DisplayNameAutogenerateAndApply();
 				return TRUE;
-			}
 
+			}
 		break;
 
 		case DN_EDITCHANGE:
@@ -351,6 +353,13 @@ void SiteConnectionEditor::DataFromDialog()
 	TextFromDialogControl(_i_username, _username);
 	TextFromDialogControl(_i_password, _password);
 	TextFromDialogControl(_i_directory, _directory);
+	TextFromDialogControl(_i_keepalive, str); _keepalive = atoi(str.c_str());
+
+	int cp_index = GetDialogListPosition(_i_codepage);
+	std::lock_guard<std::mutex> codepages_locker(s_codepages);
+	if (cp_index >= 0 && cp_index < (int)s_codepages.size()) {
+		_codepage = s_codepages[cp_index].id;
+	}
 }
 
 void SiteConnectionEditor::OnLoginModeChanged()
@@ -462,7 +471,6 @@ void SiteConnectionEditor::ProtocolOptions()
 {
 	auto pi = ProtocolInfoLookup(_protocol.c_str());
 	if (pi && pi->Configure) {
-		ProtocolOptionsScope pos(*this);
-		pi->Configure(pos);
+		pi->Configure(_protocol_options);
 	}
 }

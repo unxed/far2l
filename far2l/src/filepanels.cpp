@@ -299,7 +299,7 @@ void FilePanels::DeletePanel(Panel *Deleted)
 	delete Deleted;
 }
 
-int FilePanels::SetAnotherPanelFocus()
+int FilePanels::SetAnhoterPanelFocus()
 {
 	int Ret = FALSE;
 
@@ -355,12 +355,12 @@ int FilePanels::SwapPanels()
 	return Ret;
 }
 
-int64_t FilePanels::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t FilePanels::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	return ActivePanel->VMProcess(OpCode, vParam, iParam);
 }
 
-int FilePanels::ProcessKey(FarKey Key)
+int FilePanels::ProcessKey(int Key)
 {
 	if (!Key)
 		return TRUE;
@@ -384,7 +384,7 @@ int FilePanels::ProcessKey(FarKey Key)
 			return TRUE;
 		}
 		case KEY_TAB: {
-			if (!SetAnotherPanelFocus()) {
+			if (!SetAnhoterPanelFocus()) {
 				CtrlObject->CmdLine->ProcessKey(Key);
 			}
 			break;

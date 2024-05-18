@@ -1,4 +1,3 @@
-#include <memory>
 #include <vector>
 #include <unistd.h>
 #include <stdlib.h>
@@ -8,15 +7,8 @@
 
 static const std::string s_empty_string;
 
-std::shared_ptr<IProtocol> CreateProtocol(
-	const std::string &protocol, // protocol name e.g. "ftp", "sftp", "scp" etc
-	const std::string &host,
-	unsigned int port,
-	const std::string &username,
-	const std::string &password,
-	const std::string &options, // StringConfig representing various other options, most of which are protocol-specific
-	int fd_ipc_recv // DONT read this fd, use it only errors checking by poll/select (to know that host process exited)
-);
+std::shared_ptr<IProtocol> CreateProtocol(const std::string &protocol, const std::string &host, unsigned int port,
+		const std::string &username, const std::string &password, const std::string &options);
 
 class HostRemoteBroker : protected IPCEndpoint
 {
@@ -34,7 +26,7 @@ class HostRemoteBroker : protected IPCEndpoint
 
 	std::vector<char> _io_buf;
 
-	void InitConnection(int fd_recv)
+	void InitConnection()
 	{
 		std::string protocol, host, username, password, options;
 		unsigned int port, login_mode;
@@ -50,7 +42,7 @@ class HostRemoteBroker : protected IPCEndpoint
 		RecvString(password);
 		RecvString(options);
 
-		_protocol = CreateProtocol(protocol, host, port, username, password, options, fd_recv);
+		_protocol = CreateProtocol(protocol, host, port, username, password, options);
 
 		if (!_protocol){
 			throw std::runtime_error(std::string("Failed to create protocol: ").append(protocol));
@@ -183,14 +175,14 @@ class HostRemoteBroker : protected IPCEndpoint
 		size_t count = 0;
 		RecvPOD(follow_symlink);
 		RecvPOD(count);
-		std::vector<std::string> paths(count);
+		std::vector<std::string> pathes(count);
 		std::vector<mode_t> modes(count);
-		for (auto &path : paths) {
+		for (auto &path : pathes) {
 			RecvString(path);
 		}
-		if (!paths.empty()) {
-			_keepalive_path = paths.back();
-			_protocol->GetModes(follow_symlink, count, paths.data(), modes.data());
+		if (!pathes.empty()) {
+			_keepalive_path = pathes.back();
+			_protocol->GetModes(follow_symlink, count, pathes.data(), modes.data());
 		}
 		SendCommand(IPC_GET_MODES);
 		for (const auto &mode : modes) {
@@ -334,7 +326,7 @@ public:
 		SendPOD((pid_t)getpid());
 
 		for (;;) try {
-			InitConnection(fd_recv);
+			InitConnection();
 			SendPOD(IPC_PI_OK);
 			break;
 

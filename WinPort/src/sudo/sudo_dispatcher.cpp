@@ -236,21 +236,7 @@ namespace Sudo
 			bt.SendErrno();
 	}
 
-    static void OnSudoDispatch_FUTimens(BaseTransaction &bt)
-    {
-        struct timespec times[2];
-        int fd = bt.RecvFD();
-
-        bt.RecvPOD(times[0]);
-        bt.RecvPOD(times[1]);
-
-        int r = futimens(fd, times);
-        bt.SendInt(r);
-        if (r==-1)
-            bt.SendErrno();
-    }
-
-	static void OnSudoDispatch_TwoPaths(int (*pfn)(const char *, const char *), BaseTransaction &bt)
+	static void OnSudoDispatch_TwoPathes(int (*pfn)(const char *, const char *), BaseTransaction &bt)
 	{
 		std::string path1, path2;
 		
@@ -356,34 +342,6 @@ namespace Sudo
 		}
 		bt.SendInt(r);
 	}
-
-	static void OnSudoDispatch_MkFifo(BaseTransaction &bt)
-	{
-		std::string path;
-		mode_t mode;
-		bt.RecvStr(path);
-		bt.RecvPOD(mode);
-		int r = mkfifo(path.c_str(), mode);
-		bt.SendInt(r);
-		if (r != 0) {
-			bt.SendErrno();
-		}
-	}
-
-	static void OnSudoDispatch_MkNod(BaseTransaction &bt)
-	{
-		std::string path;
-		mode_t mode;
-		dev_t dev;
-		bt.RecvStr(path);
-		bt.RecvPOD(mode);
-		bt.RecvPOD(dev);
-		int r = mknod(path.c_str(), mode, dev);
-		bt.SendInt(r);
-		if (r != 0) {
-			bt.SendErrno();
-		}
-	}
 	
 	void OnSudoDispatch(SudoCommand cmd, BaseTransaction &bt)
 	{
@@ -459,21 +417,17 @@ namespace Sudo
 			case SUDO_CMD_UTIMENS:
 				OnSudoDispatch_UTimens(bt);
 				break;
-
-            case SUDO_CMD_FUTIMENS:
-                OnSudoDispatch_FUTimens(bt);
-                break;
-
-            case SUDO_CMD_RENAME:
-				OnSudoDispatch_TwoPaths(&rename, bt);
+			
+			case SUDO_CMD_RENAME:
+				OnSudoDispatch_TwoPathes(&rename, bt);
 				break;
 
 			case SUDO_CMD_SYMLINK:
-				OnSudoDispatch_TwoPaths(&symlink, bt);
+				OnSudoDispatch_TwoPathes(&symlink, bt);
 				break;
 				
 			case SUDO_CMD_LINK:
-				OnSudoDispatch_TwoPaths(&link, bt);
+				OnSudoDispatch_TwoPathes(&link, bt);
 				break;
 
 			case SUDO_CMD_REALPATH:
@@ -494,14 +448,6 @@ namespace Sudo
 
 			case SUDO_CMD_FCHMOD:
 				OnSudoDispatch_FChMod(bt);
-				break;
-
-			case SUDO_CMD_MKFIFO:
-				OnSudoDispatch_MkFifo(bt);
-				break;
-
-			case SUDO_CMD_MKNOD:
-				OnSudoDispatch_MkNod(bt);
 				break;
 				
 			default:

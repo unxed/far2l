@@ -123,7 +123,8 @@ private:
 	char CurDir[NM];
 	ArcItemNode ArcData;
 	size_t ArcDataCount = 0;
-	struct stat ArcStat {};
+	struct stat ArcStat
+	{};
 	int ArcPluginNumber;
 	int ArcPluginType;
 	int LastTestState, LastWithoutPathsState;

@@ -157,12 +157,6 @@ TTYOutput::TTYOutput(int out, bool far2l_tty, bool norgb)
 	:
 	_out(out), _far2l_tty(far2l_tty), _norgb(norgb), _kernel_tty(false)
 {
-	const char *env = getenv("TERM");
-	_screen_tty = (env && strncmp(env, "screen", 6) == 0); // TERM=screen.xterm-256color
-
-	env = getenv("TERM_PROGRAM");
-	_wezterm = (env && strcasecmp(env, "WezTerm") == 0);
-
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
 	unsigned long int leds = 0;
 	if (ioctl(out, KDGETLED, &leds) == 0) {
@@ -181,15 +175,11 @@ TTYOutput::TTYOutput(int out, bool far2l_tty, bool norgb)
 	ChangeMouse(true);
 
 	if (far2l_tty) {
-		uint64_t wanted_feats = FARTTY_FEAT_COMPACT_INPUT;
-		if (!isatty(_out)) {
-			wanted_feats|= FARTTY_FEAT_TERMINAL_SIZE;
-		}
 		StackSerializer stk_ser;
-		stk_ser.PushNum(wanted_feats);
-		stk_ser.PushNum(FARTTY_INTERACT_CHOOSE_EXTRA_FEATURES);
+		stk_ser.PushNum((uint64_t)(FARTTY_FEAT_COMPACT_INPUT));
+		stk_ser.PushNum(FARTTY_INTERRACT_CHOOSE_EXTRA_FEATURES);
 		stk_ser.PushNum((uint8_t)0); // zero ID means not expecting reply
-		SendFar2lInteract(stk_ser);
+		SendFar2lInterract(stk_ser);
 	}
 
 	Flush();
@@ -219,7 +209,7 @@ TTYOutput::~TTYOutput()
 void TTYOutput::ChangePalette(const TTYBasePalette &palette)
 {
 	for (size_t i = 0; i < BASE_PALETTE_SIZE; ++i) {
-		// Win <-> TTY color index adjustment
+		// Win <-> TTY color index adjustement
 		const unsigned int j = (((i) & 0b001) << 2 | ((i) & 0b100) >> 2 | ((i) & 0b1010));
 		if (_palette.background[i] != palette.background[i] || _palette.foreground[i] != palette.foreground[i]) {
 			_palette.background[i] = palette.background[i];
@@ -267,10 +257,10 @@ void TTYOutput::FinalizeSameChars()
 	}
 
 	// When have queued enough count of same characters:
-	// - Use repeat last char sequence when (#925 #929) terminal is far2l that definitely supports it
-	// - Under other terminals except screen and if repeated char is space - use erase chars + move cursor forward
+	// - Use repeat last char sequence when (#925 #929) terminal is far2l that definately supports it
+	// - Under other terminals and if repeated char is space - use erase chars + move cursor forward
 	// - Otherwise just output copies of repeated char sequence
-	if (_screen_tty || _same_chars.count <= 5
+	if (_same_chars.count <= 5
 			|| (!_far2l_tty && (_same_chars.wch != L' ' || _same_chars.count <= 8))) {
 
 		// output plain <count> copies of repeated char sequence
@@ -373,9 +363,9 @@ void TTYOutput::ChangeCursorHeight(unsigned int height)
 	if (_far2l_tty) {
 		StackSerializer stk_ser;
 		stk_ser.PushNum(UCHAR(height));
-		stk_ser.PushNum(FARTTY_INTERACT_SET_CURSOR_HEIGHT);
+		stk_ser.PushNum(FARTTY_INTERRACT_SET_CURSOR_HEIGHT);
 		stk_ser.PushNum((uint8_t)0); // zero ID means not expecting reply
-		SendFar2lInteract(stk_ser);
+		SendFar2lInterract(stk_ser);
 
 	} else if (_kernel_tty) {
 		; // avoid printing 'q' on screen
@@ -399,7 +389,7 @@ void TTYOutput::ChangeCursor(bool visible, bool force)
 void TTYOutput::MoveCursorStrict(unsigned int y, unsigned int x)
 {
 // ESC[#;#H Moves cursor to line #, column #
-	if (x == 1 && !_wezterm) {
+	if (x == 1) {
 		if (y == 1) {
 			Write(ESC "[H", 3);
 		} else if (_far2l_tty) { // many other terminals support this too, but not all (see #1725)
@@ -416,8 +406,7 @@ void TTYOutput::MoveCursorStrict(unsigned int y, unsigned int x)
 
 void TTYOutput::MoveCursorLazy(unsigned int y, unsigned int x)
 {
-	// workaround for https://github.com/elfmz/far2l/issues/1889
-	if ((_cursor.y != y && _cursor.x != x) || _wezterm) {
+	if (_cursor.y != y && _cursor.x != x) {
 		MoveCursorStrict(y, x);
 
 	} else if (x != _cursor.x) {
@@ -483,11 +472,8 @@ void TTYOutput::WriteLine(const CHAR_INFO *ci, unsigned int cnt)
 			WriteWChar(L' ');
 
 		} else if (comp_seq) {
-			if (*comp_seq) {
+			for (; *comp_seq; ++comp_seq) {
 				WriteWChar(*comp_seq);
-				while (*(++comp_seq)) {
-					WriteWChar(ShouldPrintWCharAsSpace(*comp_seq) ? L' ' : *comp_seq);
-				}
 			}
 
 		} else {
@@ -503,11 +489,9 @@ void TTYOutput::ChangeKeypad(bool app)
 
 void TTYOutput::ChangeMouse(bool enable)
 {
-	Format(ESC "[?1000%c", enable ? 'h' : 'l'); // highlight mouse reporting (SET_VT200_MOUSE).
-	Format(ESC "[?1001%c", enable ? 'h' : 'l'); // X10 mouse reporting (SET_VT200_HIGHLIGHT_MOUSE).
-	Format(ESC "[?1002%c", enable ? 'h' : 'l'); // mouse drag reporting (SET_BTN_EVENT_MOUSE).
-	Format(ESC "[?1003%c", enable ? 'h' : 'l'); // mouse move reporting (SET_ANY_EVENT_MOUSE).
-	Format(ESC "[?1006%c", enable ? 'h' : 'l'); // SGR extended mouse reporting (SET_SGR_EXT_MODE_MOUSE).
+	Format(ESC "[?1000%c", enable ? 'h' : 'l');
+	Format(ESC "[?1001%c", enable ? 'h' : 'l');
+	Format(ESC "[?1002%c", enable ? 'h' : 'l');
 }
 
 void TTYOutput::ChangeTitle(std::string title)
@@ -518,7 +502,7 @@ void TTYOutput::ChangeTitle(std::string title)
 	Format(ESC "]2;%s\x07", title.c_str());
 }
 
-void TTYOutput::SendFar2lInteract(const StackSerializer &stk_ser)
+void TTYOutput::SendFar2lInterract(const StackSerializer &stk_ser)
 {
 	std::string request = ESC "_far2l:";
 	request+= stk_ser.ToBase64();

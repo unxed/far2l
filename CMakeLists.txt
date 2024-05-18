@@ -45,21 +45,10 @@ endif()
 
 if(NOT "${GIT_TAG}" STREQUAL "v_${VERSION}")
     if(GIT_FOUND)
-        if(IS_DIRECTORY ${CMAKE_SOURCE_DIR}/.git)
-            execute_process(COMMAND "${GIT_EXECUTABLE}" show --no-patch --format=%ci HEAD
-                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-                OUTPUT_VARIABLE GIT_DATE
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-            string(SUBSTRING ${GIT_DATE} 0 10 GIT_DATE)
-            execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse --short HEAD
-                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-                OUTPUT_VARIABLE GIT_HASH
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-        endif()
-    endif()
-    if(NOT "${GIT_DATE}" STREQUAL "")
-        message(STATUS "git date: ${GIT_DATE}")
-        set(VERSION_PATCH "${VERSION_PATCH}-${GIT_DATE}")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse --short HEAD
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            OUTPUT_VARIABLE GIT_HASH
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
     if(NOT "${GIT_HASH}" STREQUAL "")
         message(STATUS "git hash: ${GIT_HASH}")
@@ -94,10 +83,6 @@ if(NOT DEFINED CMAKE_INSTALL_PREFIX)
 endif()
 
 ##############################
-
-if (NOT DEFINED TESTING)
-    set(TESTING "NO")
-endif()
 
 if (NOT DEFINED USEWX)
     set(USEWX "YES")
@@ -459,7 +444,7 @@ if (DEFINED VIRTUAL_PYTHON)
     add_subdirectory (python)
     # Copy this explicitly cuz generic copier command excludes 'far2l'
     install(DIRECTORY "${INSTALL_DIR}/Plugins/python/plug/far2l"
-        DESTINATION "lib/far2l/Plugins/python/plug/" USE_SOURCE_PERMISSIONS
+        DESTINATION "share/far2l/Plugins/python/plug/" USE_SOURCE_PERMISSIONS
         COMPONENT base FILES_MATCHING
         PATTERN "*")
 else()
@@ -473,7 +458,7 @@ else()
                 execute_process(COMMAND echo Python: preparing virtual environment)
                 " COMPONENT system)
             install(CODE "
-                execute_process(COMMAND ${Python3_EXECUTABLE} -m venv --system-site-packages ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/python/plug/python)
+                execute_process(COMMAND ${PYTHON3} -m venv --system-site-packages ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/python/plug/python)
                 " COMPONENT system)
             install(CODE "
                 execute_process(COMMAND echo Python: installing packages)
@@ -484,7 +469,7 @@ else()
 
             # Copy this explicitly cuz generic copier command excludes 'far2l'
             install(DIRECTORY "${INSTALL_DIR}/Plugins/python/plug/far2l"
-                DESTINATION "lib/far2l/Plugins/python/plug/" USE_SOURCE_PERMISSIONS
+                DESTINATION "share/far2l/Plugins/python/plug/" USE_SOURCE_PERMISSIONS
                 COMPONENT base FILES_MATCHING
                 PATTERN "*")
         else()
@@ -540,8 +525,7 @@ install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "lib/far2l" USE_SOURCE_PERMISSIO
     PATTERN "far2l_gui.so"
     PATTERN "far2l_ttyx.broker"
     PATTERN "plug/*.far-plug-*"
-    PATTERN "plug/*.broker"
-)
+    PATTERN "plug/*.broker")
 
 install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "share/far2l" USE_SOURCE_PERMISSIONS COMPONENT base FILES_MATCHING
     PATTERN "${EXECUTABLE_NAME}" EXCLUDE
@@ -550,8 +534,7 @@ install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "share/far2l" USE_SOURCE_PERMISS
     PATTERN "*.far-plug-*" EXCLUDE
     PATTERN "*.broker" EXCLUDE
     PATTERN "python/plug/python" EXCLUDE
-    PATTERN "*"
-)
+    PATTERN "*")
 
 # setup some symlinks and remove deprecated stuff from previous installation
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin/far2l ${PROJECT_BINARY_DIR}/far2l/far2l_askpass)

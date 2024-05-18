@@ -1,7 +1,7 @@
-#ifndef COLORER_REGION_H
-#define COLORER_REGION_H
+#ifndef _COLORER_REGION_H_
+#define _COLORER_REGION_H_
 
-#include "colorer/Common.h"
+#include <colorer/Common.h>
 
 /**
   HRC Region implementation.
@@ -15,24 +15,24 @@
 */
 class Region
 {
- public:
+public:
   /** Full Qualified region name (<code>def:Text</code> for example) */
-  [[nodiscard]] virtual const UnicodeString& getName() const
+  virtual const String* getName() const
   {
-    return *name;
+    return name;
   }
   /** Region description */
-  [[nodiscard]] virtual const UnicodeString& getDescription() const
+  virtual const String* getDescription() const
   {
-    return *description;
+    return description;
   }
   /** Direct region ancestor (parent) */
-  [[nodiscard]] virtual const Region* getParent() const
+  virtual const Region* getParent() const
   {
     return parent;
   }
   /** Quick access region id (incrementable) */
-  [[nodiscard]] virtual size_t getID() const
+  virtual int getID() const
   {
     return id;
   }
@@ -42,9 +42,12 @@ class Region
       For example, <code>def:Comment</code> has <code>def:Syntax</code> parent,
       so, some syntax checking can be made with it's content.
   */
+  __attribute__((noinline)) const Region* This() const {
+    return this;
+  }
   bool hasParent(const Region* region) const
   {
-    const Region* elem = this;
+    const Region* elem = This();
     while (elem != nullptr) {
       if (region == elem) {
         return true;
@@ -55,31 +58,30 @@ class Region
   }
   /**
     Basic constructor.
-    Used only by HrcLibrary.
+    Used only by HRCParser.
   */
-  Region(const UnicodeString& _name, const UnicodeString* _description, const Region* _parent,
-         size_t _id)
+  Region(const String* _name, const String* _description, const Region* _parent, int _id)
   {
-    name = std::make_unique<UnicodeString>(_name);
+    name = new SString(_name);
+    description = nullptr;
     if (_description != nullptr) {
-      description = std::make_unique<UnicodeString>(*_description);
+      description = new SString(_description);
     }
     parent = _parent;
     id = _id;
   }
 
-  virtual ~Region() = default;
-  Region(Region&&) = delete;
-  Region(const Region&) = delete;
-  Region& operator=(const Region&) = delete;
-  Region& operator=(Region&&) = delete;
+  virtual ~Region()
+  {
+    delete name;
+    delete description;
+  }
 
- protected:
+protected:
   /** Internal members */
-  uUnicodeString name;
-  uUnicodeString description;
+  String* name, *description;
   const Region* parent;
-  size_t id;
+  int id;
 };
 
-#endif  // COLORER_REGION_H
+#endif

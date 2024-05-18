@@ -252,7 +252,6 @@ bool History::SaveHistory()
 		}
 
 	} catch (std::exception &e) {
-		(void)e; // suppress 'set but not used' warning
 	}
 
 	return ret;
@@ -375,18 +374,17 @@ int History::Select(const wchar_t *Title, const wchar_t *HelpTopic, FARString &s
 	VMenu HistoryMenu(Title, nullptr, 0, Height);
 	HistoryMenu.SetFlags(VMENU_SHOWAMPERSAND | VMENU_WRAPMODE);
 
-	HistoryMenu.SetHelp(HelpTopic ? HelpTopic : L"HistoryCmd");	
+	if (HelpTopic)
+		HistoryMenu.SetHelp(HelpTopic);
 
 	HistoryMenu.SetPosition(-1, -1, 0, 0);
-	if (Opt.AutoHighlightHistory)
-		HistoryMenu.AssignHighlights(TRUE);
+	HistoryMenu.AssignHighlights(TRUE);
 	return ProcessMenu(strStr, Title, HistoryMenu, Height, Type, nullptr);
 }
 
 int History::Select(VMenu &HistoryMenu, int Height, Dialog *Dlg, FARString &strStr)
 {
 	int Type = 0;
-	HistoryMenu.SetHelp(L"HistoryCmd");
 	return ProcessMenu(strStr, nullptr, HistoryMenu, Height, Type, Dlg);
 }
 
@@ -449,7 +447,7 @@ int History::ProcessMenu(FARString &strStr, const wchar_t *Title, VMenu &History
 					HistoryMenu.AddItem(&DateSeparator);
 				}
 
-				if (Opt.HistoryShowTimes[TypeHistory] == 0) {
+				if (Opt.HistoryShowTimes[TypeHistory] == 1) {
 					strRecord.AppendFormat(L"%02u:%02u.%02u ",
 						(unsigned)ItemST.wHour, (unsigned)ItemST.wMinute, (unsigned)ItemST.wSecond);
 					StrPrefixLen = strRecord.GetLength();
@@ -530,7 +528,7 @@ int History::ProcessMenu(FARString &strStr, const wchar_t *Title, VMenu &History
 				continue;
 			}
 
-			FarKey Key = HistoryMenu.ReadInput();
+			int Key = HistoryMenu.ReadInput();
 
 			if (TypeHistory == HISTORYTYPE_DIALOG && Key == KEY_TAB)	// Tab в списке хистори диалогов - аналог Enter
 			{

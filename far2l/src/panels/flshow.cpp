@@ -37,7 +37,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "filelist.hpp"
 #include "colors.hpp"
-#include "palette.hpp"
 #include "lang.hpp"
 #include "filefilter.hpp"
 #include "cmdline.hpp"
@@ -54,7 +53,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern PanelViewSettings ViewSettingsArray[];
 extern int ColumnTypeWidth[];
 
-static wchar_t OutCharacter[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static wchar_t OutCharacter[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 static FarLangMsg __FormatEndSelectedPhrase(int Count)
 {
@@ -402,7 +401,7 @@ void FileList::ShowFileList(int Fast)
 
 DWORD64 FileList::GetShowColor(int Position, int ColorType)
 {
-	DWORD64 ColorAttr = FarColorToReal(COL_PANELTEXT);
+	DWORD64 ColorAttr = COL_PANELTEXT;
 	const DWORD FarColor[] = {COL_PANELTEXT, COL_PANELSELECTEDTEXT, COL_PANELCURSOR, COL_PANELSELECTEDCURSOR};
 
 	if (Position >= 0 && Position < ListData.Count()) {
@@ -418,16 +417,15 @@ DWORD64 FileList::GetShowColor(int Position, int ColorType)
 		ColorAttr = ListData[Position]->ColorsPtr->Color[ColorType][Pos];
 
 		if (!ColorAttr || !Opt.Highlight)
-			ColorAttr = FarColorToReal(FarColor[Pos]);
+			ColorAttr = FarColor[Pos];
 	}
 
-//	return (4 << 4) + 15;
 	return ColorAttr;
 }
 
 void FileList::SetShowColor(int Position, int ColorType)
 {
-	SetColor64(GetShowColor(Position, ColorType));
+	SetColor(GetShowColor(Position, ColorType));
 }
 
 void FileList::ShowSelectedSize()
@@ -519,52 +517,26 @@ void FileList::ShowTotalSize(OpenPluginInfo &Info)
 	}
 }
 
-bool FileList::ResolveSymlink(FARString &target_path, const wchar_t *link_name, FileListItem *fi)
+int FileList::ConvertName(const wchar_t *SrcName, FARString &strDest, int MaxLength, int RightAlign,
+		int ShowStatus, DWORD FileAttr)
 {
-	std::wstring link_name_str(link_name);
-	auto it = SymlinksCache.find(link_name_str);
-	if (it != SymlinksCache.end()) {
-		target_path = it->second;
-		return true;
-	}
+	if (ShowStatus && PanelMode == NORMAL_PANEL && (FileAttr & FILE_ATTRIBUTE_REPARSE_POINT) != 0
+			&& !strCurDir.IsEmpty() && strCurDir[0] == GOOD_SLASH) {
 
-	if (PanelMode == NORMAL_PANEL
-			&& !strCurDir.IsEmpty()
-			&& strCurDir[0] == GOOD_SLASH
-			&& MixToFullPath(link_name, target_path, strCurDir)) {
-		char buf[MAX_PATH + 1] = {0};
-		ssize_t r = sdc_readlink(target_path.GetMB().c_str(), buf, ARRAYSIZE(buf) - 1);
-		if (r <= 0 || r >= (ssize_t)ARRAYSIZE(buf)) {
-			fprintf(stderr, "ResolveSymlink: sdc_readlink errno %u\n", errno);
-			return false;
-		}
-		buf[r] = 0;
-		target_path = buf;
-
-	} else if (PanelMode == PLUGIN_PANEL) {
-		PluginPanelItem pi;
-		FileListToPluginItem(fi, &pi);
-		if (!CtrlObject->Plugins.GetLinkTarget(hPlugin, &pi, target_path, 0)) {
-			fprintf(stderr, "ResolveSymlink: GetLinkTarget failed\n");
-			return false;
-		}
-	} else {
-		return false;
-	}
-	SymlinksCache.emplace(link_name, target_path);
-	return true;
-}
-
-int FileList::ConvertName(FARString &strDest, const wchar_t *SrcName, int MaxLength,
-		int RightAlign, int ShowStatus, DWORD FileAttr, FileListItem *fi)
-{
-	if (ShowStatus && (FileAttr & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
 		FARString strTemp;
-		if (ResolveSymlink(strTemp, SrcName, fi)) {
-			strTemp.Insert(0, L" ->");
-			strTemp.Insert(0, SrcName);
-			return ConvertName(strDest, strTemp, MaxLength, RightAlign, ShowStatus,
-					FileAttr & (~(DWORD)FILE_ATTRIBUTE_REPARSE_POINT), fi);
+		if (MixToFullPath(SrcName, strTemp, strCurDir)) {
+			char LinkDest[MAX_PATH + 1] = {0};
+			ssize_t r = sdc_readlink(strTemp.GetMB().c_str(), LinkDest, ARRAYSIZE(LinkDest) - 1);
+			if (r > 0 && r < (ssize_t)ARRAYSIZE(LinkDest)) {
+				LinkDest[r] = 0;
+				strTemp = SrcName;
+				strTemp+= L" ->";
+				strTemp+= LinkDest;
+				return ConvertName(strTemp, strDest, MaxLength, RightAlign, ShowStatus,
+						FileAttr & (~(DWORD)FILE_ATTRIBUTE_REPARSE_POINT));
+			} else {
+				fprintf(stderr, "sdc_readlink errno %u\n", errno);
+			}
 		}
 	}
 
@@ -593,13 +565,7 @@ int FileList::ConvertName(FARString &strDest, const wchar_t *SrcName, int MaxLen
 			DotPos = NameLength + 1;
 
 		strDest.Copy(SrcName, NameLength);
-		if (DotPos > 0 && NameLength > 0 && SrcName[NameLength - 1] == L' ') {
-			strDest.Append(L'.');
-			DotPos--;
-		}
-		if (DotPos > NameLength) {
-			strDest.Append(L' ', DotPos - NameLength);
-		}
+		strDest.Append(L'.');
 		strDest.Append(DotPtr + 1, DotLength);
 	} else {
 		size_t CellsCount = MaxLength;
@@ -947,26 +913,21 @@ void FileList::ShowList(int ShowStatus, int StartColumn)
 								Text(ListData[ListPos]->Selected ? L"\x221A " : L"  ");
 								Width-= 2;
 							}
-#if 1
-							{ // Draw mark str
-								const HighlightDataColor *const hl = ListData[ListPos]->ColorsPtr;
-								if ( Opt.Highlight && Width > 2 && hl->MarkLen ) {
 
-									const auto OldColor = GetColor();
-									size_t	ng = Width, outlen;
+							if (ListData[ListPos]->ColorsPtr->MarkChar && Opt.Highlight && Width > 1) {
+								Width--;
+								OutCharacter[0] = (wchar_t)(ListData[ListPos]->ColorsPtr->MarkChar & 0xffff);
+								const auto OldColor = GetColor();
 
-									outlen = StrSizeOfCells(hl->Mark, hl->MarkLen, ng, false);
-									Width -= ng;
+								if (!ShowStatus)
+									SetShowColor(ListPos, HIGHLIGHTCOLORTYPE_MARKCHAR);
 
-									if (!ShowStatus)
-										SetShowColor(ListPos, HIGHLIGHTCOLORTYPE_MARKSTR);
-
-									Text(hl->Mark, outlen);
-									SetColor64(OldColor);
-								}
+								Text(OutCharacter);
+								SetColor(OldColor);
 							}
-#endif
+
 							const wchar_t *NamePtr = ListData[ListPos]->strName;
+
 							const wchar_t *NameCopy = NamePtr;
 
 							if (ViewFlags & COLUMN_NAMEONLY) {
@@ -1004,8 +965,8 @@ void FileList::ShowList(int ShowStatus, int StartColumn)
 							}
 
 							FARString strName;
-							int TooLong = ConvertName(strName, NamePtr, Width, RightAlign,
-								ShowStatus, ListData[ListPos]->FileAttr, ListData[ListPos]);
+							int TooLong = ConvertName(NamePtr, strName, Width, RightAlign, ShowStatus,
+									ListData[ListPos]->FileAttr);
 							if (CurLeftPos)
 								LeftBracket = TRUE;
 

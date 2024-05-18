@@ -346,11 +346,6 @@ class Plugin(PluginBase):
                 self.Rebuild(hDlg)
                 return self.info.DefDlgProc(hDlg, Msg, Param1, Param2)
             elif Msg == self.ffic.DN_BTNCLICK:
-                log.debug(
-                    "btn DialogProc({0}, {1})".format(
-                        Param1, Param2
-                    )
-                )
                 return self.info.DefDlgProc(hDlg, Msg, Param1, Param2)
             elif Msg == self.ffic.DN_KEY and Param1 == self.first_text_item - 1:
                 log.debug(
@@ -429,6 +424,6 @@ class Plugin(PluginBase):
             0,
         )
         res = self.info.DialogRun(hDlg)
-        if res == 1 and self.text:
+        if res == 1:
             self.info.FSF.CopyToClipboard(self.s2f(self.text))
         self.info.DialogFree(hDlg)

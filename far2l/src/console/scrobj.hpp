@@ -35,9 +35,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "bitflags.hpp"
 #include <WinCompat.h>
-#include "keys.hpp"
-#include "macroopcode.hpp"
-
 
 class SaveScreen;
 
@@ -73,7 +70,7 @@ public:
 	virtual ~ScreenObject();
 
 public:
-	virtual int ProcessKey(FarKey Key) { return 0; };
+	virtual int ProcessKey(int Key) { return 0; };
 	virtual int ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent) { return 0; };
 
 	virtual void Hide();
@@ -85,7 +82,7 @@ public:
 	virtual void SetScreenPosition();
 	virtual void ResizeConsole(){};
 
-	virtual int64_t VMProcess(MacroOpcode OpCode, void *vParam = nullptr, int64_t iParam = 0) { return 0; };
+	virtual int64_t VMProcess(int OpCode, void *vParam = nullptr, int64_t iParam = 0) { return 0; };
 
 	void Lock();
 	void Unlock();

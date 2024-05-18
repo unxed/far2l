@@ -39,7 +39,7 @@ class FixedFontLookup : wxFontEnumerator
 			}
 		}
 		
-		/* unfortunately following code gives nothing interesting
+		/* unfortunatelly following code gives nothing interesting
 		wxFont f(wxFontInfo(DEFAULT_FONT_SIZE).Underlined().FaceName(face_name));
 		if (f.IsOk()) {
 			fprintf(stderr, "FONT family %u encoding %u face_name='%ls' \n", 

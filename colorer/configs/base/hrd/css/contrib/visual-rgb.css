@@ -274,12 +274,25 @@
  color: #800000;
 }
 
-.xml-CDStart
+.xml-CData
 {
- color: #c0c0c0;
+ color: #000080;
 }
 
-.xml-CDEnd
+.powershell-LogStart
 {
  color: #c0c0c0;
+ background-color: #c0c0c0;
+}
+
+.powershell-LogText
+{
+ color: #000000;
+ background-color: #c0c0c0;
+}
+
+.powershell-LogEnd
+{
+ color: #ffffff;
+ background-color: #ffffff;
 }

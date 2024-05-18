@@ -58,9 +58,6 @@ src/RefreshFrameManager.cpp
 src/scantree.cpp
 src/setattr.cpp
 src/setcolor.cpp
-src/pick_color.cpp
-src/pick_color256.cpp
-src/pick_colorRGB.cpp
 src/stddlg.cpp
 src/synchro.cpp
 src/syslog.cpp
@@ -72,7 +69,6 @@ src/execute_oscmd.cpp
 src/ViewerStrings.cpp
 src/ViewerPrinter.cpp
 src/fileholder.cpp
-src/GrepFile.cpp
 
 src/panels/panel.cpp
 src/panels/filelist.cpp
@@ -98,6 +94,11 @@ src/console/scrbuf.cpp
 src/console/scrobj.cpp
 src/console/scrsaver.cpp
 
+src/macro/chgmmode.cpp
+src/macro/macro.cpp
+src/macro/syntax.cpp
+src/macro/tvar.cpp
+
 src/filemask/CFileMask.cpp
 src/filemask/FileMasksProcessor.cpp
 src/filemask/FileMasksWithExclude.cpp
@@ -113,8 +114,7 @@ src/bookmarks/BookmarksLegacy.cpp
 
 src/cfg/AllXLats.cpp
 src/cfg/config.cpp
-src/cfg/ConfigOpt.cpp
-src/cfg/ConfigOptEdit.cpp
+src/cfg/ConfigSaveLoad.cpp
 src/cfg/ConfigRW.cpp
 src/cfg/ConfigLegacy.cpp
 src/cfg/HotkeyLetterDialog.cpp
@@ -167,26 +167,6 @@ src/mix/ChunkedData.cpp
 src/mix/UsedChars.cpp
 src/mix/CachedCreds.cpp
 )
-
-# Option to disable building macro subsystem completely
-option(FAR2MACRO "Use Far 2 macro engine" ON)
-
-# Option to keep TVar implementation even if Far2 marco subsystem is not used
-# (as it may be needed by alternative macro subsystem implementations)
-option(FAR2TVAR  "Use Far 2 TVar" ON)
-
-if(FAR2MACRO)
-    list(APPEND SOURCES src/macro/chgmmode.cpp)
-    list(APPEND SOURCES src/macro/macro.cpp)
-    list(APPEND SOURCES src/macro/syntax.cpp)
-    list(APPEND SOURCES src/macro/tvar.cpp)
-else()
-    if(FAR2TVAR)
-        list(APPEND SOURCES src/macro/tvar.cpp)
-        add_compile_definitions(FAR2TVAR)
-    endif()
-    list(APPEND SOURCES src/macro/nomacro.cpp)
-endif()
 
 # Set target names for the executables
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

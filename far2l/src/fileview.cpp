@@ -35,7 +35,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <limits>
 #include "fileview.hpp"
-#include "codepage.hpp"
 #include "lang.hpp"
 #include "keys.hpp"
 #include "ctrlobj.hpp"
@@ -54,19 +53,18 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "strmix.hpp"
 #include "mix.hpp"
 #include "fileholder.hpp"
-#include "GrepFile.hpp"
 
-FileViewer::FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int DisableHistory, int DisableEdit,
+FileViewer::FileViewer(const wchar_t *Name, int EnableSwitch, int DisableHistory, int DisableEdit,
 		long ViewStartPos, const wchar_t *PluginData, NamesList *ViewNamesList, int ToSaveAs, UINT aCodePage)
 	:
 	View(false, aCodePage), FullScreen(TRUE), DisableEdit(DisableEdit)
 {
 	_OT(SysLog(L"[%p] FileViewer::FileViewer(I variant...)", this));
 	SetPosition(0, 0, ScrX, ScrY);
-	Init(NewFileHolder, EnableSwitch, DisableHistory, ViewStartPos, PluginData, ViewNamesList, ToSaveAs);
+	Init(Name, EnableSwitch, DisableHistory, ViewStartPos, PluginData, ViewNamesList, ToSaveAs);
 }
 
-FileViewer::FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int DisableHistory, const wchar_t *Title,
+FileViewer::FileViewer(const wchar_t *Name, int EnableSwitch, int DisableHistory, const wchar_t *Title,
 		int X1, int Y1, int X2, int Y2, UINT aCodePage)
 	:
 	View(false, aCodePage)
@@ -99,10 +97,10 @@ FileViewer::FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int Disabl
 	SetPosition(X1, Y1, X2, Y2);
 	FullScreen = (!X1 && !Y1 && X2 == ScrX && Y2 == ScrY);
 	View.SetTitle(Title);
-	Init(NewFileHolder, EnableSwitch, DisableHistory, -1, L"", nullptr, FALSE);
+	Init(Name, EnableSwitch, DisableHistory, -1, L"", nullptr, FALSE);
 }
 
-void FileViewer::Init(FileHolderPtr NewFileHolder, int EnableSwitch, int disableHistory,	///
+void FileViewer::Init(const wchar_t *name, int EnableSwitch, int disableHistory,	///
 		long ViewStartPos, const wchar_t *PluginData, NamesList *ViewNamesList, int ToSaveAs)
 {
 	RedrawTitle = FALSE;
@@ -116,12 +114,12 @@ void FileViewer::Init(FileHolderPtr NewFileHolder, int EnableSwitch, int disable
 	View.SetPluginData(PluginData);
 	View.SetHostFileViewer(this);
 	DisableHistory = disableHistory;	///
-	strName = NewFileHolder->GetPathName();
+	strName = name;
 	SetCanLoseFocus(EnableSwitch);
 	SaveToSaveAs = ToSaveAs;
 	InitKeyBar();
 
-	if (!View.OpenFile(NewFileHolder, TRUE))		// $ 04.07.2000 tran + add TRUE as 'warning' parameter
+	if (!View.OpenFile(strName, TRUE))		// $ 04.07.2000 tran + add TRUE as 'warning' parameter
 	{
 		DisableHistory = TRUE;				// $ 26.03.2002 DJ - при неудаче открытия - не пишем мусор в историю
 		// FrameManager->DeleteFrame(this); // ЗАЧЕМ? Вьювер то еще не помещен в очередь манагера!
@@ -156,8 +154,8 @@ void FileViewer::Init(FileHolderPtr NewFileHolder, int EnableSwitch, int disable
 void FileViewer::InitKeyBar()
 {
 	ViewKeyBar.SetAllGroup(KBL_MAIN, Opt.OnlyEditorViewerUsed ? Msg::SingleViewF1 : Msg::ViewF1, 12);
-	ViewKeyBar.SetAllGroup(KBL_SHIFT, Msg::ViewShiftF1, 12);
-
+	ViewKeyBar.SetAllGroup(KBL_SHIFT, Opt.OnlyEditorViewerUsed ? Msg::SingleViewShiftF1 : Msg::ViewShiftF1,
+			12);
 	ViewKeyBar.SetAllGroup(KBL_ALT, Opt.OnlyEditorViewerUsed ? Msg::SingleViewAltF1 : Msg::ViewAltF1, 12);
 	ViewKeyBar.SetAllGroup(KBL_CTRL, Opt.OnlyEditorViewerUsed ? Msg::SingleViewCtrlF1 : Msg::ViewCtrlF1, 12);
 	ViewKeyBar.SetAllGroup(KBL_CTRLSHIFT,
@@ -209,12 +207,12 @@ void FileViewer::DisplayObject()
 	View.Show();
 }
 
-int64_t FileViewer::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
+int64_t FileViewer::VMProcess(int OpCode, void *vParam, int64_t iParam)
 {
 	return View.VMProcess(OpCode, vParam, iParam);
 }
 
-int FileViewer::ProcessKey(FarKey Key)
+int FileViewer::ProcessKey(int Key)
 {
 	if (RedrawTitle
 			&& (((unsigned int)Key & 0x00ffffff) < KEY_END_FKEY
@@ -223,11 +221,6 @@ int FileViewer::ProcessKey(FarKey Key)
 
 	if (Key != KEY_F3 && Key != KEY_IDLE)
 		F3KeyOnly = false;
-
-	if (Key == KEY_ESC && UngreppedFH) {
-		GrepFilterDismiss();
-		return TRUE;
-	}
 
 	switch (Key) {
 #if 0
@@ -244,17 +237,13 @@ int FileViewer::ProcessKey(FarKey Key)
 			return TRUE;
 		}
 #endif
-		case KEY_CTRLF7: {
-			GrepFilter();
-			return (TRUE);
-		}
 		/*
 			$ 22.07.2000 tran
 			+ выход по ctrl-f10 с установкой курсора на файл
 		*/
 		case KEY_CTRLF10: {
-			if (View.GetFileHolder()->IsTemporary()) {
-				// if viewing temporary file - dont allow this
+			if (View.GetFileHolder()) {
+				// if viewing observed (typically temporary) file - dont allow this
 				return TRUE;
 			}
 
@@ -296,6 +285,7 @@ int FileViewer::ProcessKey(FarKey Key)
 		case KEY_F3:
 		case KEY_NUMPAD5:
 		case KEY_SHIFTNUMPAD5:
+
 			if (F3KeyOnly)
 				return TRUE;
 
@@ -324,12 +314,13 @@ int FileViewer::ProcessKey(FarKey Key)
 					Тут косяк, замеченный при чтении warnings - FilePos теряет информацию при преобразовании int64_t -> int
 					Надо бы поправить FileEditor на этот счет.
 				*/
-				FileEditor *ShellEditor = new FileEditor(View.GetFileHolder(), cp,
+				FileEditor *ShellEditor = new FileEditor(strViewFileName, cp,
 						(GetCanLoseFocus() ? FFILEEDIT_ENABLEF6 : 0)
 								| (SaveToSaveAs ? FFILEEDIT_SAVETOSAVEAS : 0)
 								| (DisableHistory ? FFILEEDIT_DISABLEHISTORY : 0),
 						-2, static_cast<int>(FilePos), strPluginData);
 				ShellEditor->SetEnableF6(TRUE);
+				ShellEditor->SetFileHolder(View.GetFileHolder());
 				/* $ 07.05.2001 DJ сохраняем NamesList */
 				ShellEditor->SetNamesList(View.GetNamesList());
 				FrameManager->DeleteFrame(this);	// Insert уже есть внутри конструктора
@@ -407,31 +398,6 @@ int FileViewer::ProcessKey(FarKey Key)
 			return TRUE;
 	}
 }
-
-void FileViewer::GrepFilter()
-{
-	if (!UngreppedFH) {
-		UngreppedFH = View.GetFileHolder();
-		UngreppedPos = View.GetFilePos();
-	}
-	auto NewFH = GrepFile(UngreppedFH);
-	if (!NewFH || !View.OpenFile(NewFH, TRUE)) {
-		GrepFilterDismiss();
-		return;
-	}
-
-	View.SetFilePos(0);
-	Show();
-}
-
-void FileViewer::GrepFilterDismiss()
-{
-	View.OpenFile(UngreppedFH, TRUE);
-	View.SetFilePos(UngreppedPos);
-	UngreppedFH.reset();
-	Show();
-}
-
 
 int FileViewer::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
 {
@@ -517,9 +483,7 @@ void FileViewer::ShowStatus()
 		NameLength = 20;
 
 	TruncPathStr(strName, NameLength);
-	FARString str_codepage;
-	ShortReadableCodepageName(View.VM.CodePage,str_codepage);
-	strStatus.Format(L"%-*ls %5ls %13llu %7.7ls %-4lld %ls%3d%%", NameLength, strName.CPtr(), str_codepage.CPtr(),
+	strStatus.Format(L"%-*ls %5u %13llu %7.7ls %-4lld %ls%3d%%", NameLength, strName.CPtr(), View.VM.CodePage,
 			View.FileSize, Msg::ViewerStatusCol.CPtr(), View.LeftPos, Opt.ViewerEditorClock ? L"" : L" ",
 			(View.LastPage ? 100 : ToPercent64(View.FilePos, View.FileSize)));
 	SetColor(COL_VIEWERSTATUS);
@@ -527,12 +491,8 @@ void FileViewer::ShowStatus()
 	FS << fmt::Cells() << fmt::LeftAlign() << fmt::Size(View.Width + (View.ViOpt.ShowScrollbar ? 1 : 0))
 		<< strStatus;
 
-	if (Opt.ViewerEditorClock && IsFullScreen()) {
-		if (X2 > 5) {
-			Text(X2 - 5, Y1, COL_VIEWERTEXT, L" ");
-		}
+	if (Opt.ViewerEditorClock && IsFullScreen())
 		ShowTime(FALSE);
-	}
 }
 
 void FileViewer::OnChangeFocus(int focus)
@@ -545,7 +505,7 @@ void FileViewer::OnChangeFocus(int focus)
 
 void ModalViewFile(const std::string &pathname)
 {
-	FileViewer Viewer(std::make_shared<FileHolder>(pathname),
+	FileViewer Viewer(StrMB2Wide(pathname).c_str(),
 		FALSE, FALSE, FALSE, -1, nullptr, nullptr, FALSE, CP_AUTODETECT);
 	Viewer.SetDynamicallyBorn(false);
 	FrameManager->ExecuteModalEV();
@@ -554,16 +514,17 @@ void ModalViewFile(const std::string &pathname)
 		fprintf(stderr, "%s: viewer error %d for '%s'\n", __FUNCTION__, r, pathname.c_str());
 }
 
-void ViewConsoleHistory(HANDLE con_hnd, bool modal, bool autoclose)
+void ViewConsoleHistory(bool modal, bool autoclose)
 {
-	FARString histfile(CtrlObject->CmdLine->GetConsoleLog(con_hnd, true));
+	FARString histfile(CtrlObject->CmdLine->GetConsoleLog(true));
 	if (histfile.IsEmpty())
 		return;
 
 	std::shared_ptr<TempFileHolder> tfh(std::make_shared<TempFileHolder>(histfile, false));
 
-	FileViewer *Viewer = new (std::nothrow) FileViewer(tfh,
+	FileViewer *Viewer = new (std::nothrow) FileViewer(histfile,
 		!modal, TRUE, TRUE, -1, nullptr, nullptr, FALSE, CP_UTF8);
+	Viewer->SetFileHolder(tfh);
 	Viewer->SetDynamicallyBorn(!modal);
 	Viewer->ProcessKey(KEY_END); // scroll to the end
 	if (autoclose)

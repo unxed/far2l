@@ -48,7 +48,7 @@ namespace Mounts
 
 	static int GenerateIdFromPath(const FARString &path)
 	{
-		if (path == WGOOD_SLASH)
+		if (path == L"/")
 			return ID_ROOT;
 
 		const std::string &path_mb = path.GetMB();
@@ -72,7 +72,7 @@ namespace Mounts
 		AddFavorites(has_rootfs);
 
 		if (!has_rootfs) {
-			emplace(begin(), Entry(WGOOD_SLASH, Msg::MountsRoot, false, ID_ROOT));
+			emplace(begin(), Entry(L"/", Msg::MountsRoot, false, ID_ROOT));
 		}
 
 		emplace(begin(), Entry( GetMyHome(), Msg::MountsHome, false, ID_HOME));
@@ -108,10 +108,10 @@ namespace Mounts
 		FileSizeToStr(val, mp.avail, -1, COLUMN_ECONOMIC | COLUMN_FLOATSIZE | COLUMN_SHOWBYTESINDEX);
 		ReplaceStrings(str, L"$A", val);
 
-		FileSizeToStr(val, mp.free_, -1, COLUMN_ECONOMIC | COLUMN_FLOATSIZE | COLUMN_SHOWBYTESINDEX);
+		FileSizeToStr(val, mp.freee, -1, COLUMN_ECONOMIC | COLUMN_FLOATSIZE | COLUMN_SHOWBYTESINDEX);
 		ReplaceStrings(str, L"$F", val);
 
-		FileSizeToStr(val, mp.total - mp.free_, -1, COLUMN_ECONOMIC | COLUMN_FLOATSIZE | COLUMN_SHOWBYTESINDEX);
+		FileSizeToStr(val, mp.total - mp.freee, -1, COLUMN_ECONOMIC | COLUMN_FLOATSIZE | COLUMN_SHOWBYTESINDEX);
 		ReplaceStrings(str, L"$U", val);
 
 		if (mp.total)
@@ -121,13 +121,13 @@ namespace Mounts
 		ReplaceStrings(str, L"$a", val);
 
 		if (mp.total)
-			val.Format(L"%lld", (mp.free_ * 100) / mp.total);
+			val.Format(L"%lld", (mp.freee * 100) / mp.total);
 		else
 			val = L"NA";
 		ReplaceStrings(str, L"$f", val);
 
 		if (mp.total)
-			val.Format(L"%lld", ((mp.total - mp.free_) * 100) / mp.total);
+			val.Format(L"%lld", ((mp.total - mp.freee) * 100) / mp.total);
 		else
 			val = L"NA";
 		ReplaceStrings(str, L"$u", val);
@@ -167,7 +167,7 @@ namespace Mounts
 		}
 
 	public:
-		void Analyze(const FARString &str)
+		void Analize(const FARString &str)
 		{
 			size_t m = 0;
 			const int str_len = str.GetLength();
@@ -216,7 +216,7 @@ namespace Mounts
 			ExpandMountpointInfo(mp, e.col2);
 			ExpandMountpointInfo(mp, e.col3);
 			
-			if (e.path == WGOOD_SLASH) {
+			if (e.path == L"/") {
 				has_rootfs = true;
 			} else {
 				e.unmountable = true;
@@ -227,9 +227,9 @@ namespace Mounts
 		// apply replace $> and $< spacers
 		Aligner al_path, al_col2, al_col3;
 		for (const auto &e : *this) {
-			al_path.Analyze(e.path);
-			al_col2.Analyze(e.col2);
-			al_col3.Analyze(e.col3);
+			al_path.Analize(e.path);
+			al_col2.Analize(e.col2);
+			al_col3.Analize(e.col3);
 		}
 		for (auto &e : *this) {
 			al_path.Apply(e.path);
@@ -265,7 +265,7 @@ namespace Mounts
 							}
 						}
 						e.id = GenerateIdFromPath(e.path);
-						if (e.path == WGOOD_SLASH) {
+						if (e.path == L"/") {
 							has_rootfs = true;
 
 						} else if (*e.path.CPtr() == L'/') {

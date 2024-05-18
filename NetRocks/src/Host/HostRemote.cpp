@@ -73,7 +73,7 @@ const std::string &HostRemote::CodepageLocal2Remote(const std::string &str)
 		return str;
 	}
 
-	_codepage_str.resize(_codepage_wstr.size() * 8); // ought to should be enough for any encoding
+	_codepage_str.resize(_codepage_wstr.size() * 8); // ought to should be enought for any encoding
 	const int cp_cvt_rv = WINPORT(WideCharToMultiByte)(_codepage, 0, _codepage_wstr.c_str(),
 			_codepage_wstr.size(), &_codepage_str[0], (int)_codepage_str.size(), nullptr, nullptr);
 	if (cp_cvt_rv <= 0) {
@@ -103,31 +103,6 @@ void HostRemote::CodepageRemote2Local(std::string &str)
 	str.clear();
 	size_t uc_len = _codepage_wstr.size();
 	UtfConvertStd(_codepage_wstr.c_str(), uc_len, str, false);
-}
-
-static void TimespecAdjust(timespec &ts, int adjust)
-{
-	if (ts.tv_sec == 0) {
-		; // dont adjust zero timestamps
-
-	} else if (adjust > 0) {
-		ts.tv_sec+= adjust;
-
-	} else if (adjust < 0) {
-		ts.tv_sec-= -adjust;
-	}
-}
-
-const timespec &HostRemote::TimespecLocal2Remote(const timespec &ts)
-{
-	_ts_2_remote = ts;
-	TimespecAdjust(_ts_2_remote, -_timeadjust);
-	return _ts_2_remote;
-}
-
-void HostRemote::TimespecRemote2Local(timespec &ts)
-{
-	TimespecAdjust(ts, _timeadjust);
 }
 
 
@@ -219,13 +194,12 @@ void HostRemote::OnBroken()
 {
 	IPCEndpoint::SetFD(-1, -1);
 	_peer = 0;
-	_init_deinit_cmd.reset();
 }
 
 void HostRemote::ReInitialize()
 {
 	OnBroken();
-	_aborted = false;
+
 	AssertNotBusy();
 
 	const auto *pi = ProtocolInfoLookup(_identity.protocol.c_str());
@@ -247,52 +221,29 @@ void HostRemote::ReInitialize()
 
 	StringConfig sc_options(_options);
 	_codepage = sc_options.GetInt("CodePage", CP_UTF8);
-	_timeadjust = sc_options.GetInt("TimeAdjust", 0);
 
 	char keep_alive_arg[32];
 	sprintf(keep_alive_arg, "%d", sc_options.GetInt("KeepAlive", 0));
 
-	std::string work_path = broker_path;
-	TranslateInstallPath_Lib2Share(work_path);
-
-	fprintf(stderr, "NetRocks: starting broker '%s' '%s' '%s' in '%s'\n",
-		broker_pathname.c_str(), ipc_fd.broker_arg_r, ipc_fd.broker_arg_w, work_path.c_str());
-
-	UnlinkScope prxf_cfg;
-	std::string prxf = sc_options.GetString("Proxifier");
-	if (!prxf.empty()) {
-		prxf_cfg = InMyTemp(StrPrintf("NetRocks/proxy/run_%u.cfg", getpid()).c_str());
-		const std::string &cfg_content = sc_options.GetString(std::string("Proxifier_").append(prxf).c_str());
-		if (!WriteWholeFile(prxf_cfg.c_str(), cfg_content)) {
-			fprintf(stderr, "NetRocks: error %d creating proxifier config '%s'\n", errno, prxf_cfg.c_str());
-			prxf.clear();
-		}
-	}
-
+	fprintf(stderr, "NetRocks: starting broker '%s' '%s' '%s'\n",
+		broker_pathname.c_str(), ipc_fd.broker_arg_r, ipc_fd.broker_arg_w);
+	const bool use_tsocks = G.GetGlobalConfigBool("UseProxy", false);
 	pid_t pid = fork();
 	if (pid == 0) {
 		// avoid holding arbitrary dir for broker's whole runtime
-		if (chdir(work_path.c_str()) == -1) {
-			fprintf(stderr, "chdir '%s' error %u\n", work_path.c_str(), errno);
-			if (chdir(broker_path.c_str()) == -1) {
-				fprintf(stderr, "chdir '%s' error %u\n", broker_path.c_str(), errno);
-				if (chdir("/tmp") == -1) {
-					fprintf(stderr, "chdir '/tmp' error %u\n", errno);
-				}
+		if (chdir(broker_path.c_str()) == -1) {
+			fprintf(stderr, "chdir '%s' error %u\n", broker_path.c_str(), errno);
+			if (chdir("/tmp") == -1) {
+				fprintf(stderr, "chdir '/tmp' error %u\n", errno);
 			}
 		}
-		if (prxf == "tsocks") {
+		if (use_tsocks) {
 			setenv("LD_PRELOAD", "libtsocks.so", 1);
-			setenv("TSOCKS_CONFFILE", prxf_cfg.c_str(), 1);
+			setenv("TSOCKS_CONFFILE", G.tsocks_config.c_str(), 1);
 		}
 		if (fork() == 0) {
-			if (prxf == "proxychains") {
-				execlp("proxychains", "proxychains", "-f", prxf_cfg.c_str(),
-					broker_pathname.c_str(), ipc_fd.broker_arg_r, ipc_fd.broker_arg_w, keep_alive_arg, NULL);
-			} else {
-				execl(broker_pathname.c_str(),
-					broker_pathname.c_str(), ipc_fd.broker_arg_r, ipc_fd.broker_arg_w, keep_alive_arg, NULL);
-			}
+			execl(broker_pathname.c_str(),
+				broker_pathname.c_str(), ipc_fd.broker_arg_r, ipc_fd.broker_arg_w, keep_alive_arg, NULL);
 			_exit(-1);
 			exit(-2);
 		}
@@ -300,8 +251,6 @@ void HostRemote::ReInitialize()
 		exit(0);
 
 	} else if (pid != -1) {
-		_init_deinit_cmd.reset(InitDeinitCmd::sMake(_identity.protocol,
-			_identity.host, _identity.port, _identity.username, _password, sc_options, _aborted));
 		waitpid(pid, 0, 0);
 	} else {
 		perror("fork");
@@ -444,7 +393,6 @@ bool HostRemote::OnServerIdentityChanged(const std::string &new_identity)
 
 void HostRemote::Abort()
 {
-	_aborted = true;
 	pid_t peer = _peer.exchange(0);
 	AbortReceiving();
 	if (peer != 0) {
@@ -484,7 +432,7 @@ mode_t HostRemote::GetMode(const std::string &path, bool follow_symlink)
 	return out;
 }
 
-void HostRemote::GetModes(bool follow_symlink, size_t count, const std::string *paths, mode_t *modes) noexcept
+void HostRemote::GetModes(bool follow_symlink, size_t count, const std::string *pathes, mode_t *modes) noexcept
 {
 	size_t j = 0;
 	try {
@@ -494,7 +442,7 @@ void HostRemote::GetModes(bool follow_symlink, size_t count, const std::string *
 		SendPOD(follow_symlink);
 		SendPOD(count);
 		for (size_t i = 0; i < count; ++i) {
-			SendString(CodepageLocal2Remote(paths[i]));
+			SendString(CodepageLocal2Remote(pathes[i]));
 		}
 		RecvReply(IPC_GET_MODES);
 		for (; j < count; ++j) {
@@ -534,9 +482,6 @@ void HostRemote::GetInformation(FileInformation &file_info, const std::string &p
 	SendPOD(follow_symlink);
 	RecvReply(IPC_GET_INFORMATION);
 	RecvPOD(file_info);
-	TimespecRemote2Local(file_info.access_time);
-	TimespecRemote2Local(file_info.modification_time);
-	TimespecRemote2Local(file_info.status_change_time);
 }
 
 void HostRemote::FileDelete(const std::string &path)
@@ -584,8 +529,8 @@ void HostRemote::SetTimes(const std::string &path, const timespec &access_time, 
 
 	SendCommand(IPC_SET_TIMES);
 	SendString(CodepageLocal2Remote(path));
-	SendPOD(TimespecLocal2Remote(access_time));
-	SendPOD(TimespecLocal2Remote(modification_time));
+	SendPOD(access_time);
+	SendPOD(modification_time);
 	RecvReply(IPC_SET_TIMES);
 }
 
@@ -666,9 +611,6 @@ public:
 			_conn->CodepageRemote2Local(name);
 			_conn->CodepageRemote2Local(owner);
 			_conn->CodepageRemote2Local(group);
-			_conn->TimespecRemote2Local(file_info.access_time);
-			_conn->TimespecRemote2Local(file_info.modification_time);
-			_conn->TimespecRemote2Local(file_info.status_change_time);
 			return true;
 
 		} catch (...) {

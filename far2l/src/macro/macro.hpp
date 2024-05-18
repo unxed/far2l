@@ -259,9 +259,9 @@ public:
 	~KeyMacro();
 
 public:
-	int ProcessKey(FarKey Key);
-	FarKey GetKey();
-	FarKey PeekKey();
+	uint32_t ProcessKey(uint32_t Key);
+	int GetKey();
+	int PeekKey();
 	bool IsOpCode(DWORD p);
 	bool CheckWaitKeyFunc();
 
@@ -292,7 +292,7 @@ public:
 	// Функция получения индекса нужного макроса в массиве
 	int GetIndex(uint32_t Key, int Mode, bool UseCommon = true);
 	// получение размера, занимаемого указанным макросом
-	int GetRecordSize(FarKey Key, int Mode);
+	int GetRecordSize(int Key, int Mode);
 
 	bool GetPlainText(FARString &Dest);
 	int GetPlainTextSize();
