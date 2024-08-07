@@ -1,3 +1,9 @@
+
+#ifdef __MINGW32__
+//#  define SHAREDSYMBOL __declspec(dllimport)
+#define SHAREDSYMBOL
+#endif
+
 #pragma once
 #ifndef FAR_PYTHON_GEN
 //#ifdef _WIN32

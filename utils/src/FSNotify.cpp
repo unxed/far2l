@@ -1,3 +1,5 @@
+#ifndef __MINGW32__
+
 #include <set>
 #include <vector>
 #include <atomic>
@@ -260,3 +262,5 @@ IFSNotify *IFSNotify_Create(const std::string &pathname, bool watch_subtree, FSN
 {
 	return new FSNotify(pathname, watch_subtree, what);
 }
+
+#endif

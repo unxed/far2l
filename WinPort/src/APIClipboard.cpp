@@ -180,7 +180,9 @@ extern "C" {
 		if (hMem) {
 			ClipboardAllocHeader *hdr = ClipboardAccess(hMem);
 			hdr->magic = CAH_FREED_MAGIC;
-			bzero(hdr + 1, hdr->size); // avoid sensitive data leak
+			memset(hdr + 1, 0, hdr->size);
+			//for __MINGW32__ by unxed
+			//bzero(hdr + 1, hdr->size); // avoid sensitive data leak
 			--s_pending_clipboard_allocations;
 			free(hdr);
 		}

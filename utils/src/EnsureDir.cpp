@@ -1,3 +1,5 @@
+#ifndef __MINGW32__
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -76,6 +78,7 @@ bool EnsureDir(const char *dir, PrivacyLevel pl)
 		return false;
 	}
 
+#ifndef __MINGW32__
 	const auto uid = geteuid();
 	if (UNLIKELY(pl >= PL_PRIVATE && uid != s.st_uid && s.st_uid != 0)) {
 		fprintf(stderr, "%s('%s', %u): uid=%u but st_uid=%u\n", __FUNCTION__, dir, pl, uid, s.st_uid);
@@ -89,6 +92,7 @@ bool EnsureDir(const char *dir, PrivacyLevel pl)
 	{
 		return true;
 	}
+#endif
 
 	// may be mode bits lie us? check it with stick
 	std::string check_path = dir;
@@ -108,3 +112,4 @@ bool EnsureDir(const char *dir, PrivacyLevel pl)
 	return true;
 }
 
+#endif

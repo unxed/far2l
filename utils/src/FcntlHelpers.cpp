@@ -1,3 +1,5 @@
+#ifndef __MINGW32__
+
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
@@ -53,3 +55,5 @@ void HintFDSequentialAccess(int fd)
 	}
 #endif
 }
+
+#endif

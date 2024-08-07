@@ -1,3 +1,5 @@
+#ifndef __MINGW32__
+
 #include "MakePTYAndFork.h"
 #include <iostream>
 #include <stdlib.h>
@@ -62,3 +64,5 @@ pid_t MakePTYAndFork(int &pty_master)
 
 	return pid;
 }
+
+#endif

@@ -1,3 +1,5 @@
+#ifndef __MINGW32__
+
 #pragma once
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -116,4 +118,6 @@ public:
 			sudo_silent_query_region_leave();
 	}
 };
+#endif
+
 #endif

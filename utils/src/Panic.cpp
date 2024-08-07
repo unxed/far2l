@@ -29,7 +29,9 @@ void FN_NORETURN Panic(const char *format, ...) noexcept
 	if (flog) {
 		time_t now = time(NULL);
 		struct tm t{};
+#ifndef __MINGW32__
 		localtime_r(&now, &t);
+#endif
 		fprintf(flog, "[%u/%02u/%02u %02u:%02u] ",
 			t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
 		vfprintf(flog, format, args4log);

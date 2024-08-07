@@ -1,3 +1,5 @@
+#ifndef __MINGW32__
+
 #include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -218,3 +220,5 @@ PipeIPCFD::~PipeIPCFD()
 	CheckedCloseFDPair(master2broker);
 	CheckedCloseFDPair(broker2master);
 }
+
+#endif
