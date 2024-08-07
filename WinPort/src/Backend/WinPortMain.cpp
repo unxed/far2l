@@ -1,11 +1,19 @@
 #include <fstream>
 #include <memory>
 
+#ifdef __MINGW32__
+#else
 #include <sys/ioctl.h>
+#endif
+
 #include <signal.h>
 #include <fcntl.h>
+
+#ifdef __MINGW32__
+#else
 #include <termios.h> 
 #include <dlfcn.h>
+#endif
 
 #ifdef __linux__
 # include <termios.h>
@@ -17,7 +25,10 @@
 #endif
 
 #include <ScopeHelpers.h>
+#ifdef __MINGW32__
+#else
 #include <TTYRawMode.h>
+#endif
 #include <TestPath.h>
 
 #include "TTY/TTYRevive.h"

@@ -98,7 +98,11 @@ extern "C"
 	WINPORT_DECL(CreateDirectory, BOOL, (LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes ))
 	{
 		const std::string &path = ConsumeWinPath(lpPathName);
+#ifdef __MINGW32__
+		int r = os_call_int(sdc_mkdir, path.c_str());
+#else
 		int r = os_call_int(sdc_mkdir, path.c_str(), (mode_t)0775);
+#endif
 
 		return (r == -1) ? FALSE : TRUE;
 	}
@@ -193,7 +197,7 @@ extern "C"
 		if ((dwFlagsAndAttributes & (FILE_FLAG_WRITE_THROUGH|FILE_FLAG_NO_BUFFERING)) != 0) {
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__HAIKU__)
 			fcntl(r, O_DIRECT, 1);
-#elif !defined(__CYGWIN__)
+#elif !defined(__CYGWIN__) && !defined(__MINGW32__)
 			fcntl(r, F_NOCACHE, 1);
 #endif // __FreeBSD__
 		}
@@ -320,14 +324,22 @@ extern "C"
 		ssize_t done = 0, remain = nNumberOfBytesToRead;
 		for (;;) {
 			if (!remain) break;
+#ifdef __MINGW32__
+			ssize_t r = read(wph->fd, lpBuffer, (size_t)remain);
+#else
 			ssize_t r = os_call_v<ssize_t, -1>(sdc_read, wph->fd, lpBuffer, (size_t)remain);
+#endif
 			if (r < 0 && errno == EIO) {
 				// workaround for SMB's read error when requested fragment overlaps end of file
 				off_t pos = lseek(wph->fd, 0, SEEK_CUR);
 				struct stat st{};
 				if (pos != -1 && sdc_fstat(wph->fd, &st) == 0
 						&& pos < st.st_size && pos + remain > st.st_size) {
+#ifdef __MINGW32__
+					r = read(wph->fd, lpBuffer, (size_t)(st.st_size - pos));
+#else
 					r = os_call_v<ssize_t, -1>(sdc_read, wph->fd, lpBuffer, (size_t)(st.st_size - pos));
+#endif
 
 				} else {
 					errno = EIO;
@@ -367,7 +379,11 @@ extern "C"
 			fprintf(stderr, "WINPORT(WriteFile) with lpOverlapped\n");
 		}
 
+#ifdef __MINGW32__
+		ssize_t r = write(wph->fd, lpBuffer, (size_t)nNumberOfBytesToWrite);
+#else
 		ssize_t r = os_call_v<ssize_t, -1>(sdc_write, wph->fd, lpBuffer, (size_t)nNumberOfBytesToWrite);
+#endif
 		if (r < 0) {
 			if (lpNumberOfBytesWritten)
 				*lpNumberOfBytesWritten = 0;

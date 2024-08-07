@@ -2,6 +2,28 @@
 #ifdef __MINGW32__
 //#  define SHAREDSYMBOL __declspec(dllimport)
 #define SHAREDSYMBOL
+
+#define sdc_close close
+#define sdc_open open
+#define sdc_read read
+#define sdc_write write
+#define sdc_mkdir mkdir
+#define sdc_rmdir rmdir
+#define sdc_remove remove
+#define sdc_fstat fstat
+#define sdc_stat stat
+#define sdc_rename rename
+#define sdc_chdir chdir
+#define sdc_lseek lseek
+#define sdc_futimens futimens
+#define sdc_lstat lstat
+#define sdc_ftruncate ftruncate
+#define sdc_opendir opendir
+#define sdc_closedir closedir
+#define sdc_readdir readdir
+#define sdc_getcwd getcwd
+#define sdc_fsync fsync
+
 #endif
 
 #pragma once

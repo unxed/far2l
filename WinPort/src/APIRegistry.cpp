@@ -22,6 +22,11 @@
 #include <RandomString.h>
 #include <os_call.hpp>
 
+#ifdef __MINGW32__
+#include <windows.h>
+#else
+#endif
+
 static std::atomic<int>	s_reg_wipe_count{0};
 
 struct WinPortHandleReg : MagicWinPortHandle<1> // <1> - for reg handles
@@ -96,14 +101,25 @@ static std::string LitterFile(const char *path)
 	for (off_t i = 0; i < s.st_size;) {
 		const size_t piece = (s.st_size - i > (off_t)sizeof(garbage))
 			? sizeof(garbage) : (size_t) (s.st_size - i);
+
+#ifdef __MINGW32__
+		if ((write, fd, (const void *)&garbage[0], piece) != (ssize_t)piece) {
+			perror("LitterFile - write");
+		}
+#else
 		if (os_call_v<ssize_t, -1>(write, fd,
 			(const void *)&garbage[0], piece) != (ssize_t)piece) {
 			perror("LitterFile - write");
 		}
+#endif
 		i+= piece;
 	}
 	//fprintf(stderr, "LitterFile - WRITTEN: '%s'\n", path);
+#ifdef __MINGW32__
+	//fixme
+#else
 	os_call_int(fsync, fd);
+#endif
 	os_call_int(close, fd);
 
 	std::string garbage_path = path;
@@ -155,8 +171,13 @@ LONG RegXxxKeyEx(
 
 		for (size_t i = 0, ii = dir.size(); i<=ii; ++i) {
 			if (i==ii || dir[i]==GOOD_SLASH) {
+#ifdef __MINGW32__
+				if (mkdir(dir.substr(0, i).c_str())==0)
+					fprintf(stderr, "RegXxxKeyEx: creating %s\n", dir.c_str());
+#else
 				if (mkdir(dir.substr(0, i).c_str(), 0775)==0)
 					fprintf(stderr, "RegXxxKeyEx: creating %s\n", dir.c_str());
+#endif
 					
 			}
 		}
@@ -188,7 +209,11 @@ static std::string LookupIndexedRegItem(const std::string &root, const char *div
 	path+= '*';
 	
 	WIN32_FIND_DATAA wfd = {0};
+#ifdef __MINGW32__
+	HANDLE fh = FindFirstFileA(path.c_str(), &wfd);
+#else
 	HANDLE fh = ::FindFirstFileA(path.c_str(), &wfd);
+#endif
 	if (fh!=INVALID_HANDLE_VALUE) {
 		DWORD i = 0;
 		do {
