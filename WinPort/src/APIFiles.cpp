@@ -532,9 +532,13 @@ extern "C"
 		if (UNLIKELY(r < 0))
 			return FALSE;
 
+#ifdef __MINGW32__
+		//fixme
+#else
 		WINPORT(FileTime_UnixToWin32)(s.st_mtim, lpLastWriteTime);
 		WINPORT(FileTime_UnixToWin32)(s.st_ctim, lpCreationTime);
 		WINPORT(FileTime_UnixToWin32)(s.st_atim, lpLastAccessTime);
+#endif
 		return TRUE;
 	}
 
@@ -554,9 +558,14 @@ extern "C"
 			WINPORT(FileTime_Win32ToUnix)(lpLastWriteTime, &ts[1]);
 		}
 
+
+#ifdef __MINGW32__
+		//fixme
+#else
 		auto r = os_call_int(sdc_futimens, wph->fd, (const struct timespec *)ts);
 		if (UNLIKELY(r < 0))
 			return FALSE;
+#endif
 
 		return TRUE;
 	}
@@ -587,19 +596,30 @@ extern "C"
 	public:
 		Statocaster(const char *pathname, const char *name = nullptr)
 		{
+
+#ifdef __MINGW32__
+			//fixme
+#else
 			if (os_call_int(sdc_lstat, pathname, &_st_lnk) < 0) {
 				_attr = INVALID_FILE_ATTRIBUTES;
 				return;
 			}
+#endif
 
 			if (!name) {
 				name = PointToNamePart(pathname);
 			}
 
+#ifdef __MINGW32__
+			//fixme
+#else
 			if ((_st_lnk.st_mode & S_IFMT) != S_IFLNK) {
 				_attr = 0;
 
-			} else if (os_call_int(sdc_stat, pathname, &_st_dst) < 0) {
+			} else
+#endif
+			
+			if (os_call_int(sdc_stat, pathname, &_st_dst) < 0) {
 				_attr = FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_BROKEN;
 				_st_lnk.st_size = 0;
 
@@ -628,19 +648,31 @@ extern "C"
 
 			const auto &s = DereferencedStat();
 
+#ifdef __MINGW32__
+			// fixme
+#else
 			WINPORT(FileTime_UnixToWin32)(s.st_ctim, &wfd->ftCreationTime);
 			WINPORT(FileTime_UnixToWin32)(s.st_atim, &wfd->ftLastAccessTime);
 			WINPORT(FileTime_UnixToWin32)(s.st_mtim, &wfd->ftLastWriteTime);
+#endif
 			wfd->UnixOwner = s.st_uid;
 			wfd->UnixGroup = s.st_gid;
 			wfd->UnixDevice = s.st_dev;
 			wfd->UnixNode = s.st_ino;
+#ifdef __MINGW32__
+			wfd->nPhysicalSize = 0;
+#else
 			wfd->nPhysicalSize = ((DWORD64)_st_lnk.st_blocks) * 512;
+#endif
+
 			wfd->nFileSize = (DWORD64)s.st_size;
 			wfd->dwFileAttributes = _attr;
 			wfd->dwUnixMode = s.st_mode;
 			wfd->nHardLinks = (DWORD)s.st_nlink;
+#ifdef __MINGW32__
+#else
 			wfd->nBlockSize = (DWORD)s.st_blksize;
+#endif
 			return true;
 		}
 	};
@@ -756,7 +788,7 @@ extern "C"
 				if (!de)
 					return false;
 
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__MINGW32__)
 				if (PreMatchDType(de->d_type) && MatchName(de->d_name) ) {
 					mode_t hint_mode_type = 0;
 					switch (de-> d_type) {
@@ -805,7 +837,10 @@ extern "C"
 				_tmp.path+= GOOD_SLASH;
 			_tmp.path+= name;
 
+#ifdef __MINGW32__
+#else
 			SudoSilentQueryRegion ssqr(hint_mode_type !=0 && (_flags & FIND_FILE_FLAG_NOT_ANNOYING) != 0);
+#endif
 			if (!Statocaster(_tmp.path.c_str(), name).FillWFD(wfd)) {
 				fprintf(stderr, "UnixFindFile: errno=%u hmt=0%o on '%s'\n",
 					errno, hint_mode_type, _tmp.path.c_str());
@@ -861,7 +896,7 @@ extern "C"
 
 		DIR *_d = nullptr;
 
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__MINGW32__)
 		bool PreMatchDType(unsigned char d_type)
 		{
 			switch (d_type) {

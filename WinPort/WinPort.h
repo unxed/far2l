@@ -24,6 +24,16 @@
 #define sdc_getcwd getcwd
 #define sdc_fsync fsync
 
+#include <io.h>
+#include <unistd.h> // для ssize_t
+ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset) {
+    off_t currentPos = _lseek(fd, 0, SEEK_CUR);
+    _lseek(fd, offset, SEEK_SET);
+    ssize_t result = _write(fd, buf, count);
+    _lseek(fd, currentPos, SEEK_SET);
+    return result;
+}
+
 #endif
 
 #pragma once

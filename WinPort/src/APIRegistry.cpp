@@ -24,6 +24,7 @@
 
 #ifdef __MINGW32__
 #include <windows.h>
+#include <fileapi.h>
 #else
 #endif
 

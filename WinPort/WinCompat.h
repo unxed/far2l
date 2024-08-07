@@ -92,7 +92,12 @@ typedef unsigned __int64 uint64_t;
 
 
 #ifndef OCCASIONAL_WINDOWS_H
+
+#ifdef __MINGW32__
+typedef unsigned __LONG32 ULONG;
+#else
 typedef uint32_t ULONG;
+#endif
 typedef unsigned int UINT;
 typedef unsigned short USHORT;
 typedef int LONG;
@@ -128,11 +133,21 @@ typedef DWORD64 uintptr_t;
 typedef LONG64 LONG_PTR;
 typedef ULONG64 uintptr_t;
 #else
+
+#ifdef __MINGW32__
+typedef __int64 INT_PTR;
+typedef unsigned __int64 UINT_PTR;
+typedef __int64 LONG_PTR;
+typedef unsigned __int64 ULONG_PTR;
+typedef unsigned __int64 DWORD_PTR;
+#else
 typedef INT INT_PTR;
 typedef UINT UINT_PTR;
 typedef DWORD DWORD_PTR;
 typedef LONG LONG_PTR;
 typedef ULONG ULONG_PTR;
+#endif
+
 #endif
 
 typedef const char *LPCSTR;
