@@ -50,17 +50,17 @@ static std::string GetRegistrySubroot(const char *sub)
 
 static std::string HKDir(HKEY hKey)
 {
-	if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_CLASSES_ROOT)
+	if ((uintptr_t)hKey == (uintptr_t)HKEY_CLASSES_ROOT)
 		return GetRegistrySubroot("/HKLM/software/classes"); else
-	if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_CURRENT_USER)
+	if ((uintptr_t)hKey == (uintptr_t)HKEY_CURRENT_USER)
 		return GetRegistrySubroot("/HKU/c"); else
-	if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_LOCAL_MACHINE)
+	if ((uintptr_t)hKey == (uintptr_t)HKEY_LOCAL_MACHINE)
 		return GetRegistrySubroot("/HKLM"); else
-	if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_USERS)
+	if ((uintptr_t)hKey == (uintptr_t)HKEY_USERS)
 		return GetRegistrySubroot("/HKU"); else
-	if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_PERFORMANCE_DATA)
+	if ((uintptr_t)hKey == (uintptr_t)HKEY_PERFORMANCE_DATA)
 		return GetRegistrySubroot("/PD"); else
-	if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_PERFORMANCE_TEXT)
+	if ((uintptr_t)hKey == (uintptr_t)HKEY_PERFORMANCE_TEXT)
 		return GetRegistrySubroot("/PT");
 
 	std::string out;
@@ -531,17 +531,17 @@ extern "C" {
 	{
 		if (!hKey || hKey == (HKEY)INVALID_HANDLE_VALUE)
 			return ERROR_INVALID_HANDLE;
-		if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_CLASSES_ROOT)
+		if ((uintptr_t)hKey == (uintptr_t)HKEY_CLASSES_ROOT)
 			return ERROR_INVALID_HANDLE;
-		if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_CURRENT_USER)
+		if ((uintptr_t)hKey == (uintptr_t)HKEY_CURRENT_USER)
 			return ERROR_INVALID_HANDLE;
-		if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_LOCAL_MACHINE)
+		if ((uintptr_t)hKey == (uintptr_t)HKEY_LOCAL_MACHINE)
 			return ERROR_INVALID_HANDLE;
-		if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_USERS)
+		if ((uintptr_t)hKey == (uintptr_t)HKEY_USERS)
 			return ERROR_INVALID_HANDLE;
-		if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_PERFORMANCE_DATA)
+		if ((uintptr_t)hKey == (uintptr_t)HKEY_PERFORMANCE_DATA)
 			return ERROR_INVALID_HANDLE;
-		if ((ULONG_PTR)hKey == (ULONG_PTR)HKEY_PERFORMANCE_TEXT)
+		if ((uintptr_t)hKey == (uintptr_t)HKEY_PERFORMANCE_TEXT)
 			return ERROR_INVALID_HANDLE;
 
 		if (!WinPortHandle::Deregister(hKey))

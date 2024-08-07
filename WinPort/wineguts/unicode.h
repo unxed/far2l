@@ -240,20 +240,20 @@ WINE_UNICODE_INLINE WCHAR *strcatW( WCHAR *dst, const WCHAR *src )
 
 WINE_UNICODE_INLINE WCHAR *strchrW( const WCHAR *str, WCHAR ch )
 {
-    do { if (*str == ch) return (WCHAR *)(ULONG_PTR)str; } while (*str++);
+    do { if (*str == ch) return (WCHAR *)(uintptr_t)str; } while (*str++);
     return NULL;
 }
 
 WINE_UNICODE_INLINE WCHAR *strrchrW( const WCHAR *str, WCHAR ch )
 {
     WCHAR *ret = NULL;
-    do { if (*str == ch) ret = (WCHAR *)(ULONG_PTR)str; } while (*str++);
+    do { if (*str == ch) ret = (WCHAR *)(uintptr_t)str; } while (*str++);
     return ret;
 }
 
 WINE_UNICODE_INLINE WCHAR *strpbrkW( const WCHAR *str, const WCHAR *accept )
 {
-    for ( ; *str; str++) if (strchrW( accept, *str )) return (WCHAR *)(ULONG_PTR)str;
+    for ( ; *str; str++) if (strchrW( accept, *str )) return (WCHAR *)(uintptr_t)str;
     return NULL;
 }
 
@@ -288,7 +288,7 @@ WINE_UNICODE_INLINE WCHAR *struprW( WCHAR *str )
 WINE_UNICODE_INLINE WCHAR *memchrW( const WCHAR *ptr, WCHAR ch, size_t n )
 {
     const WCHAR *end;
-    for (end = ptr + n; ptr < end; ptr++) if (*ptr == ch) return (WCHAR *)(ULONG_PTR)ptr;
+    for (end = ptr + n; ptr < end; ptr++) if (*ptr == ch) return (WCHAR *)(uintptr_t)ptr;
     return NULL;
 }
 
@@ -296,7 +296,7 @@ WINE_UNICODE_INLINE WCHAR *memrchrW( const WCHAR *ptr, WCHAR ch, size_t n )
 {
     const WCHAR *end;
     WCHAR *ret = NULL;
-    for (end = ptr + n; ptr < end; ptr++) if (*ptr == ch) ret = (WCHAR *)(ULONG_PTR)ptr;
+    for (end = ptr + n; ptr < end; ptr++) if (*ptr == ch) ret = (WCHAR *)(uintptr_t)ptr;
     return ret;
 }
 

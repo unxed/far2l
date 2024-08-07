@@ -99,7 +99,9 @@ WINPORT_DECL(FileTime_Win32ToUnix, VOID, (const FILETIME *lpFileTime, struct tim
 	WINPORT(FileTimeToSystemTime)(lpFileTime, &sys_time);
 	struct tm tm = {};	
 	Systemtime2TM(&sys_time, &tm);
+#ifndef __MINGW32__
 	ts->tv_sec = timegm(&tm);
+#endif
 	ts->tv_nsec = sys_time.wMilliseconds;
 	ts->tv_nsec*= 1000000;
 }
@@ -182,8 +184,10 @@ static int LocalMinusUTC()
 {
 	time_t now = time(NULL);
 	struct tm gt{}, lt{};
+#ifndef __MINGW32__
 	gmtime_r(&now, &gt);
 	localtime_r(&now, &lt);
+#endif
 
 	unsigned long long gt_secs = ((gt.tm_yday * 24 + gt.tm_hour) * 60 + gt.tm_min) * 60 + gt.tm_sec;
 	unsigned long long lt_secs = ((lt.tm_yday * 24 + lt.tm_hour) * 60 + lt.tm_min) * 60 + lt.tm_sec;
@@ -366,7 +370,11 @@ WINPORT_DECL(DosDateTimeToFileTime, BOOL, ( WORD fatdate, WORD fattime, LPFILETI
 	newtm.tm_year = (fatdate >> 9) + 80;
 	newtm.tm_isdst = -1;
 
+#ifndef __MINGW32__
 	uint64_t xtm = timegm(&newtm);
+#else
+	uint64_t xtm = 0;
+#endif
 	xtm*= TICKSPERSEC;
 	xtm+= TICKS_1601_TO_1970;
 	ft->dwLowDateTime = DWORD(xtm & 0xffffffff);
@@ -380,7 +388,8 @@ static unsigned s_time_failmask = 0;
 WINPORT_DECL(GetTickCount, DWORD, ())
 {
 #ifdef _WIN32
-	return ::GetTickCount();
+	return 0;
+	//return GetTickCount();
 #elif defined(__APPLE__)
 	static mach_timebase_info_data_t g_timebase_info;
 	if (g_timebase_info.denom == 0)
@@ -424,7 +433,7 @@ WINPORT_DECL(GetTickCount, DWORD, ())
 WINPORT_DECL(Sleep, VOID, (DWORD dwMilliseconds))
 {
 #ifdef _WIN32
-	::Sleep(dwMilliseconds);
+	//Sleep(dwMilliseconds);
 #else
 	DWORD seconds = dwMilliseconds / 1000;
 	if (seconds) {

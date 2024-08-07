@@ -24,7 +24,8 @@ extern "C" {
 	WINPORT_DECL(GetCurrentProcessId, DWORD, ())
 	{
 #ifdef _WIN32
-		return ::GetCurrentProcessId();
+		return 0;
+		//return GetCurrentProcessId();
 #else
 		return getpid();
 #endif

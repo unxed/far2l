@@ -124,9 +124,9 @@ typedef uint64_t ULONG64, *PULONG64;
 #if defined(__LP64__) || defined(_LP64)
 typedef INT64 INT_PTR;
 typedef UINT64 UINT_PTR;
-typedef DWORD64 DWORD_PTR;
+typedef DWORD64 uintptr_t;
 typedef LONG64 LONG_PTR;
-typedef ULONG64 ULONG_PTR;
+typedef ULONG64 uintptr_t;
 #else
 typedef INT INT_PTR;
 typedef UINT UINT_PTR;
@@ -914,10 +914,10 @@ typedef void *HMODULE;
 
 #define MAKEWORD(a, b)      ((WORD)(((BYTE)(((DWORD_PTR)(a)) & 0xff)) | ((WORD)((BYTE)(((DWORD_PTR)(b)) & 0xff))) << 8))
 #define MAKELONG(a, b)      ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
-#define LOWORD(l)           ((WORD)(((DWORD_PTR)(l)) & 0xffff))
-#define HIWORD(l)           ((WORD)((((DWORD_PTR)(l)) >> 16) & 0xffff))
-#define LOBYTE(w)           ((BYTE)(((DWORD_PTR)(w)) & 0xff))
-#define HIBYTE(w)           ((BYTE)((((DWORD_PTR)(w)) >> 8) & 0xff))
+#define LOWORD(l)           ((WORD)(((uintptr_t)(l)) & 0xffff))
+#define HIWORD(l)           ((WORD)((((uintptr_t)(l)) >> 16) & 0xffff))
+#define LOBYTE(w)           ((BYTE)(((uintptr_t)(w)) & 0xff))
+#define HIBYTE(w)           ((BYTE)((((uintptr_t)(w)) >> 8) & 0xff))
 
 #define MAXIMUM_ALLOWED                  (0x02000000L)
 
@@ -1151,13 +1151,13 @@ typedef void *HKL;
 #define ERROR_DIR_NOT_EMPTY              ENOTEMPTY
 #define ERROR_INVALID_FLAGS              EDOM
 
-#define HKEY_CLASSES_ROOT                   (( HKEY ) (ULONG_PTR)((LONG)0x80000000) )
-#define HKEY_CURRENT_USER                   (( HKEY ) (ULONG_PTR)((LONG)0x80000001) )
-#define HKEY_LOCAL_MACHINE                  (( HKEY ) (ULONG_PTR)((LONG)0x80000002) )
-#define HKEY_USERS                          (( HKEY ) (ULONG_PTR)((LONG)0x80000003) )
-#define HKEY_PERFORMANCE_DATA               (( HKEY ) (ULONG_PTR)((LONG)0x80000004) )
-#define HKEY_PERFORMANCE_TEXT               (( HKEY ) (ULONG_PTR)((LONG)0x80000050) )
-#define HKEY_PERFORMANCE_NLSTEXT            (( HKEY ) (ULONG_PTR)((LONG)0x80000060) )
+#define HKEY_CLASSES_ROOT                   (( HKEY ) (uintptr_t)((LONG)0x80000000) )
+#define HKEY_CURRENT_USER                   (( HKEY ) (uintptr_t)((LONG)0x80000001) )
+#define HKEY_LOCAL_MACHINE                  (( HKEY ) (uintptr_t)((LONG)0x80000002) )
+#define HKEY_USERS                          (( HKEY ) (uintptr_t)((LONG)0x80000003) )
+#define HKEY_PERFORMANCE_DATA               (( HKEY ) (uintptr_t)((LONG)0x80000004) )
+#define HKEY_PERFORMANCE_TEXT               (( HKEY ) (uintptr_t)((LONG)0x80000050) )
+#define HKEY_PERFORMANCE_NLSTEXT            (( HKEY ) (uintptr_t)((LONG)0x80000060) )
 
 
 #define COMPRESSION_FORMAT_NONE          (0x0000)
@@ -1411,7 +1411,7 @@ typedef LONG NTSTATUS;
 
 #define DECLSPEC_HIDDEN
 
-#define IS_INTRESOURCE(_r) ((((ULONG_PTR)(_r)) >> 16) == 0)
+#define IS_INTRESOURCE(_r) ((((uintptr_t)(_r)) >> 16) == 0)
 
 #define CREATE_SUSPENDED                  0x00000004
 
