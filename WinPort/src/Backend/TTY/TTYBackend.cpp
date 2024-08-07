@@ -82,7 +82,7 @@ static WORD WChar2WinVKeyCode(WCHAR wc)
 }
 
 
-TTYBackend::TTYBackend(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, const char *nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int *result) :
+TTYBackend::TTYBackend(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, DWORD nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int *result) :
 	_full_exe_path(full_exe_path),
 	_stdin(std_in),
 	_stdout(std_out),
@@ -233,10 +233,10 @@ void TTYBackend::ReaderThread()
 			}
 
 		} else {
-			if (!strchr(_nodetect, 'x') || strstr(_nodetect, "xi")) {
+			if ((_nodetect & NODETECT_X)==0) {
 
 				// disable xi on Wayland as it not work there anyway and also causes delays
-				_ttyx = StartTTYX(_full_exe_path, !strstr(_nodetect, "xi") && !UnderWayland());
+				_ttyx = StartTTYX(_full_exe_path, ((_nodetect & NODETECT_XI)==0) && !UnderWayland());
 			}
 			if (_ttyx) {
 				if (!_ext_clipboard) {
@@ -1030,11 +1030,7 @@ void TTYBackend::OnInspectKeyEvent(KEY_EVENT_RECORD &event)
 	}
 
 	if (!event.wVirtualKeyCode) {
-		if (event.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED | LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) {
-			event.wVirtualKeyCode = WChar2WinVKeyCode(event.uChar.UnicodeChar);
-		} else {
-			event.wVirtualKeyCode = VK_UNASSIGNED;
-		}
+		event.wVirtualKeyCode = WChar2WinVKeyCode(event.uChar.UnicodeChar);
 	}
 	if (!event.uChar.UnicodeChar && IsEnhancedKey(event.wVirtualKeyCode)) {
 		event.dwControlKeyState|= ENHANCED_KEY;
@@ -1246,7 +1242,7 @@ static void OnSigHup(int signo)
 }
 
 
-bool WinPortMainTTY(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, const char *nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int argc, char **argv, int(*AppMain)(int argc, char **argv), int *result)
+bool WinPortMainTTY(const char *full_exe_path, int std_in, int std_out, bool ext_clipboard, bool norgb, DWORD nodetect, bool far2l_tty, unsigned int esc_expiration, int notify_pipe, int argc, char **argv, int(*AppMain)(int argc, char **argv), int *result)
 {
 	TTYBackend vtb(full_exe_path, std_in, std_out, ext_clipboard, norgb, nodetect, far2l_tty, esc_expiration, notify_pipe, result);
 

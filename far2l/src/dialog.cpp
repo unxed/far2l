@@ -448,6 +448,7 @@ void Dialog::Init(FARWINDOWPROC DlgProc,	// Диалоговая процеду�
 Dialog::~Dialog()
 {
 	_tran(SysLog(L"[%p] Dialog::~Dialog()", this));
+
 	DeleteDialogObjects();
 
 	Hide();
@@ -460,9 +461,13 @@ Dialog::~Dialog()
 		delete Item[i];
 
 	free(Item);
-	INPUT_RECORD rec;
-	PeekInputRecord(&rec);
 	delete OldTitle;
+
+	if (!WinPortTesting()) {
+		INPUT_RECORD rec;
+		PeekInputRecord(&rec);
+	}
+
 	_DIALOG(CleverSysLog CL(L"Destroy Dialog"));
 }
 
@@ -2728,48 +2733,19 @@ int Dialog::ProcessKey(FarKey Key)
 				((DlgEdit *)(Item[FocusPos]->ObjPtr))->ProcessKey(Key);
 				return TRUE;
 			} else {
-				int MinDist = 1000, MinPos = 0;
-
-				for (I = 0; I < ItemCount; I++) {
-					if (I != FocusPos && (!(Item[I]->Flags & (DIF_NOFOCUS | DIF_DISABLE | DIF_HIDDEN)))
-							&& (FarIsEdit(Item[I]->Type) || Item[I]->Type == DI_CHECKBOX
-									|| Item[I]->Type == DI_RADIOBUTTON)
-							&& Item[I]->Y1 == Item[FocusPos]->Y1) {
-						int Dist = Item[I]->X1 - Item[FocusPos]->X1;
-
-						if (((Key == KEY_LEFT || Key == KEY_SHIFTNUMPAD4) && Dist < 0)
-								|| ((Key == KEY_RIGHT || Key == KEY_SHIFTNUMPAD6) && Dist > 0))
-							if (abs(Dist) < MinDist) {
-								MinDist = abs(Dist);
-								MinPos = I;
-							}
-					}
-				}
-
-				if (MinDist < 1000) {
-					ChangeFocus2(MinPos);
-
-					if (Item[MinPos]->Flags & DIF_MOVESELECT) {
-						Do_ProcessSpace();
-					} else {
-						ShowDialog();
-					}
-
-					return TRUE;
-				}
+				return MoveToCtrlHorizontal(Key == KEY_RIGHT || Key == KEY_NUMPAD6);
 			}
 		}
 		case KEY_UP:
 		case KEY_NUMPAD8:
 		case KEY_DOWN:
-		case KEY_NUMPAD2:
-
+		case KEY_NUMPAD2: {
 			if (Item[FocusPos]->Type == DI_USERCONTROL)		// для user-типа вываливаем
 				return TRUE;
 
-			return Do_ProcessNextCtrl(
-					Key == KEY_LEFT || Key == KEY_UP || Key == KEY_NUMPAD4 || Key == KEY_NUMPAD8);
-			// $ 27.04.2001 VVM - Обработка колеса мышки
+			return MoveToCtrlVertical(Key == KEY_UP || Key == KEY_NUMPAD8);
+		}
+		// $ 27.04.2001 VVM - Обработка колеса мышки
 		case KEY_MSWHEEL_UP:
 		case KEY_MSWHEEL_DOWN:
 		case KEY_CTRLUP:
@@ -3609,6 +3585,79 @@ int Dialog::Do_ProcessNextCtrl(int Up, BOOL IsRedraw)
 	else if (IsRedraw) {
 		ShowDialog(OldPos);
 		ShowDialog(FocusPos);
+	}
+
+	return TRUE;
+}
+
+int Dialog::MoveToCtrlHorizontal(int right)
+{
+	int MinDist = 1000, MinPos = 0;
+
+	for (unsigned int I = 0; I < ItemCount; I++) {
+		if (I != FocusPos && (!(Item[I]->Flags & (DIF_NOFOCUS | DIF_DISABLE | DIF_HIDDEN)))
+				&& (FarIsEdit(Item[I]->Type) || Item[I]->Type == DI_CHECKBOX
+						|| Item[I]->Type == DI_RADIOBUTTON)
+				 && Item[I]->Y1 == Item[FocusPos]->Y1)
+		{
+			int Dist = Item[I]->X1 - Item[FocusPos]->X1;
+
+			if ((!right && Dist < 0) || (right && Dist > 0)) {
+				if (abs(Dist) < MinDist) {
+					MinDist = abs(Dist);
+					MinPos = I;
+				}
+			}
+		}
+	}
+
+	if (MinDist < 1000) {
+		ChangeFocus2(MinPos);
+
+		if (Item[MinPos]->Flags & DIF_MOVESELECT) {
+			Do_ProcessSpace();
+		} else {
+			ShowDialog();
+		}
+	} else {
+		return Do_ProcessNextCtrl(!right);
+	}
+
+
+	return TRUE;
+}
+
+int Dialog::MoveToCtrlVertical(int up)
+{
+	int MinDist = 1000, MinPos = 0;
+
+	for (unsigned int I = 0; I < ItemCount; I++) {
+		if (I != FocusPos && (!(Item[I]->Flags & (DIF_NOFOCUS | DIF_DISABLE | DIF_HIDDEN)))
+				&& (FarIsEdit(Item[I]->Type) || Item[I]->Type == DI_CHECKBOX
+						|| Item[I]->Type == DI_RADIOBUTTON)
+				 && Item[I]->X1 == Item[FocusPos]->X1)
+		{
+			int Dist = Item[I]->Y1 - Item[FocusPos]->Y1;
+
+			if ((up && Dist < 0) || (!up && Dist > 0)) {
+				if (abs(Dist) < MinDist) {
+					MinDist = abs(Dist);
+					MinPos = I;
+				}
+			}
+		}
+	}
+
+	if (MinDist < 1000) {
+		ChangeFocus2(MinPos);
+
+		if (Item[MinPos]->Flags & DIF_MOVESELECT) {
+			Do_ProcessSpace();
+		} else {
+			ShowDialog();
+		}
+	} else {
+		return Do_ProcessNextCtrl(up);
 	}
 
 	return TRUE;
@@ -5619,6 +5668,22 @@ LONG_PTR SendDlgMessageSynched(HANDLE hDlg, int Msg, int Param1, LONG_PTR Param2
 			FarDialogItemData IData = {(size_t)StrLength((wchar_t *)Param2), (wchar_t *)Param2};
 			return SendDlgMessage(hDlg, DM_SETTEXT, Param1, (LONG_PTR)&IData);
 		}
+
+		case DM_SETTEXTPTRSILENT: {
+			if (!Param2)
+				return 0;
+
+			if (CurItem->Type != DI_FIXEDIT && CurItem->Type != DI_EDIT)
+				return 0;
+
+			reinterpret_cast<DlgEdit *>(CurItem->ObjPtr)->SetCallbackState(false);
+			FarDialogItemData IData = {(size_t)StrLength((wchar_t *)Param2), (wchar_t *)Param2};
+			intptr_t rv = SendDlgMessage(hDlg, DM_SETTEXT, Param1, (LONG_PTR)&IData);
+			reinterpret_cast<DlgEdit *>(CurItem->ObjPtr)->SetCallbackState(true);
+
+			return rv;
+		}
+
 		/*****************************************************************/
 		case DM_SETTEXT: {
 			if (Param2) {

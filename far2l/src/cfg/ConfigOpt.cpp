@@ -67,6 +67,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "AllXLats.hpp"
 #include "ConfigOpt.hpp"
 #include "ConfigOptSaveLoad.hpp"
+#include "pick_color256.hpp"
+#include "pick_colorRGB.hpp"
 
 void SanitizeHistoryCounts();
 
@@ -120,6 +122,8 @@ static FARString strKeyNameConsoleDetachKey;
 
 const ConfigOpt g_cfg_opts[] {
 	{true,  NSecColors, "CurrentPalette", SIZE_ARRAY_PALETTE, Palette, DefaultPalette},
+	{true,  NSecColors, "TempColors256", TEMP_COLORS256_SIZE, g_tempcolors256, g_tempcolors256},
+	{true,  NSecColors, "TempColorsRGB", TEMP_COLORSRGB_SIZE, (BYTE *)g_tempcolorsRGB, (BYTE *)g_tempcolorsRGB},
 
 	{true,  NSecScreen, "Clock", &Opt.Clock, 1},
 	{true,  NSecScreen, "ViewerEditorClock", &Opt.ViewerEditorClock, 0},
@@ -157,6 +161,11 @@ const ConfigOpt g_cfg_opts[] {
 	{true,  NSecInterface, "ExclusiveAltRight", &Opt.ExclusiveAltRight, 0},
 	{true,  NSecInterface, "ExclusiveWinLeft", &Opt.ExclusiveWinLeft, 0},
 	{true,  NSecInterface, "ExclusiveWinRight", &Opt.ExclusiveWinRight, 0},
+
+	{true,  NSecInterface, "DateFormat", &Opt.DateFormat, GetDateFormatDefault()},
+	{true,  NSecInterface, "DateSeparator", &Opt.strDateSeparator, GetDateSeparatorDefaultStr()},
+	{true,  NSecInterface, "TimeSeparator", &Opt.strTimeSeparator, GetTimeSeparatorDefaultStr()},
+	{true,  NSecInterface, "DecimalSeparator", &Opt.strDecimalSeparator, GetDecimalSeparatorDefaultStr()},
 
 	{true,  NSecInterface, "OSC52ClipSet", &Opt.OSC52ClipSet, 0},
 	{true,  NSecInterface, "TTYPaletteOverride", &Opt.TTYPaletteOverride, 1},
@@ -248,6 +257,7 @@ const ConfigOpt g_cfg_opts[] {
 	{true,  NSecSystem, "SaveFoldersHistory", &Opt.SaveFoldersHistory, 1},
 	{false, NSecSystem, "SavePluginFoldersHistory", &Opt.SavePluginFoldersHistory, 0},
 	{true,  NSecSystem, "SaveViewHistory", &Opt.SaveViewHistory, 1},
+	{true,  NSecSystem, "AutoHighlightHistory", &Opt.AutoHighlightHistory, 1},
 	{true,  NSecSystem, "AutoSaveSetup", &Opt.AutoSaveSetup, 0},
 	{true,  NSecSystem, "DeleteToRecycleBin", &Opt.DeleteToRecycleBin, 0},
 	{true,  NSecSystem, "DeleteToRecycleBinKillLink", &Opt.DeleteToRecycleBinKillLink, 1},

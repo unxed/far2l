@@ -2137,14 +2137,15 @@ $ #Меню користувача#
  У разі редагування або створення вкладеного меню достатньо ввести заголовок
 вкладеного меню та, при необхідності, гарячу клавішу.
 
-Місцеві меню зберігаються у текстових файлах #FarMenu.Ini#. Головне меню з
-за замовчуванням зберігається в Реєстрі, але його також можна тримати у файлі. Якщо створити
-місцеве меню в папці FAR2L, то воно буде використане замість того, що зберігається в
-Реєстр головного меню.
+ Місцеві меню зберігаються у текстових файлах #FarMenu.Ini#.
+ Головне меню зберігаються у профілі у #~~/.config/far2l/settings/user_menu.ini#
+(формат відрізняється від FarMenu.ini).
+Якщо створити місцеве меню в папці FAR2L,
+то воно буде використане замість того, що зберігається у профілі головного меню.
 
  Ви можете закрити меню на будь-якому рівні вкладеності, натиснувши #Shift-F10#.
 
- також
+ Також
     ~Special commands~@SpecCmd@.
     список ~макроклавіш~@KeyMacroUserMenuList@, доступних у меню користувача.
     Common ~menu~@MenuCmd@ keyboard commands.
@@ -3231,6 +3232,14 @@ Note that favorites file can contain shell environment variables denoted with $
 character like $HOME, and shell commands substitution, i.e. $(/path/to/some/script.sh)
 will invoke that script.sh and its output will be embedded into content of this file
 during processing. This allows to implement custom dynamic locations list composing.
+
+    If you don't see mounted flash drive in the Location menu (#Alt-F1/F2#)
+then check #Exceptions list# in ~Location Menu Options~@ChangeLocationConfig@ (#F9#).
+E.g., the #/run/*# pattern is included there by default.
+If you have udisks2 configured to mount removable drives under #/run/media/$USER/#
+you need to delete #/run/*# substring from exceptions list.
+After that add more accurate patterns such as #/run/user/*#
+in order to hide garbage mountpoints from the Location menu.
 
  також
     список ~макроклавіш~@KeyMacroDisksList@, доступних у меню переходу.

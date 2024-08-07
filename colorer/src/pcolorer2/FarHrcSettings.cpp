@@ -1,145 +1,169 @@
 #include "FarHrcSettings.h"
-#include <utils.h>
 #include <KeyFileHelper.h>
+#include <colorer/base/XmlTagDefs.h>
 #include <colorer/xml/XmlParserErrorHandler.h>
-#include <colorer/parsers/ParserFactoryException.h>
+#include <utils.h>
 #include <xercesc/parsers/XercesDOMParser.hpp>
+#include "colorer/parsers/CatalogParser.h"
 
-const char* FarCatalogXml = "/base/catalog.xml";
-const char* FarProfileXml = "/plug/hrcsettings.xml";
+void FarHrcSettings::loadUserHrc(const UnicodeString* filename)
+{
+  if (filename && !filename->isEmpty()) {
+    parserFactory->loadHrcPath(*filename);
+  }
+}
 
-XERCES_CPP_NAMESPACE_USE
+void FarHrcSettings::loadUserHrd(const UnicodeString* filename)
+{
+  if (!filename || filename->isEmpty()) {
+    return;
+  }
 
-FarHrcSettings::FarHrcSettings(ParserFactory *_parserFactory)
-  :
-  parserFactory(_parserFactory),
-  profileIni(InMyConfig("plugins/colorer/HrcSettings.ini"))
+  xercesc::XercesDOMParser xml_parser;
+  XmlParserErrorHandler err_handler;
+  xml_parser.setErrorHandler(&err_handler);
+  xml_parser.setLoadExternalDTD(false);
+  xml_parser.setSkipDTDValidation(true);
+  uXmlInputSource config = XmlInputSource::newInstance(filename);
+  xml_parser.parse(*config->getInputSource());
+  if (err_handler.getSawErrors()) {
+    throw ParserFactoryException(UnicodeString("Error reading ").append(*filename));
+  }
+  xercesc::DOMDocument* catalog = xml_parser.getDocument();
+  xercesc::DOMElement* elem = catalog->getDocumentElement();
+  const XMLCh* tagHrdSets = catTagHrdSets;
+  const XMLCh* tagHrd = catTagHrd;
+  if (elem == nullptr || !xercesc::XMLString::equals(elem->getNodeName(), tagHrdSets)) {
+    throw Exception("main '<hrd-sets>' block not found");
+  }
+  for (xercesc::DOMNode* node = elem->getFirstChild(); node != nullptr;
+       node = node->getNextSibling())
+  {
+    if (node->getNodeType() == xercesc::DOMNode::ELEMENT_NODE) {
+      auto* subelem = static_cast<xercesc::DOMElement*>(node);
+      if (xercesc::XMLString::equals(subelem->getNodeName(), tagHrd)) {
+        auto hrd = CatalogParser::parseHRDSetsChild(subelem);
+        if (hrd)
+          parserFactory->addHrd(std::move(hrd));
+      }
+    }
+  }
+}
+
+FarHrcSettings::FarHrcSettings(FarEditorSet* _farEditorSet, ParserFactory* _parserFactory)
+    : farEditorSet(_farEditorSet),
+      parserFactory(_parserFactory),
+      profileIni(InMyConfig("plugins/colorer/HrcSettings.ini"))
 {
 }
 
 void FarHrcSettings::readProfile()
 {
-  StringBuffer *path = GetConfigPath(SString(FarProfileXml));
-  readXML(path, false);
+  UnicodeString* path = GetConfigPath(FarProfileXml);
+  readXML(path);
   delete path;
 }
 
-//
-// Method is borrowed from FarColorer.
-//
-void FarHrcSettings::readXML(String *file, bool userValue)
+void FarHrcSettings::readXML(UnicodeString* file)
 {
-  XercesDOMParser xml_parser;
+  xercesc::XercesDOMParser xml_parser;
   XmlParserErrorHandler error_handler;
   xml_parser.setErrorHandler(&error_handler);
   xml_parser.setLoadExternalDTD(false);
   xml_parser.setSkipDTDValidation(true);
-  uXmlInputSource config = XmlInputSource::newInstance(file->getW2Chars(),
-                                                       static_cast<XMLCh*>(nullptr));
+  xml_parser.setDisableDefaultEntityResolution(true);
+  uXmlInputSource config = XmlInputSource::newInstance(file);
   xml_parser.parse(*(config->getInputSource()));
   if (error_handler.getSawErrors()) {
-    throw ParserFactoryException(SString("Error reading hrcsettings.xml."));
+    throw ParserFactoryException("Error reading hrcsettings.xml.");
   }
-  DOMDocument* catalog = xml_parser.getDocument();
-  DOMElement* elem = catalog->getDocumentElement();
+  xercesc::DOMDocument* catalog = xml_parser.getDocument();
+  xercesc::DOMElement* elem = catalog->getDocumentElement();
 
-  const XMLCh* tagPrototype = (const XMLCh*)u"prototype";
-  const XMLCh* tagHrcSettings = (const XMLCh*)u"hrc-settings";
+  const XMLCh* tagPrototype = hrcTagPrototype;
+  const XMLCh* tagHrcSettings = (const XMLCh*) u"hrc-settings\0";
 
-  if (elem == nullptr || !XMLString::equals(elem->getNodeName(), tagHrcSettings)) {
-    throw FarHrcSettingsException(SString("main '<hrc-settings>' block not found"));
+  if (elem == nullptr || !xercesc::XMLString::equals(elem->getNodeName(), tagHrcSettings)) {
+    throw FarHrcSettingsException("main '<hrc-settings>' block not found");
   }
-  for (DOMNode* node = elem->getFirstChild(); node != nullptr; node = node->getNextSibling()) {
-    if (node->getNodeType() == DOMNode::ELEMENT_NODE) {
-      DOMElement* subelem = static_cast<DOMElement*>(node);
-      if (XMLString::equals(subelem->getNodeName(), tagPrototype)) {
-        UpdatePrototype(subelem, userValue);
+  for (xercesc::DOMNode* node = elem->getFirstChild(); node != nullptr;
+       node = node->getNextSibling())
+  {
+    if (node->getNodeType() == xercesc::DOMNode::ELEMENT_NODE) {
+      xercesc::DOMElement* subelem = static_cast<xercesc::DOMElement*>(node);
+      if (xercesc::XMLString::equals(subelem->getNodeName(), tagPrototype)) {
+        UpdatePrototype(subelem);
       }
     }
   }
 }
 
-//
-// Method is borrowed from FarColorer.
-//
-void FarHrcSettings::UpdatePrototype(DOMElement* elem, bool userValue)
+void FarHrcSettings::UpdatePrototype(xercesc::DOMElement* elem)
 {
-  const XMLCh* tagProtoAttrParamName = (const XMLCh*)u"name";
-  const XMLCh* tagParam = (const XMLCh*)u"param";
-  const XMLCh* tagParamAttrParamName = (const XMLCh*)u"name";
-  const XMLCh* tagParamAttrParamValue = (const XMLCh*)u"value";
-  const XMLCh* tagParamAttrParamDescription = (const XMLCh*)u"description";
-  const XMLCh* typeName = elem->getAttribute(tagProtoAttrParamName);
-  if (!XMLString::stringLen(typeName)) {
+  auto typeName = elem->getAttribute(hrcPrototypeAttrName);
+  if (typeName == nullptr) {
     return;
   }
-  HRCParser* hrcParser = parserFactory->getHRCParser();
-  SString typenamed(typeName);
-  FileTypeImpl* type = static_cast<FileTypeImpl*>(hrcParser->getFileType(&typenamed));
+  auto& hrcLibrary = parserFactory->getHrcLibrary();
+  UnicodeString typenamed = UnicodeString(typeName);
+  auto* type = hrcLibrary.getFileType(&typenamed);
   if (type == nullptr) {
     return;
   }
 
-  for (DOMNode* node = elem->getFirstChild(); node != nullptr; node = node->getNextSibling()) {
-    if (node->getNodeType() == DOMNode::ELEMENT_NODE) {
-      DOMElement* subelem = static_cast<DOMElement*>(node);
-      if (XMLString::equals(subelem->getNodeName(), tagParam)) {
-        const XMLCh* name = subelem->getAttribute(tagParamAttrParamName);
-        const XMLCh* value = subelem->getAttribute(tagParamAttrParamValue);
-        const XMLCh* descr = subelem->getAttribute(tagParamAttrParamDescription);
+  for (xercesc::DOMNode* node = elem->getFirstChild(); node != nullptr;
+       node = node->getNextSibling())
+  {
+    if (node->getNodeType() == xercesc::DOMNode::ELEMENT_NODE) {
+      auto* subelem = static_cast<xercesc::DOMElement*>(node);
+      if (xercesc::XMLString::equals(subelem->getNodeName(), hrcTagParam)) {
+        auto name = subelem->getAttribute(hrcParamAttrName);
+        auto value = subelem->getAttribute(hrcParamAttrValue);
+        auto descr = subelem->getAttribute(hrcParamAttrDescription);
 
-        if (*name == '\0' || *value == '\0') {
+        if (UStr::isEmpty(name)) {
           continue;
         }
 
-        if (type->getParamValue(SString(name)) == nullptr) {
-          SString tmp(name);
-          type->addParam(&tmp);
+        UnicodeString cname = UnicodeString(name);
+        UnicodeString cvalue = UnicodeString(value);
+        UnicodeString cdescr = UnicodeString(descr);
+        if (type->getParamValue(cname) == nullptr) {
+          type->addParam(cname, cvalue);
+        }
+        else {
+          type->setParamDefaultValue(cname, &cvalue);
         }
         if (descr != nullptr) {
-          SString tmp(descr);
-          type->setParamDescription(SString(name), &tmp);
-        }
-        if (userValue) {
-          SString tmp(value);
-          type->setParamValue(SString(name), &tmp);
-        } else {
-          SString tmp(value);
-          delete type->getParamDefaultValue(SString(name));
-          type->setParamDefaultValue(SString(name), &tmp);
+          type->setParamDescription(cname, &cdescr);
         }
       }
     }
   }
 }
 
-void FarHrcSettings::readUserProfile()
+void FarHrcSettings::readUserProfile(const FileType* def_filetype)
 {
   KeyFileReadHelper kfh(profileIni);
-  const auto &sections = kfh.EnumSections();
+  const auto& sections = kfh.EnumSections();
 
-  HRCParser *hrcParser = parserFactory->getHRCParser();
-  for (const auto &s : sections)
-  {
-    StringBuffer ssk(s.c_str());
-    FileTypeImpl *type = (FileTypeImpl *)hrcParser->getFileType(&ssk);
-    if (type == nullptr){
+  auto& hrcParser = parserFactory->getHrcLibrary();
+  for (const auto& s : sections) {
+    UnicodeString ssk(s.c_str());
+    FileType* type = hrcParser.getFileType(&ssk);
+    if (type == nullptr) {
       continue;
     }
-    const auto *Values = kfh.GetSectionValues(s);
+    const auto* Values = kfh.GetSectionValues(s);
     if (!Values) {
       continue;
     }
-    const auto &Names = Values->EnumKeys();
-    for (const auto &n : Names) {
-      StringBuffer ssn(n.c_str());
-      if (type->getParamValue(ssn)==nullptr){
-        type->addParam(&ssn);
-      }
-      delete type->getParamUserValue(ssn);
-      const auto &v = Values->GetString(n, L"");
-      StringBuffer ssv(v.c_str());
-      type->setParamValue(ssn, &ssv);
+    const auto& Names = Values->EnumKeys();
+    for (const auto& n : Names) {
+      UnicodeString ssn(n.c_str());
+      const auto& v = Values->GetString(n, L"");
+      UnicodeString ssv(v.c_str());
+      farEditorSet->addParamAndValue(type, ssn, ssv, def_filetype);
     }
   }
 }
@@ -147,24 +171,24 @@ void FarHrcSettings::readUserProfile()
 void FarHrcSettings::writeUserProfile()
 {
   KeyFileHelper kfh(profileIni);
-  HRCParser *hrcParser = parserFactory->getHRCParser();
+  auto& hrcParser = parserFactory->getHrcLibrary();
 
   // enum all FileTypes
-  for (int idx = 0; ; ++idx) {
-    FileTypeImpl *type = (FileTypeImpl *)hrcParser->enumerateFileTypes(idx);
+  for (int idx = 0;; ++idx) {
+    FileType* type = hrcParser.enumerateFileTypes(idx);
     if (!type) {
       break;
     }
 
-    kfh.RemoveSection(type->getName()->getChars());
-    if (type->getParamCount() && type->getParamUserValueCount()){// params>0 and user values >0
-      std::vector<SString> params = type->enumParams();
+    kfh.RemoveSection(type->getName().getChars());
+    if (type->getParamCount()) {  // params>0 and user values >0
+      std::vector<UnicodeString> params = type->enumParams();
       // enum all params
-      for (const auto &p: params) {
-        const String* v = type->getParamUserValue(p);
+      for (const auto& p : params) {
+        const UnicodeString* v = type->getParamUserValue(p);
         if (v != nullptr) {
-          StringBuffer tmp(p);
-          kfh.SetString(type->getName()->getChars(), tmp.getChars(), v->getChars());
+          UnicodeString tmp(p);
+          kfh.SetString(type->getName().getChars(), tmp.getChars(), v->getChars());
         }
       }
     }

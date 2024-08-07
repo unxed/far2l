@@ -19,8 +19,6 @@ enum LanguageID
 	MUMaskOverride,
 	MRememberDirectory,
 	MConnPoolExpiration,
-	MConnectUsingProxy,
-	MEditTSocksConfig,
 
 	MRememberChoice,
 	MOperationFailed,
@@ -48,6 +46,7 @@ enum LanguageID
 	MDisplayName,
 	MExtraOptions,
 	MProtocolOptions,
+	MProxyOptions,
 	MSave,
 	MConnect,
 	MSaveConnect,
@@ -267,6 +266,13 @@ enum LanguageID
 	MConfirmChangeModeTextMany,
 	MThatIsSymlink,
 	MRecurseSubdirs,
+	MOwnerTitle,
+	MOwner,
+	MGroup,
+	MOwnerMultiple,
+	MOwnerUnknown,
+	MGroupUnknown,
+	MPermissionsTtitle,
 	MModeUser,
 	MModeGroup,
 	MModeOther,
@@ -276,6 +282,11 @@ enum LanguageID
 	MModeSetUID,
 	MModeSetGID,
 	MModeSticky,
+	MModeOriginal,
+	MTimeTitle,
+	MTimeAccess,
+	MTimeModification,
+	MTimeChange,
 
 	MFTPOptionsTitle,
 	MFTPSOptionsTitle,
@@ -293,5 +304,11 @@ enum LanguageID
 
 	MSHELLOptionsTitle,
 	MSHELLWay,
-	MSHELLWaySettings
+	MSHELLWaySettings,
+
+	MProxySettingsTitle,
+	MProxySettingsDisabled,
+	MProxySettingsKind,
+	MProxySettingsEdit,
+
 };

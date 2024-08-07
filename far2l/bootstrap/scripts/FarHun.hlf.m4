@@ -1917,9 +1917,11 @@ a nevét (ami majd a menüben jelenik meg) és a végrehajtandó parancs sorát.
     Almenü szerkesztésénél csak a gyorsbillentyűt és a nevet kell megadni.
 
     A helyi felhasználói menü az adott mappában egy #FarMenu.Ini# nevű fájlba
-mentődik. A főmenüt a FAR alaphelyzetben a regisztrációs adatbázisba menti, de
-fájlba is menthető. Ha helyi menüt készítettünk a FAR mappájában, a FAR ezt
-fogja használni a registrybe mentett főmenü helyett.
+mentődik.
+    A FAR a főmenüt a profilkönyvtárba menti az #~~/.config/far2l/settings/user_menu.ini# fájlba
+(a formátum eltér a FarMenu.ini-től).
+Ha helyi menüt készítettünk a FAR mappájában, a FAR ezt
+fogja használni a profil főmenü helyett.
 
     A #Shift-F10# azonnal bezárja a felhasználói menü ablakát, akár főmenü,
 akár almenü volt megnyitva benne.
@@ -2868,8 +2870,16 @@ párbeszédablakát.
     A #Shift-F1# pluginen lenyomva meghívja a plugin helyzetérzékeny
 súgóját (ha a súgófájl létezik).
 
+    If you don't see mounted flash drive in the Location menu (#Alt-F1/F2#)
+then check #Exceptions list# in Location Menu Options (#F9#).
+E.g., the #/run/*# pattern is included there by default.
+If you have udisks2 configured to mount removable drives under #/run/media/$USER/#
+you need to delete #/run/*# substring from exceptions list.
+After that add more accurate patterns such as #/run/user/*#
+in order to hide garbage mountpoints from the Location menu.
+
     See also:
-    Common ~menu~@MenuCmd@ keyboard commands.
+      Common ~menu~@MenuCmd@ keyboard commands.
 
 @DisconnectDrive
 $ #Hálózati meghajtó leválasztása#

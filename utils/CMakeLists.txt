@@ -36,6 +36,7 @@ set(SOURCES
     src/POpen.cpp
     src/VT256ColorTable.cpp
     src/ReadWholeFile.cpp
+    src/WriteWholeFile.cpp
     src/ThrowPrintf.cpp
     src/FcntlHelpers.cpp
     src/Panic.cpp
