@@ -408,7 +408,7 @@ size_t TTYInputSequenceParser::TryParseAsWinTermEscapeSequence(const char *s, si
 	int args[6] = {0};
 	int args_cnt = 0;
 
-	size_t n;
+	size_t n = 0;
 	for (size_t i = n = 1;; ++i) {
 		if (i == l) {
 			return LIKELY(l < 32) ? TTY_PARSED_WANTMORE : TTY_PARSED_BADSEQUENCE;
@@ -419,8 +419,10 @@ size_t TTYInputSequenceParser::TryParseAsWinTermEscapeSequence(const char *s, si
 			}
 			if (i > n) {
 				args[args_cnt] = atoi(&s[n]);
-				++args_cnt;
+			} else {
+				args[args_cnt] = 0;
 			}
+			++args_cnt;
 			n = i + 1;
 			if (s[i] == '_') {
 				break;
@@ -431,7 +433,7 @@ size_t TTYInputSequenceParser::TryParseAsWinTermEscapeSequence(const char *s, si
 		}
 	}
 
-	if ((args[0] == 0) && (args[1] == 0) && (args[2] != 0)) {
+	if ((!args[0]) && (!args[1]) && args[2]) {
 		// non-latin char paste
 		INPUT_RECORD ir = {};
 		ir.EventType = KEY_EVENT;
@@ -474,7 +476,7 @@ size_t TTYInputSequenceParser::TryUnwrappWinDoubleEscapeSequence(const char *s, 
 	int args[6] = {0};
 	int args_cnt = 0;
 
-	size_t n;
+	size_t n = 0;
 	for (size_t i = n = 1;; ++i) {
 		if (i == l) {
 			//fprintf(stderr, "\nwant mooore characters... \n");
@@ -486,8 +488,10 @@ size_t TTYInputSequenceParser::TryUnwrappWinDoubleEscapeSequence(const char *s, 
 			}
 			if (i > n) {
 				args[args_cnt] = atoi(&s[n]);
-				++args_cnt;
+			} else {
+				args[args_cnt] = 0;
 			}
+			++args_cnt;
 			n = i + 1;
 			if (s[i] == '_') {
 				break;
