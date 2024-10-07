@@ -249,6 +249,13 @@ bool VTCompletor::TalkWithShell(const std::string &cmd, std::string &reply, cons
 		reply.erase(0, p + begin.size());
 		StrTrimLeft(reply, "\r\n");
 	}
+#ifdef __e2k__
+	p = reply.rfind('\a');
+	if (p == std::string::npos) {
+		reply = cmd;
+		return false;
+	}
+#endif
 	for (;;) {
 		p = reply.rfind('\a');
 		if (p == std::string::npos) break;
