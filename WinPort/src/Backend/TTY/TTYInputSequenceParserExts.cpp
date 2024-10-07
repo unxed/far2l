@@ -328,7 +328,7 @@ size_t TTYInputSequenceParser::TryParseAsWinTermEscapeSequence(const char *s, si
 
 	INPUT_RECORD ir = {};
 	ir.EventType = KEY_EVENT;
-	ir.Event.KeyEvent.wVirtualKeyCode = args[0];
+	ir.Event.KeyEvent.wVirtualKeyCode = args[0] ? args[0] : VK_UNASSIGNED;
 	ir.Event.KeyEvent.wVirtualScanCode = args[1];
 	ir.Event.KeyEvent.uChar.UnicodeChar = args[2];
 	ir.Event.KeyEvent.bKeyDown = (args[3] ? TRUE : FALSE);
