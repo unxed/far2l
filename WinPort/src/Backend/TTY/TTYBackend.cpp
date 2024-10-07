@@ -207,6 +207,16 @@ void TTYBackend::UpdateBackendIdentification()
 	g_winport_backend = s_backend_identification;
 }
 
+static bool UnderWayland()
+{
+	const char *xdg_st = getenv("XDG_SESSION_TYPE");
+	if (xdg_st && strcasecmp(xdg_st, "wayland") == 0)
+		return true;
+	if (getenv("WAYLAND_DISPLAY"))
+		return true;
+	return false;
+}
+
 void TTYBackend::ReaderThread()
 {
 	bool prev_far2l_tty = false;
@@ -224,10 +234,7 @@ void TTYBackend::ReaderThread()
 			if (!strchr(_nodetect, 'x') || strstr(_nodetect, "xi")) {
 
 				// disable xi on Wayland as it not work there anyway and also causes delays
-				const char *xdg_st = getenv("XDG_SESSION_TYPE");
-				bool on_wayland = (xdg_st && strcasecmp(xdg_st, "wayland") == 0);
-
-				_ttyx = StartTTYX(_full_exe_path, !strstr(_nodetect, "xi") && !on_wayland);
+				_ttyx = StartTTYX(_full_exe_path, !strstr(_nodetect, "xi") && !UnderWayland());
 			}
 			if (_ttyx) {
 				if (!_ext_clipboard) {
@@ -301,10 +308,24 @@ void TTYBackend::ReaderLoop()
 		int rs;
 
 		// Enable esc expiration on Wayland as Xi not work there
-		const char *xdg_st = getenv("XDG_SESSION_TYPE");
-		if ((xdg_st && strcasecmp(xdg_st, "wayland") == 0) && !_esc_expiration) {
+		// Also enable if we've got no TTY|X or got TTY|X without Xi
+		if (!_esc_expiration && (UnderWayland() || !_ttyx || !(_ttyx->HasXi()))) {
 			_esc_expiration = 100;
 		}
+
+		// Also in kernel console
+		#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+				if (!_esc_expiration) {
+					int kd_mode;
+					#if defined(__linux__)
+					if (ioctl(_stdin, KDGETMODE, &kd_mode) == 0) {
+					#else
+					if (ioctl(_stdin, KDGKBMODE, &kd_mode) == 0) {
+					#endif
+						_esc_expiration = 100;
+					}
+				}
+		#endif
 
 		if (!idle_expired && _esc_expiration > 0 && !_far2l_tty) {
 			struct timeval tv;
