@@ -1,0 +1,56 @@
+From 820401e68125433e3bc230c196383504b3c1729d Mon Sep 17 00:00:00 2001
+From: Ivan <spnethw@gmail.com>
+Date: Mon, 3 Feb 2025 20:48:28 +0400
+Subject: [PATCH 1/2] SetAttr: fix recursive file owner changing + wrong group
+ mark indicating
+
+---
+ far2l/src/setattr.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/far2l/src/setattr.cpp b/far2l/src/setattr.cpp
+index 1d2278779..8ec12135b 100644
+--- a/far2l/src/setattr.cpp
++++ b/far2l/src/setattr.cpp
+@@ -644,7 +644,7 @@ LONG_PTR WINAPI SetAttrDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Param2
+ 					break;
+ 				case SA_COMBO_GROUP:
+ 					SetAttrDefaultMark(hDlg, SA_COMBO_GROUP-1, // mark (un)changed
+-						IsEditChanged(hDlg, SA_COMBO_GROUP, DlgParam->strInitOwner) );
++						IsEditChanged(hDlg, SA_COMBO_GROUP, DlgParam->strInitGroup) );
+ 					break;
+ 				case SA_FIXEDIT_LAST_ACCESS_DATE:
+ 					SetAttrDefaultMark(hDlg, SA_FIXEDIT_LAST_ACCESS_DATE-1, // mark (un)changed
+@@ -1651,7 +1651,7 @@ bool ShellSetFileAttributes(Panel *SrcPanel, LPCWSTR Object)
+ 										}
+ 									}
+ 
+-									if (!ApplyFileOwnerGroupIfChanged(AttrDlg[SA_COMBO_GROUP], ESetFileOwner,
++									if (!ApplyFileOwnerGroupIfChanged(AttrDlg[SA_COMBO_OWNER], ESetFileOwner,
+ 												SkipMode, strFullName, DlgParam.strInitOwner,
+ 												DlgParam.OSubfoldersState))
+ 										break;
+
+From a56cf936f91a5ecec5f4b7b3047c6d74796aa9f5 Mon Sep 17 00:00:00 2001
+From: Ivan <spnethw@gmail.com>
+Date: Sun, 9 Feb 2025 20:15:26 +0400
+Subject: [PATCH 2/2] SetAttr: fix recursive file attributes/flags changing
+
+---
+ far2l/src/setattr.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/far2l/src/setattr.cpp b/far2l/src/setattr.cpp
+index 8ec12135b..d209b5dc5 100644
+--- a/far2l/src/setattr.cpp
++++ b/far2l/src/setattr.cpp
+@@ -1700,8 +1700,8 @@ bool ShellSetFileAttributes(Panel *SrcPanel, LPCWSTR Object)
+ 											SkipMode = SETATTR_RET_SKIP;
+ 											continue;
+ 										}
+-										ApplyFSFileFlags(AttrDlg, strFullName, FileAttr);
+ 									}
++									ApplyFSFileFlags(AttrDlg, strFullName, FileAttr);
+ 								}
+ 							}
+ 						}

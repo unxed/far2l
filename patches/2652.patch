@@ -1,0 +1,51 @@
+From 7a4f21a67b429f561e0af7ee5aa9d4df7d8c4b8b Mon Sep 17 00:00:00 2001
+From: atolismesh <130924690+atolismesh@users.noreply.github.com>
+Date: Wed, 29 Jan 2025 01:57:09 +0300
+Subject: [PATCH 1/2] Update NetRocks lbnfs 6.0.x compatibility
+
+New lbnfs 6.0.x requires gnutls library
+
+Update NetRocks CMakeLists.txt for lbnfs 6.0.x compatibility by adding libgnutls to linked library list.
+---
+ NetRocks/CMakeLists.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/NetRocks/CMakeLists.txt b/NetRocks/CMakeLists.txt
+index 77731285a..e97fcde2e 100644
+--- a/NetRocks/CMakeLists.txt
++++ b/NetRocks/CMakeLists.txt
+@@ -149,6 +149,10 @@ if (LIBNFS_FOUND AND ((NOT DEFINED NR_NFS) OR NR_NFS))
+         src/Protocol/NFS/ProtocolNFS.cpp
+     )
+     target_link_libraries(NetRocks-NFS utils ${LIBNFS_LIBRARIES})
++    find_package(GnuTLS)
++    if (GNUTLS_FOUND)
++        target_link_libraries(NetRocks-NFS gnutls)
++    endif ()
+     target_include_directories(NetRocks-NFS PRIVATE src ${LIBNFS_INCLUDE_DIRS})
+     set_target_properties(NetRocks-NFS
+         PROPERTIES
+
+From b2fb1b14cca6f9ed07b6fd601c9c3a7f4a97e303 Mon Sep 17 00:00:00 2001
+From: atolismesh <130924690+atolismesh@users.noreply.github.com>
+Date: Wed, 29 Jan 2025 02:21:51 +0300
+Subject: [PATCH 2/2] Update NetRocks CMakeLists.txt
+
+Try to fix MacOS build
+---
+ NetRocks/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/NetRocks/CMakeLists.txt b/NetRocks/CMakeLists.txt
+index e97fcde2e..4d5f86418 100644
+--- a/NetRocks/CMakeLists.txt
++++ b/NetRocks/CMakeLists.txt
+@@ -151,7 +151,7 @@ if (LIBNFS_FOUND AND ((NOT DEFINED NR_NFS) OR NR_NFS))
+     target_link_libraries(NetRocks-NFS utils ${LIBNFS_LIBRARIES})
+     find_package(GnuTLS)
+     if (GNUTLS_FOUND)
+-        target_link_libraries(NetRocks-NFS gnutls)
++        target_link_libraries(NetRocks-NFS ${GNUTLS_LIBRARIES})
+     endif ()
+     target_include_directories(NetRocks-NFS PRIVATE src ${LIBNFS_INCLUDE_DIRS})
+     set_target_properties(NetRocks-NFS

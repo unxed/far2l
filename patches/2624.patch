@@ -1,0 +1,22 @@
+From 7815eefe470f3b20b50046dea38bbe7f1dc4c4da Mon Sep 17 00:00:00 2001
+From: Ivan <spnethw@gmail.com>
+Date: Thu, 9 Jan 2025 16:34:05 +0400
+Subject: [PATCH] fix wrong flag check
+
+---
+ far2l/src/cfg/config.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/far2l/src/cfg/config.cpp b/far2l/src/cfg/config.cpp
+index 811d0c561..ff2089d42 100644
+--- a/far2l/src/cfg/config.cpp
++++ b/far2l/src/cfg/config.cpp
+@@ -674,7 +674,7 @@ void InterfaceSettings()
+ 
+ 		int ChangeFontID = -1;
+ 		DialogItemEx *ChangeFontItem = nullptr;
+-		if (supported_tweaks & TWEAK_STATUS_SUPPORT_PAINT_SHARP) {
++		if (supported_tweaks & TWEAK_STATUS_SUPPORT_CHANGE_FONT) {
+ 			ChangeFontItem = Builder.AddButton(Msg::ConfigConsoleChangeFont, ChangeFontID);
+ 		}
+ 

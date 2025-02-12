@@ -1,0 +1,47 @@
+From 7ba8e99aba910697757ae5aed03dd7c5b8ab3b19 Mon Sep 17 00:00:00 2001
+From: Ivan Sorokin <unxed@mail.ru>
+Date: Sun, 26 Jan 2025 20:16:24 +0100
+Subject: [PATCH 1/2] fix #2615
+
+---
+ multiarc/src/ArcPlg.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/multiarc/src/ArcPlg.cpp b/multiarc/src/ArcPlg.cpp
+index 77e205bf1..502d3ccdd 100644
+--- a/multiarc/src/ArcPlg.cpp
++++ b/multiarc/src/ArcPlg.cpp
+@@ -81,6 +81,10 @@ ArcPlugins::ArcPlugins(const char *ModuleName)
+ 			LZH_GetDefaultCommands, LZH_SetFarInfo, LZH_GetSFXPos);
+ #endif
+ 
++AddPluginItem(CUSTOM_IsArchive, CUSTOM_OpenArchive, CUSTOM_GetArcItem, CUSTOM_LoadFormatModule,
++			CUSTOM_CloseArchive, CUSTOM_GetFormatName, CUSTOM_GetDefaultCommands, CUSTOM_SetFarInfo,
++			CUSTOM_GetSFXPos);
++
+ #ifdef HAVE_LIBARCHIVE
+ 	// must be last cuz recognizes essentially most of above formats, but not handles them full-featurable
+ 	AddPluginItem(LIBARCH_IsArchive, LIBARCH_OpenArchive, LIBARCH_GetArcItem, NULL, LIBARCH_CloseArchive,
+
+From ec0a6bd2ba1dffc0a0dd0cd180c9ec61565a29a9 Mon Sep 17 00:00:00 2001
+From: Ivan Sorokin <unxed@mail.ru>
+Date: Mon, 27 Jan 2025 21:43:40 +0100
+Subject: [PATCH 2/2] cosmeitc
+
+---
+ multiarc/src/ArcPlg.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/multiarc/src/ArcPlg.cpp b/multiarc/src/ArcPlg.cpp
+index 502d3ccdd..6bc4ae554 100644
+--- a/multiarc/src/ArcPlg.cpp
++++ b/multiarc/src/ArcPlg.cpp
+@@ -81,7 +81,7 @@ ArcPlugins::ArcPlugins(const char *ModuleName)
+ 			LZH_GetDefaultCommands, LZH_SetFarInfo, LZH_GetSFXPos);
+ #endif
+ 
+-AddPluginItem(CUSTOM_IsArchive, CUSTOM_OpenArchive, CUSTOM_GetArcItem, CUSTOM_LoadFormatModule,
++	AddPluginItem(CUSTOM_IsArchive, CUSTOM_OpenArchive, CUSTOM_GetArcItem, CUSTOM_LoadFormatModule,
+ 			CUSTOM_CloseArchive, CUSTOM_GetFormatName, CUSTOM_GetDefaultCommands, CUSTOM_SetFarInfo,
+ 			CUSTOM_GetSFXPos);
+ 

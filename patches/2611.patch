@@ -1,0 +1,22 @@
+From 8720e8edd05b03cd50de1a11fbd0c70de4d9a701 Mon Sep 17 00:00:00 2001
+From: peter15914 <48548636+peter15914@users.noreply.github.com>
+Date: Tue, 31 Dec 2024 17:22:35 +0500
+Subject: [PATCH] fix potential NULL dereference in clipboard.cpp
+
+---
+ far2l/src/clipboard.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/far2l/src/clipboard.cpp b/far2l/src/clipboard.cpp
+index 8cfb469f2..6ef749e11 100644
+--- a/far2l/src/clipboard.cpp
++++ b/far2l/src/clipboard.cpp
+@@ -233,7 +233,7 @@ wchar_t *Clipboard::Paste(bool &IsVertical, int MaxChars)
+ 
+ 	IsVertical = false;
+ 
+-	if (wcsstr(ClipText, NATIVE_EOLW)) {
++	if (ClipText && wcsstr(ClipText, NATIVE_EOLW)) {
+ 		UINT FormatType = RegisterFormat(FAR_VerticalBlock_Unicode);
+ 		if (FormatType && IsFormatAvailable(FormatType)) {
+ 			IsVertical = true;

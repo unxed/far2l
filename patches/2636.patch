@@ -1,0 +1,22 @@
+From ff8b3d28f7cde87a43ff1bc8d1fafd1ec1e57411 Mon Sep 17 00:00:00 2001
+From: Ivan Sorokin <unxed@mail.ru>
+Date: Thu, 16 Jan 2025 21:23:19 +0100
+Subject: [PATCH] Fixes #2634
+
+---
+ WinPort/src/ConsoleOutput.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/WinPort/src/ConsoleOutput.cpp b/WinPort/src/ConsoleOutput.cpp
+index 365e6b32c..f8a950379 100644
+--- a/WinPort/src/ConsoleOutput.cpp
++++ b/WinPort/src/ConsoleOutput.cpp
+@@ -811,7 +811,7 @@ void ConsoleOutput::RepaintsDeferFinish(bool force)
+ 		} else if (_repaint_defer > 0) {
+ 			--_repaint_defer;
+ 		}
+-		if (_repaint_defer == 0) {
++		if (!_deferred_repaints.empty()) { 
+ 			deferred_repaints.swap(_deferred_repaints);
+ 		}
+ 		if (!deferred_repaints.empty()) {
