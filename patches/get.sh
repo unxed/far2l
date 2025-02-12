@@ -1,0 +1,9 @@
+wget https://github.com/elfmz/far2l/pull/2611.patch
+wget https://github.com/elfmz/far2l/pull/2612.patch
+wget https://github.com/elfmz/far2l/pull/2620.patch
+wget https://github.com/elfmz/far2l/pull/2624.patch
+wget https://github.com/elfmz/far2l/pull/2633.patch
+wget https://github.com/elfmz/far2l/pull/2636.patch
+wget https://github.com/elfmz/far2l/pull/2650.patch
+wget https://github.com/elfmz/far2l/pull/2652.patch
+wget https://github.com/elfmz/far2l/pull/2656.patch
