@@ -40,7 +40,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "keyboard.hpp"
 #include "lang.hpp"
 #include "colors.hpp"
-#include "palette.hpp"
+#include "farcolors.hpp"
 #include "keys.hpp"
 #include "help.hpp"
 #include "dialog.hpp"
@@ -266,6 +266,12 @@ void Viewer::KeepInitParameters()
 	Opt.ViOpt.ViewerWrap = VM.WordWrap;
 	Opt.ViOpt.SearchRegexp = LastSearchRegexp;
 	InitHex = VM.Hex;
+}
+
+void Viewer::Show()
+{
+	if (!OpenFailed)
+		ScreenObject::Show();
 }
 
 int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)

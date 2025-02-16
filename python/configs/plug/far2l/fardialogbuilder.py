@@ -15,8 +15,6 @@ class Element(sizer.Window):
     def __init__(
         self, varname=None, focus=0, param=None, flags=0, default=0, maxlength=0
     ):
-        Element.no += 1
-        self.no = Element.no
         self.varname = varname
         self.focus = focus
         self.param = param or {"Selected": 0}
@@ -26,6 +24,8 @@ class Element(sizer.Window):
         self.data = None
 
     def makeID(self, dlg):
+        self.no = Element.no
+        Element.no += 1
         if self.varname is not None:
             setattr(dlg, "ID_" + self.varname, self.no)
 
@@ -54,10 +54,12 @@ class Element(sizer.Window):
 class Spacer(Element):
     def __init__(self, width=1, height=1):
         super().__init__()
-        # non countable ID
-        Element.no -= 1
         self.width = width
         self.height = height
+
+    def makeID(self, dlg):
+        # non countable ID
+        pass
 
     def get_best_size(self):
         return (self.width, self.height)
@@ -73,7 +75,7 @@ class TEXT(Element):
         self.text = text
 
     def get_best_size(self):
-        return (len(self.text), 1)
+        return (len(self.text.replace('&','')), 1)
 
     def makeItem(self, dlg):
         self.data = dlg.s2f(self.text)
@@ -84,10 +86,15 @@ class EDIT(Element):
     dit = "DI_EDIT"
 
     def __init__(self, varname, width, mask=None, height=1, **kwargs):
+        if "history" in kwargs:
+            history = kwargs.pop("history")
+        else:
+            history = None
         super().__init__(varname, **kwargs)
         self.width = width
         self.height = height
         self.mask = None
+        self.history = history
 
     def get_best_size(self):
         return (self.width, self.height)
@@ -97,6 +104,9 @@ class EDIT(Element):
         if self.mask is not None:
             self.param = {"Mask": dlg.s2f(self.mask)}
             self.flags = dlg.ffic.DIF_MASKEDIT
+        elif self.history is not None:
+            self.param = {"History": dlg.s2f(self.history)}
+            self.flags = dlg.ffic.DIF_HISTORY
         super().makeItem(dlg)
 
 
@@ -127,7 +137,7 @@ class BUTTON(Element):
 
     def get_best_size(self):
         # [ text ]
-        return (4 + len(self.text), 1)
+        return (4 + len(self.text.replace('&','')), 1)
 
     def makeItem(self, dlg):
         self.data = dlg.s2f(self.text)
@@ -145,7 +155,7 @@ class CHECKBOX(Element):
 
     def get_best_size(self):
         # [?] text
-        return (4 + len(self.text), 1)
+        return (4 + len(self.text.replace('&','')), 1)
 
     def makeItem(self, dlg):
         self.data = dlg.s2f(self.text)
@@ -162,7 +172,7 @@ class RADIOBUTTON(Element):
 
     def get_best_size(self):
         # (?) text
-        return (4 + len(self.text), 1)
+        return (4 + len(self.text.replace('&','')), 1)
 
     def makeItem(self, dlg):
         self.data = dlg.s2f(self.text)
@@ -173,10 +183,14 @@ class COMBOBOX(Element):
     dit = "DI_COMBOBOX"
 
     def __init__(self, varname, selected, *items, **kwargs):
+        if "width" in kwargs:
+            width = kwargs.pop("width")
+        else:
+            width = max([len(s) for s in items])
         super().__init__(varname, **kwargs)
         self.selected = selected
         self.items = items
-        self.width = max([len(s) for s in items])
+        self.width = width
 
     def get_best_size(self):
         return (2 + self.width, 1)
@@ -247,8 +261,8 @@ class USERCONTROL(Element):
 
     def __init__(self, varname, width, height, **kwargs):
         super().__init__(varname, **kwargs)
-        self.width
-        self.height
+        self.width = width
+        self.height = height
 
     def get_best_size(self):
         return (self.width, self.height)
@@ -320,6 +334,22 @@ class VSizer(sizer.VSizer):
             control.makeItem(dlg)
 
 
+class FlowSizer(sizer.FlowSizer):
+    def __init__(self, cols, *controls, border=(0, 0, 0, 0)):
+        super().__init__(cols)
+        self.controls = controls
+        for control in controls:
+            self.add(control, border)
+
+    def makeID(self, dlg):
+        for control in self.controls:
+            control.makeID(dlg)
+
+    def makeItem(self, dlg):
+        for control in self.controls:
+            control.makeItem(dlg)
+
+
 class DialogBuilder(sizer.HSizer):
     def __init__(
         self, plugin, dialogProc, title, helptopic, flags, contents, border=(2, 1, 2, 1)
@@ -334,8 +364,6 @@ class DialogBuilder(sizer.HSizer):
         self.add(contents, border)
 
     def build(self, x, y):
-        # for building dlg.ID_<varname>
-        Element.no = 0
 
         dlg = Dialog(self.plugin)
 
@@ -345,10 +373,12 @@ class DialogBuilder(sizer.HSizer):
         dlg.width = w
         dlg.height = h
 
+        # for building dlg.ID_<varname>
+        Element.no = 1
         self.contents.makeID(dlg)
         self.size(3, 1, w, h)
 
-        dlg.dialogItems.append(
+        dlg.dialogItems.insert(0,
             (
                 dlg.ffic.DI_DOUBLEBOX,
                 3,
@@ -375,6 +405,37 @@ class DialogBuilder(sizer.HSizer):
             y,
             w + 4,
             h + 2,
+            dlg.s2f(self.helptopic),
+            dlg.fdi,
+            len(dlg.fdi),
+            0,
+            self.flags,
+            self.dialogProc,
+            0,
+        )
+        return dlg
+
+    def build_nobox(self, x, y, w, h):
+
+        dlg = Dialog(self.plugin)
+
+        dlg.width = w
+        dlg.height = h
+
+        # for building dlg.ID_<varname>
+        Element.no = 0
+        self.contents.makeID(dlg)
+        self.size(0, 0, w, h)
+
+        self.contents.makeItem(dlg)
+
+        dlg.fdi = dlg.ffi.new("struct FarDialogItem []", dlg.dialogItems)
+        dlg.hDlg = dlg.info.DialogInit(
+            dlg.info.ModuleNumber,
+            x,
+            y,
+            w,
+            h,
             dlg.s2f(self.helptopic),
             dlg.fdi,
             len(dlg.fdi),

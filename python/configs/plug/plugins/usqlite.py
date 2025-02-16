@@ -53,17 +53,7 @@ class SqlData:
         self.parent = None
 
     def GetCurrentPanelItem(self):
-        handle = self.ffi.cast("HANDLE", -1)
-        # get buffer size
-        rc = self.parent.info.Control(handle, self.ffic.FCTL_GETCURRENTPANELITEM, 0, 0)
-        if rc:
-            # allocate buffer
-            data = self.ffi.new("char []", rc)
-            rc = self.parent.info.Control(handle, self.ffic.FCTL_GETCURRENTPANELITEM, 0, self.ffi.cast("LONG_PTR", data))
-            # cast buffer to PluginPanelItem *
-            pnli = self.ffi.cast("struct PluginPanelItem *", data)
-            return pnli, data
-        return None, None
+        return self.parent.GetCurrentPanelItem()
 
 class SqlDataHandler(SqlData):
     def __init__(self, parent, conn, tablename):
@@ -108,17 +98,19 @@ limit {}, {}
         ColumnTypes = ','.join(ColumnTypes)
         ColumnWidths = ','.join(ColumnWidths)
         self.py_pm_titles = self.ffi.new("wchar_t *[]", py_pm_py_titles)
+        self.py_ColumnTypes = self.s2f(ColumnTypes)
+        self.py_ColumnWidths = self.s2f(ColumnWidths)
         py_pm = [
-            self.s2f(ColumnTypes),  # ColumnTypes
-            self.s2f(ColumnWidths), # ColumnWidths
-            self.py_pm_titles,      # ColumnTitles
-            0,                      # FullScreen
-            0,                      # DetailedStatus
-            0,                      # AlignExtensions
-            0,                      # CaseConversion
-            self.ffi.NULL,          # StatusColumnTypes
-            self.ffi.NULL,          # StatusColumnWidths
-            [0,0],                  # Reserved
+            self.py_ColumnTypes,  # ColumnTypes
+            self.py_ColumnWidths, # ColumnWidths
+            self.py_pm_titles,    # ColumnTitles
+            0,                    # FullScreen
+            0,                    # DetailedStatus
+            0,                    # AlignExtensions
+            0,                    # CaseConversion
+            self.ffi.NULL,        # StatusColumnTypes
+            self.ffi.NULL,        # StatusColumnWidths
+            [0,0],                # Reserved
         ]
         self.pm = self.ffi.new("struct PanelMode *", py_pm)
 
@@ -144,6 +136,9 @@ limit {}, {}
         ]
         self.kbt = self.ffi.new("struct KeyBarTitles *", self.py_kbt)
 
+        self.py_curdir = self.s2f(self.parent.dbname.split('/')[-1])
+        self.py_paneltitle = self.s2f(self.paneltitle)
+
         Info = self.ffi.cast("struct OpenPluginInfo *", OpenInfo)
         Info.Flags = (
             self.ffic.OPIF_USEFILTER
@@ -151,9 +146,9 @@ limit {}, {}
             | self.ffic.OPIF_SHOWNAMESONLY
         )
         Info.HostFile = self.ffi.NULL
-        Info.CurDir = self.s2f(self.parent.dbname.split('/')[-1])
-        Info.Format = self.s2f(self.paneltitle)
-        Info.PanelTitle = self.s2f(self.paneltitle)
+        Info.CurDir = self.py_curdir
+        Info.Format = self.py_paneltitle
+        Info.PanelTitle = self.py_paneltitle
         #InfoLines
         #InfoLinesNumber
         Info.PanelModesArray = self.pm
@@ -347,6 +342,9 @@ class SqlMetadataHandler(SqlData):
         ]
         self.kbt = self.ffi.new("struct KeyBarTitles *", self.py_kbt)
 
+        self.py_curdir = self.s2f(self.parent.dbname.split('/')[-1])
+        self.py_paneltitle = self.s2f(self.parent.label)
+
         Info = self.ffi.cast("struct OpenPluginInfo *", OpenInfo)
         Info.Flags = (
             self.ffic.OPIF_USEFILTER
@@ -354,9 +352,9 @@ class SqlMetadataHandler(SqlData):
             | self.ffic.OPIF_SHOWNAMESONLY
         )
         Info.HostFile = self.ffi.NULL
-        Info.CurDir = self.s2f(self.parent.dbname.split('/')[-1])
-        Info.Format = self.s2f(self.parent.label)
-        Info.PanelTitle = self.s2f(self.parent.label)
+        Info.CurDir = self.py_curdir
+        Info.Format = self.py_paneltitle
+        Info.PanelTitle = self.py_paneltitle
         #InfoLines
         #InfoLinesNumber
         Info.PanelModesArray = self.pm
@@ -447,7 +445,7 @@ from sqlite_master
                                 fname,
                                 fname,
                                 0, 0, -1, -1,
-                                0,#self.ffic.EF_DELETEONCLOSE,
+                                self.ffic.EF_DISABLEHISTORY,#|self.ffic.EF_DELETEONCLOSE,
                                 0,
                                 0,
                                 0xFFFFFFFF,  # =-1=self.ffic.CP_AUTODETECT

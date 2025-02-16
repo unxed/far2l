@@ -56,7 +56,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "datetime.hpp"
 #include "stddlg.hpp"
 #include "strmix.hpp"
-#include "palette.hpp"
+#include "farcolors.hpp"
 #include "DialogBuilder.hpp"
 #include "wakeful.hpp"
 #include "codepage.hpp"
@@ -2329,10 +2329,10 @@ int Editor::ProcessKey(FarKey Key)
 			Show();
 			return TRUE;
 		}
-		case KEY_CTRLALTBRACKET:		// Вставить сетевое (UNC) путь из левой панели
-		case KEY_CTRLALTBACKBRACKET:	// Вставить сетевое (UNC) путь из правой панели
-		case KEY_ALTSHIFTBRACKET:		// Вставить сетевое (UNC) путь из активной панели
-		case KEY_ALTSHIFTBACKBRACKET:	// Вставить сетевое (UNC) путь из пассивной панели
+		case KEY_CTRLALTBRACKET:		// Вставить реальный (разрешенный) путь из левой панели
+		case KEY_CTRLALTBACKBRACKET:	// Вставить реальный (разрешенный) путь из правой панели
+		case KEY_ALTSHIFTBRACKET:		// Вставить реальный (разрешенный) путь из активной панели
+		case KEY_ALTSHIFTBACKBRACKET:	// Вставить реальный (разрешенный) путь из пассивной панели
 		case KEY_CTRLBRACKET:			// Вставить путь из левой панели
 		case KEY_CTRLBACKBRACKET:		// Вставить путь из правой панели
 		case KEY_CTRLSHIFTBRACKET:		// Вставить путь из активной панели
@@ -4712,7 +4712,7 @@ wchar_t *Editor::VBlock2Text(wchar_t *ptrInitData)
 	if (ptrInitData)
 		DataSize = wcslen(ptrInitData);
 
-	// RealPos всегда <= TabPos, поэтому берём максимальный размер буффера
+	// RealPos всегда <= TabPos, поэтому берём максимальный размер буфера
 	size_t TotalChars = DataSize + (VBlockSizeX + wcslen(NATIVE_EOLW)) * VBlockSizeY + 1;
 
 	wchar_t *CopyData = (wchar_t *)malloc(TotalChars * sizeof(wchar_t));

@@ -53,7 +53,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "constitle.hpp"
 #include "syslog.hpp"
 #include "interf.hpp"
-#include "palette.hpp"
+#include "farcolors.hpp"
 #include "config.hpp"
 #include "processname.hpp"
 #include "pathmix.hpp"
@@ -1577,6 +1577,11 @@ void VMenu::DisplayObject()
 			SaveScr = new SaveScreen(X1, Y1, X2 + 2, Y2 + 1);
 	}
 
+	if (!CheckFlags(VMENU_LISTBOX)) {
+		DrawTitles();
+		WaitInMainLoop = FALSE;
+	}
+
 	ShowMenu(true, true);
 }
 
@@ -1925,7 +1930,7 @@ void VMenu::ShowMenu(bool IsParent, bool ForceFrameRedraw)
 				SetColor(Col);
 				Text(CheckMark);
 				// табуляции меняем только при показе!!!
-				// для сохранение оригинальной строки!!!
+				// для сохранения оригинальной строки!!!
 				ReplaceTabsBySpaces(strMenuLine, 1);
 				if (strMItemPtrPrefixLen) {
 					SetColor(VMenu::Colors[Item[I]->Flags & LIF_SELECTED ? VMenuColorSelGrayed : VMenuColorGrayed]);

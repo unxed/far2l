@@ -38,7 +38,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ctrlobj.hpp"
 #include "syslog.hpp"
 #include "interf.hpp"
-#include "palette.hpp"
+#include "farcolors.hpp"
 #include "config.hpp"
 #include "DList.hpp"
 #include "console.hpp"
@@ -302,7 +302,7 @@ void ScreenBuf::ApplyColor(int X1, int Y1, int X2, int Y2, DWORD64 Color)
 }
 
 /*
-	Непосредственное изменение цветовых атрибутов с заданым цетом исключением
+	Непосредственное изменение цветовых атрибутов с заданным цветом исключением
 */
 void ScreenBuf::ApplyColor(int X1, int Y1, int X2, int Y2, DWORD64 Color, DWORD64 ExceptColor)
 {
@@ -565,7 +565,7 @@ void ScreenBuf::RestoreElevationChar()
 	}
 }
 
-// проскроллировать буффер на одну строку вверх.
+// проскроллировать буфер на одну строку вверх.
 void ScreenBuf::Scroll(int Num)
 {
 	CriticalSectionLock Lock(CS);

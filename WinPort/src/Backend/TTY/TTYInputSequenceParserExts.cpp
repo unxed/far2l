@@ -115,7 +115,7 @@ size_t TTYInputSequenceParser::TryParseAsKittyEscapeSequence(const char *s, size
 {
 	// kovidgoyal's kitty keyboard protocol (progressive enhancement flags 15) support
 	// CSI [ XXX : XXX : XXX ; XXX : XXX [u~ABCDEFHPQRS]
-	// some parts sometimes ommitted, see docs
+	// some parts sometimes omitted, see docs
 	// https://sw.kovidgoyal.net/kitty/keyboard-protocol/
 
 	// todo: enhanced key flag now set for essential keys only, should be set for more ones
@@ -177,7 +177,7 @@ size_t TTYInputSequenceParser::TryParseAsKittyEscapeSequence(const char *s, size
 			(s[i] == 'E') || (s[i] == 'F') ||
 			(s[i] == 'H') || (s[i] == 'P') ||
 			(s[i] == 'Q') ||
-			(s[i] == 'R') || // "R" is still vaild here in old kitty versions
+			(s[i] == 'R') || // "R" is still valid here in old kitty versions
 			(s[i] == 'S')
 		);
 
@@ -212,6 +212,12 @@ size_t TTYInputSequenceParser::TryParseAsKittyEscapeSequence(const char *s, size
 	}
 
 	int base_char = params[0][2] ? params[0][2] : params[0][0];
+
+	// fix for xterm in ModifyOtherKeys=2 formatOtherKeys=1 mode
+	if (base_char <= UCHAR_MAX && isalpha(base_char)) {
+		base_char = tolower(base_char);
+	}
+
 	if (base_char <= UCHAR_MAX && isalpha(base_char)) {
 		ir.Event.KeyEvent.wVirtualKeyCode = (base_char - 'a') + 0x41;
 	}

@@ -77,6 +77,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "help.hpp"
 #include "farversion.h"
 #include "mix/panelmix.hpp"
+#include "farcolors.hpp"
 
 #include "message.hpp"
 
@@ -179,7 +180,7 @@ static void UpdatePathOptions(const FARString &strDestName, bool IsActivePanel)
 }
 
 static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARString strDestName2,
-		int StartLine, int StartChar)
+		int StartLine, int StartChar, bool cfgNeedSave)
 {
 	InterThreadCallsDispatcherThread itc_dispatcher_thread;
 
@@ -305,35 +306,25 @@ static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARStri
 
 			fprintf(stderr, "STARTUP: %llu\n", (unsigned long long)(clock() - cl_start));
 
-
 			if( Opt.IsFirstStart ) {
 				Help::Present(L"Far2lGettingStarted",L"",FHELP_NOSHOWERROR);
 
 				DWORD tweaks = WINPORT(SetConsoleTweaks)(TWEAKS_ONLY_QUERY_SUPPORTED);
 				if (tweaks & TWEAK_STATUS_SUPPORT_OSC52CLIP_SET) {
 					SetMessageHelp(L"Far2lGettingStarted");
-					if (Message(0, 2, // at 1st start always only English and we not need use Msg here
-						L"Use OSC52 to set clipboard data (question at first start)",
-						L"",
-						L"OSC52 allows copying from far2l running",
-						L"in TTY mode (even via SSH connection) to your local system clipboard",
-						L"(if you are using far2l on a remote untrusted system, giving remote",
-						L"system write access to your clipboard may be potentially unsafe).",
-						L"",
-						L"Some terminals also need OSC52 to be enabled in terminal's settings.",
-						L"",
-						L"You can toggle use of OSC52 on/off at any time",
-						L"in Menu(F9)->\'Options\"->\"Interface settings\".",
-						L"",
-						L"Allow far2l to set clipboard data using OSC52?",
-						Msg::Yes,
-						Msg::No))
-					{
-						Opt.OSC52ClipSet = 0;
+
+					ExMessager em;
+					em.AddMultiline(Msg::OSC52Confirm);
+					em.AddDup(L"Yes");
+					em.AddDup(L"No");
+
+					if (em.Show(0, 2)) {
+						if (Opt.OSC52ClipSet != 0)
+						{ Opt.OSC52ClipSet = 0; cfgNeedSave = true; }
 					} else {
-						Opt.OSC52ClipSet = 1;
+						if (Opt.OSC52ClipSet != 1)
+						{ Opt.OSC52ClipSet = 1; cfgNeedSave = true; }
 					}
-					ConfigOptSave(false);
 				}
 
 				if (!getenv("SSH_TTY") && !(getenv("XDG_SESSION_TYPE") && strcmp(getenv("XDG_SESSION_TYPE"), "tty") == 0)) {
@@ -436,6 +427,10 @@ static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARStri
 					}
 				}
 
+			}
+
+			if (cfgNeedSave) {
+				ConfigOptSave(false);
 			}
 
 			FrameManager->EnterMainLoop();
@@ -702,10 +697,10 @@ int FarAppMain(int argc, char **argv)
 	std::string kblo_path = StrPrintf("%lskblayouts.ini", far2l_path);
 	KeyboardLayouts.reset(new KeyFileHelper(kblo_path.c_str()));
 
-	const char *lc = setlocale(LC_CTYPE, NULL);
+	const char *locale = setlocale(LC_CTYPE, NULL);
 	char LangCode[3];
-	LangCode[0] = lc[0];
-	LangCode[1] = lc[1];
+	LangCode[0] = locale[0];
+	LangCode[1] = locale[1];
 	LangCode[2] = 0;
 
 	KbLayoutsTrIn = KeyboardLayouts->GetString(LangCode, "Latin");
@@ -728,12 +723,23 @@ int FarAppMain(int argc, char **argv)
 		Opt.LoadPlug.PluginsPersonal = FALSE;
 	}
 
-	ZeroFarPalette();
 	ConfigOptLoad();
-	InitFarPalette();
+	FarColors::InitFarColors();
 
 	InitConsole();
 	WINPORT(SetConsoleCursorBlinkTime)(NULL, Opt.CursorBlinkTime);
+
+	bool cfgNeedSave = false;
+	//нужно проверить локаль до начала отрисовки интерфейса
+	if (Opt.IsFirstStart)
+	{
+		// Only Russian translation can be currently considered complete
+		if (IsLocaleMatches(locale, "ru_RU")) {
+			Opt.strLanguage = L"Russian";
+			Opt.strHelpLanguage = L"Russian";
+			cfgNeedSave = true;
+		}
+	}
 
 	static_assert(!IsPtr(Msg::NewFileName._id),
 			"Too many language messages. Need to refactor code to eliminate use of IsPtr.");
@@ -765,7 +771,7 @@ int FarAppMain(int argc, char **argv)
 	if ( Opt.OnlyEditorViewerUsed == Options::ONLY_EDITOR && strEditViewArg.IsEmpty() )
 		strEditViewArg = Msg::NewFileName;
 
-	int Result = MainProcess(strEditViewArg, DestNames[0], DestNames[1], StartLine, StartChar);
+	int Result = MainProcess(strEditViewArg, DestNames[0], DestNames[1], StartLine, StartChar, cfgNeedSave);
 
 	EmptyInternalClipboard();
 	doneMacroVarTable(1);

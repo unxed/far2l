@@ -101,6 +101,7 @@ enum enumFilesMenu
 	MENU_FILES_EDIT,
 	MENU_FILES_COPY,
 	MENU_FILES_MOVE,
+	MENU_FILES_LINK,
 	MENU_FILES_CREATEFOLDER,
 	MENU_FILES_DELETE,
 	MENU_FILES_WIPE,
@@ -110,6 +111,7 @@ enum enumFilesMenu
 	MENU_FILES_ARCHIVECOMMANDS,
 	MENU_FILES_SEPARATOR2,
 	MENU_FILES_ATTRIBUTES,
+	MENU_FILES_CHATTR,
 	MENU_FILES_APPLYCOMMAND,
 	MENU_FILES_DESCRIBE,
 	MENU_FILES_SEPARATOR3,
@@ -231,6 +233,7 @@ void ShellOptions(int LastCommand, MOUSE_EVENT_RECORD *MouseEvent)
 		{Msg::MenuEdit,             0,             KEY_F4      },
 		{Msg::MenuCopy,             0,             KEY_F5      },
 		{Msg::MenuMove,             0,             KEY_F6      },
+		{Msg::MenuLink,             0,             KEY_ALTF6   },
 		{Msg::MenuCreateFolder,     0,             KEY_F7      },
 		{Msg::MenuDelete,           0,             KEY_F8      },
 		{Msg::MenuWipe,             0,             KEY_ALTDEL  },
@@ -240,6 +243,7 @@ void ShellOptions(int LastCommand, MOUSE_EVENT_RECORD *MouseEvent)
 		{Msg::MenuArchiveCommands,  0,             KEY_SHIFTF3 },
 		{L"",                       LIF_SEPARATOR, 0           },
 		{Msg::MenuAttributes,       0,             KEY_CTRLA   },
+		{Msg::MenuChattr,           0,             KEY_CTRLALTA},
 		{Msg::MenuApplyCommand,     0,             KEY_CTRLG   },
 		{Msg::MenuDescribe,         0,             KEY_CTRLZ   },
 		{L"",                       LIF_SEPARATOR, 0           },
@@ -442,6 +446,9 @@ void ShellOptions(int LastCommand, MOUSE_EVENT_RECORD *MouseEvent)
 				case MENU_FILES_MOVE:	// Rename or move
 					FrameManager->ProcessKey(KEY_F6);
 					break;
+				case MENU_FILES_LINK:	// Make link
+					FrameManager->ProcessKey(KEY_ALTF6);
+					break;
 				case MENU_FILES_CREATEFOLDER:	// Make folder
 					FrameManager->ProcessKey(KEY_F7);
 					break;
@@ -462,6 +469,9 @@ void ShellOptions(int LastCommand, MOUSE_EVENT_RECORD *MouseEvent)
 					break;
 				case MENU_FILES_ATTRIBUTES:		// File attributes
 					CtrlObject->Cp()->ActivePanel->ProcessKey(KEY_CTRLA);
+					break;
+				case MENU_FILES_CHATTR:		// chattr
+					CtrlObject->Cp()->ActivePanel->ProcessKey(KEY_CTRLALTA);
 					break;
 				case MENU_FILES_APPLYCOMMAND:	// Apply command
 					CtrlObject->Cp()->ActivePanel->ProcessKey(KEY_CTRLG);

@@ -90,7 +90,8 @@ void UpdateDefaultColumnTypeWidths( void )
 	size_t nameindex = Opt.DirNameStyle & 3;
 
 	ColumnTypeWidth[SIZE_COLUMN] = ColumnTypeWidth[PHYSICAL_COLUMN] = \
-			std::max( std::max(DirUpNames[nameindex].Len(), DirNames[nameindex].Len()) + \
+			std::max(
+				std::max( std::max(DirUpNames[nameindex].Len(), DirNames[nameindex].Len()), SymLinkNames[nameindex].Len()) + \
 			((Opt.DirNameStyle & DIRNAME_STYLE_SURR_CH) >> 3), (size_t)6ul );
 }
 
@@ -170,10 +171,10 @@ int _MakePath1(DWORD Key, FARString &strPathName, const wchar_t *Param2, int esc
 	strPathName.Clear();
 
 	switch (Key) {
-		case KEY_CTRLALTBRACKET:		// Вставить сетевое (UNC) путь из левой панели
-		case KEY_CTRLALTBACKBRACKET:	// Вставить сетевое (UNC) путь из правой панели
-		case KEY_ALTSHIFTBRACKET:		// Вставить сетевое (UNC) путь из активной панели
-		case KEY_ALTSHIFTBACKBRACKET:	// Вставить сетевое (UNC) путь из пассивной панели
+		case KEY_CTRLALTBRACKET:		// Вставить реальный (разрешенный) путь из левой панели
+		case KEY_CTRLALTBACKBRACKET:	// Вставить реальный (разрешенный) путь из правой панели
+		case KEY_ALTSHIFTBRACKET:		// Вставить реальный (разрешенный) путь из активной панели
+		case KEY_ALTSHIFTBACKBRACKET:	// Вставить реальный (разрешенный) путь из пассивной панели
 			NeedRealName = TRUE;
 		case KEY_CTRLBRACKET:			// Вставить путь из левой панели
 		case KEY_CTRLBACKBRACKET:		// Вставить путь из правой панели
@@ -224,7 +225,7 @@ int _MakePath1(DWORD Key, FARString &strPathName, const wchar_t *Param2, int esc
 							&& SrcPanel->GetMode() != PLUGIN_PANEL) {
 						FileList *SrcFilePanel = (FileList *)SrcPanel;
 						SrcFilePanel->CreateFullPathName(strPathName, FILE_ATTRIBUTE_DIRECTORY, strPathName,
-								TRUE);
+								true);
 					}
 
 					AddEndSlash(strPathName);
