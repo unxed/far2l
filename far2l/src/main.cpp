@@ -315,8 +315,8 @@ static int MainProcess(FARString strEditViewArg, FARString strDestName1, FARStri
 
 					ExMessager em;
 					em.AddMultiline(Msg::OSC52Confirm);
-					em.AddDup(L"Yes");
-					em.AddDup(L"No");
+					em.AddDup(Msg::Yes);
+					em.AddDup(Msg::No);
 
 					if (em.Show(0, 2)) {
 						if (Opt.OSC52ClipSet != 0)
@@ -594,7 +594,7 @@ int FarAppMain(int argc, char **argv)
 	std::unique_ptr<KeyFileHelper> KeyboardLayouts;
 	wchar_t *far2l_path = (wchar_t *)g_strFarPath.CPtr();
 	std::string kblo_path = StrPrintf("%lskblayouts.ini", far2l_path);
-	KeyboardLayouts.reset(new KeyFileHelper(kblo_path.c_str()));
+	KeyboardLayouts.reset(new KeyFileHelper(kblo_path));
 
 	const char *locale = setlocale(LC_CTYPE, NULL);
 	char LangCode[3];

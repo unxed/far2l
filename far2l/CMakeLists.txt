@@ -172,6 +172,7 @@ src/mix/StrCells.cpp
 src/mix/ChunkedData.cpp
 src/mix/UsedChars.cpp
 src/mix/CachedCreds.cpp
+src/mix/GitTools.cpp
 )
 
 # Option to disable building macro subsystem completely
@@ -300,4 +301,36 @@ else()
         DESTINATION "share/applications"
         COMPONENT desktop
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_READ WORLD_EXECUTE)
+
+    find_package(Python3 COMPONENTS Interpreter)
+
+    if(Python3_Interpreter_FOUND)
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import markdown"
+                        RESULT_VARIABLE PYTHON_MARKDOWN_STATUS
+                        OUTPUT_QUIET
+                        ERROR_QUIET)
+
+        if(PYTHON_MARKDOWN_STATUS EQUAL 0)
+            add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/DE/io.github.elfmz.far2l.metainfo.xml"
+                               COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/DE/generate_metainfo.py"
+                                       "${CMAKE_SOURCE_DIR}/changelog.md"
+                                       "${CMAKE_CURRENT_SOURCE_DIR}/DE/io.github.elfmz.far2l.metainfo.xml.in"
+                                       "${CMAKE_CURRENT_BINARY_DIR}/DE/io.github.elfmz.far2l.metainfo.xml"
+                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/DE/generate_metainfo.py"
+                                       "${CMAKE_SOURCE_DIR}/changelog.md"
+                                       "${CMAKE_CURRENT_SOURCE_DIR}/DE/io.github.elfmz.far2l.metainfo.xml.in"
+                               COMMENT "Generating DE/io.github.elfmz.far2l.metainfo.xml"
+                               VERBATIM)
+            add_custom_target(Far2lMetainfo DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/DE/io.github.elfmz.far2l.metainfo.xml")
+            add_dependencies(far2l Far2lMetainfo)
+            install(FILES "${CMAKE_CURRENT_BINARY_DIR}/DE/io.github.elfmz.far2l.metainfo.xml"
+                    DESTINATION "share/metainfo"
+                    COMPONENT desktop)
+        else()
+            message(WARNING "Python-Markdown not found. Skipping AppStream metainfo generation.")
+        endif()
+    else()
+        message(WARNING "Python3 interpreter not found. Skipping AppStream metainfo generation.")
+    endif()
+
 endif()

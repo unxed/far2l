@@ -153,11 +153,14 @@ when it starts, far2l switches to #TTY|X# without i.
 
 
  #Keyboard shortcuts are exclusively captured by desktop environment and terminals#
-    Some keyboard shortcuts #Alt-F1#, #Alt-F2#, #Alt-F7#, #Ctrl-arrows# etc. are exclusively used in desktop environment GNOME, KDE, Xfce, macOS etc. To work with these keys in FAR2L, you need to release keyboard shortcuts in the environment settings.
+    Some keyboard shortcuts #Alt-F1#, #Alt-F2#, #Alt-F7#, #Ctrl-arrows# etc.
+are exclusively used in desktop environment GNOME, KDE, Xfce, macOS etc.
+To work with these keys in FAR2L, you need to release keyboard shortcuts in the environment settings
+(under GNOME you can use #dconf-editor org.gnome.desktop.wm.keybindings# to view and change global keybindings).
     Terminal emulators also do not often pass some of the key combinations to applications, or do not distinguish pressing various combinations of modifiers (#Ctrl#, #Alt# etc.).
     Also you can use FAR2L lifehacks:
         - ~Sticky controls~@MiscCmd@ via #Ctrl-Space# or #Alt-Space#;
-        - Exclusively handle hotkeys option in the ~Input settings~@InputSettings@ (only in GUI backend mode).
+        - Exclusively handle hotkeys option in the ~Input settings~@InputSettings@ (only in GUI backend mode under X11).
 
 
  #macOS workaround# if far2l in macOS regularly asks permission to folders
@@ -236,7 +239,8 @@ for clipboard need turn on OSC 52)
 (~TTY|F backend~@UIBackends@: keys and clipboard by FAR2L TTY extensions support)
     - #putty-nd# (Windows ssh-client): ~https://sourceforge.net/projects/putty-nd~@https://sourceforge.net/projects/putty-nd@ & ~https://github.com/noodle1983/putty-nd~@https://github.com/noodle1983/putty-nd@
 (~TTY|F backend~@UIBackends@: keys and clipboard by FAR2L TTY extensions support)
-    - #PuTTY 0.82+#: since 0.82 in vanilla PuTTY you can set keyboard settings #Xterm 216+# and #xterm-style bitmap# (see: ~https://github.com/elfmz/far2l/issues/2630~@https://github.com/elfmz/far2l/issues/2630@)
+    - #PuTTY 0.82+#: since 0.82 in vanilla PuTTY you can set keyboard settings #Xterm 216+# and #xterm-style bitmap# (see: ~https://github.com/elfmz/far2l/issues/2630~@https://github.com/elfmz/far2l/issues/2630@),
+but vanilla PuTTY can not transfer clipboard.
 
 
  #Location of FAR2L settings and history#
@@ -247,6 +251,7 @@ for clipboard need turn on OSC 52)
     - some settings files (may be missing):
         - #settings/config.ini# - general config
         - #settings/colors.ini# - ~files highlighting and sort groups~@Highlight@
+        - #settings/farcolors.ini# - interface colors (configurable via F9->~Options~@OptMenu@->Colors)
         - #settings/key_macros.ini# - ~keyboard macro commands~@KeyMacro@
         - #settings/user_menu.ini# - main ~user menu~@UserMenu@ (the format is different from local user FarMenu.ini)
         - #settings/associations.ini# - ~file associations~@FileAssoc@
@@ -503,8 +508,8 @@ $ #Panel control commands  #
    (ignore command line state)
   Copy full names of selected files to the clipboard   #Alt-Shift-Ins#
    (ignore command line state)
-  Copy network (UNC) names of selected files to the     #Ctrl-Alt-Ins#
-   clipboard (ignore command line state)
+  Copy full names of selected files to the clipboard    #Ctrl-Alt-Ins#
+   (ignore command line state) (*3)
 
   See also the list of ~macro keys~@KeyMacroShellList@, available in the panels.
 
@@ -519,10 +524,9 @@ and descriptions, work only with non-numpad #Left# and #Right# keys. This is due
 the fact that when #Alt# is pressed, numpad cursor keys are used to enter characters
 via their decimal codes.
 
-  3. ^<wrap>The key combination #Ctrl-Alt-Ins# puts the following text into the clipboard:
-       ^<wrap>* for network drives - the network (UNC) name of the file object;
-       ^<wrap>* for local drives - the local name of the file taking into account
-~symbolic links~@HardSymLink@.
+  3. ^<wrap>The key combination #Ctrl-Alt-Ins# adheres to the following rules:
+     ^<wrap>If "Classic hotkey link resolving" option in ~Panel settings~@PanelSettings@
+dialog is enabled, the full name is used with ~symbolic links~@HardSymLink@ expanded.
 
   4. ^<wrap>If #Ctrl-Ins#, #Alt-Shift-Ins# or #Ctrl-Alt-Ins# is pressed when the cursor
 is on the file "#..#", the name of the current folder is copied.
@@ -627,20 +631,21 @@ $ #Command line commands#
      file mask entered in the fast find box.
 
   Insert current file name from the passive panel   #Ctrl-Shift-Enter#
+
   Insert full file name from the active panel                 #Ctrl-F#
   Insert full file name from the passive panel                #Ctrl-;#
-  Insert network (UNC) file name from the active panel    #Ctrl-Alt-F#
-  Insert network (UNC) file name from the passive panel   #Ctrl-Alt-;#
-
   Insert path from the left panel                             #Ctrl-[#
   Insert path from the right panel                            #Ctrl-]#
-  Insert network (UNC) path from the left panel           #Ctrl-Alt-[#
-  Insert network (UNC) path from the right panel          #Ctrl-Alt-]#
-
   Insert path from the active panel                     #Ctrl-Shift-[#
   Insert path from the passive panel                    #Ctrl-Shift-]#
-  Insert network (UNC) path from the active panel        #Alt-Shift-[#
-  Insert network (UNC) path from the passive panel       #Alt-Shift-]#
+
+  (*5)
+  Insert full file name from the active panel             #Ctrl-Alt-F#
+  Insert full file name from the passive panel            #Ctrl-Alt-;#
+  Insert path from the left panel                         #Ctrl-Alt-[#
+  Insert path from the right panel                        #Ctrl-Alt-]#
+  Insert path from the active panel                      #Alt-Shift-[#
+  Insert path from the passive panel                     #Alt-Shift-]#
 
   Notes:
 
@@ -657,8 +662,9 @@ controls in dialogs and internal editor.
   4. ^<wrap>#Alt-Shift-Left#, #Alt-Shift-Right#, #Alt-Shift-Home# and #Alt-Shift-End# select
 the block in the command line also when the panels are on.
 
-  5. ^<wrap>For local drives, the commands to insert the network (UNC) name of a file object
-insert the local name of the file with ~symbolic links~@HardSymLink@ expanded.
+  5. ^<wrap>The marked key combinations adhere to the following rules:
+     ^<wrap>If "Classic hotkey link resolving" option in ~Panel settings~@PanelSettings@
+dialog is enabled, the full name is used with ~symbolic links~@HardSymLink@ expanded.
 
   6. ^<wrap>About hotkeys and other tricks of built-in terminal emulator: ~read here~@Terminal@
 
@@ -920,7 +926,7 @@ virtually pressed until next non-control key press:
     Another way to achieve working hotkeys may be changing settings
 of desktop environment or external applications (in order to release needed hotkey combinations)
 or using exclusive handle hotkeys option
-in the ~Input Settings~@InputSettings@ (only in GUI backend mode).
+in the ~Input Settings~@InputSettings@ (only in GUI backend mode under X11).
 
 @SpecCmd
 $ #Special commands#
@@ -2515,15 +2521,19 @@ $ #Settings dialog: panel#
   #update of panels#        the panels when the state of the file
                           system changes will be disabled if the
                           count of file objects exceeds the
-                          specified value.
-    The value of 0 means "update always". To force an
-    update of the panels, press #Ctrl-R#.
+                          specified value. The value of 0 means
+                          "update always". To force an update of the
+                          panels, press #Ctrl-R#.
 
   #Network drives#          This option enables panel autorefresh
   #autorefresh#             when state of filesystem on network
                           drives is being changed. It can be useful
                           to disable this option on slow network
                           connections
+
+  #Classic hotkey link#     Expand ~symbolic links~@HardSymLink@ when using certain
+  #resolving#               keyboard shortcuts. See ~Panel control commands~@PanelCmd@ and
+                          ~Command line commands~@CmdLineCmd@ for details.
 
   #Show column titles#      Enable display of ~file panel~@FilePanel@ column titles.
 
@@ -2644,7 +2654,8 @@ to latin and vice-verse, that subsequentially used in #fast file find by Alt+FIL
   This options allows to choose control keys using which in hotkey combination
 will cause FAR2L to capture keyboard input exclusively, thus preventing other
 application from interfering with FAR2L hotkeys that contains such control key.
-Note that this options works only in GUI backend mode.
+Note that this options works only in GUI backend mode under X11
+(does not work under Wayland / xWayland).
 
 
 @DialogSettings
@@ -2786,6 +2797,7 @@ code words:
      $q - the = character
      $s - space
      $t - current time in HH:MM:SS format
+     $z - the Git branch name surrounded by '{' and '} '; an empty string otherwise
      $$ - the $ character
      $+ - the depth of the folders stack
 
@@ -3363,6 +3375,8 @@ combinations are available:
 
   #Enter# or #F4#  - ~Edit~@HighlightEdit@ the current highlighting group
 
+  #F3#           - Show for current item file masks after expand all masks groups
+
   #Ctrl-R#       - Restore the default file highlighting groups
 
   #Ctrl-Up#      - Move a group up
@@ -3846,6 +3860,7 @@ characters, delimited with commas. Allowed column types are:
 
     O[L]       - file owner
                  where: L - show domain name;
+    U          - file group
 
     LN         - number of hard links
 
@@ -4039,6 +4054,8 @@ To ~highlight~@Highlight@ all archives except "*.rar" #<arc>|*.rar# should be us
  #Del#         - ^<wrap>remove the current group
 
  #Enter#/#F4#    - ^<wrap>edit the current group
+
+ #F3#          - view the current group with wrap long line of masks
 
  #F7#          - ^<wrap>find all groups containing the specified mask
 

@@ -217,18 +217,23 @@ void PanelSettings_HighlightMarks()
 {
 	DialogBuilder Builder(Msg::ConfigPanelHighlightMarksTitle, L"PanelSettings");
 
-	Builder.AddCheckbox(Msg::ConfigFilenameMarksStatusLine, &Opt.FilenameMarksInStatusBar);
-	DialogItemEx *tShowFilenameMarksInStatusLineHint = Builder.AddText(Msg::ConfigFilenameMarksStatusLineHint);
-	tShowFilenameMarksInStatusLineHint->Flags = DIF_CENTERGROUP | DIF_DISABLE;
-
-	Builder.AddSeparator();
-
 	DialogItemEx *CbShowFilenameMarks = Builder.AddCheckbox(Msg::ConfigFilenameMarks, &Opt.ShowFilenameMarks);
 	DialogItemEx *CbFilenameMarksAlign = Builder.AddCheckbox(Msg::ConfigFilenameMarksAlign, &Opt.FilenameMarksAlign);
 	CbFilenameMarksAlign->Indent(1);
 	Builder.LinkFlags(CbShowFilenameMarks, CbFilenameMarksAlign, DIF_DISABLE);
 	DialogItemEx *tShowFilenameMarksHint = Builder.AddText(Msg::ConfigFilenameMarksHint);
 	tShowFilenameMarksHint->Flags = DIF_CENTERGROUP | DIF_DISABLE;
+
+	Builder.AddSeparator();
+
+	DialogItemEx *CbShowFilenameMarksStatusLine
+		= Builder.AddCheckbox(Msg::ConfigFilenameMarksStatusLine, &Opt.FilenameMarksInStatusBar);
+	CbShowFilenameMarksStatusLine->Indent(1);
+	Builder.LinkFlags(CbShowFilenameMarks, CbShowFilenameMarksStatusLine, DIF_DISABLE);
+	DialogItemEx *tShowFilenameMarksInStatusLineHint = Builder.AddText(Msg::ConfigFilenameMarksStatusLineHint);
+	tShowFilenameMarksInStatusLineHint->Flags = DIF_CENTERGROUP | DIF_DISABLE;
+
+	Builder.AddSeparator();
 
 	DialogItemEx *IndentationMinEdit = Builder.AddIntEditField((int *)&Opt.MinFilenameIndentation, 2);
 	Builder.AddTextAfter(IndentationMinEdit, Msg::ConfigFilenameMinIndentation);
@@ -805,9 +810,9 @@ void InterfaceSettings()
 				pos_time_2 = 0; // for not error in message
 			}
 			else {
-				pos_day = format_time.find("%");
+				pos_day = format_time.find('%');
 				if (pos_day != std::string::npos) {
-					pos_time_2 = format_time.find("%", pos_day+2);
+					pos_time_2 = format_time.find('%', pos_day+2);
 					if (pos_time_2 != std::string::npos)
 						strTimeSeparator = format_time[pos_time_2-1];
 				}

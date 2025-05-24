@@ -136,8 +136,11 @@
     </prototype>
     <prototype name="pascal" group="main" description="Pascal">
         <location link="base/pascal.hrc" />
-        <filename>/\.(\~?pas|dpr|dpk|inc|int|pp)$/i</filename>
+        <filename>/\.(\~?pas|dpr|dpk|inc|int|pp|lpr)$/i</filename>
         <firstline>/^(\{|\/\/|resourcestring|program|library|unit|package)/i</firstline>
+        <parameters>
+            <param name="non-ascii-as-errors" value="false" description="non-ASCII characters in identifiers as error" />
+        </parameters>
     </prototype>
     <prototype name="csharp" group="main" description="C#">
         <location link="base/csharp.hrc" />
@@ -223,7 +226,6 @@
         <filename>/\.groovy$/i</filename>
         <filename>/\.gdsl$/i</filename>
         <filename>/\.gradle$/i</filename>
-        <filename>/Jenkinsfile/i</filename>
         <firstline>/^import/</firstline>
         <firstline>/^#!groovy/</firstline>
         <parameters>
@@ -231,6 +233,17 @@
             <param name="tabs-as-errors" value="false" description="Shows tabulation symbol as error" />
             <param name="spaces-as-errors" value="false" description="Shows trailing spaces as error" />
         </parameters>
+    </prototype>
+    <prototype name="jenkinsfile" group="scripts" description="Jenkinsfile">
+        <location link="scripts/jenkinsfile.hrc"/>
+        <filename>/^Jenkins[Ff]ile\..+$/</filename>
+        <filename>/^.+\.Jenkins[Ff]ile/</filename>
+        <filename>/^Jenkins[Ff]ile$/</filename>
+        <filename>/\.gdsl$/i</filename>
+        <firstline weight='3'>/(^|\n)\s*pipeline\s+\{\s*$/</firstline>
+        <firstline weight='3'>/(^|\n)\s*node\s+\{\s*$/</firstline>
+        <firstline weight='3'>/(^|\n)\s*node\([^\)]\)\s+\{\s*$/</firstline>
+        <firstline weight='3'>/(^|\n)\s*import\s+org\.jenkinsci\./</firstline>
     </prototype>
 
     <prototype name="rust" group="main" description="Rust">
@@ -427,7 +440,7 @@
     <!--  xml types  -->
     <prototype name="xml" group="xml" description="xml">
         <location link="xml/xml.hrc" />
-        <filename>/\.(xml|\w*proj|gi2|gpr|ui)$/i</filename>
+        <filename>/\.(xml|\w*proj|gi2|gpr|ui|xaml)$/i</filename>
         <filename>/\.(wxs|fb2)$/i</filename>
         <firstline>/^&lt;\?xml | &lt;\!DOCTYPE | xmlns /x</firstline>
         <firstline>/^\s*&lt;\w+&gt;\s*/</firstline> <!-- (\s+\w+\s*=\*([&quot;&apos;]).+?\2)*\s* -->
@@ -638,13 +651,11 @@
         <filename>/\.(text|md|markdown)$/i</filename>
     </prototype>
     &scripts-colorer-protos;
-  &scripts-far-protos;
+    &scripts-far-protos;
     <prototype name="makefile" group="scripts" description="makefile">
         <location link="scripts/makefile.hrc" />
         <filename>/(makefile | tools\.ini) | \.(mak|gmk|ds(p|w)|bp(k|r|g))$/ix</filename>
         <filename weight='3'>/\.mk$/i</filename>
-        <!--firstline>/Microsoft Developer Studio Project File/i</firstline>
-    <firstline>/^\!if/i</firstline-->
         <firstline>/makefile/s</firstline>
         <parameters>
             <param name="gnu" value="false" description="use GNU make only" />
@@ -746,7 +757,7 @@
 
     <prototype name="delphiform" group="scripts" description="Delphi form">
         <location link="scripts/dfm.hrc" />
-        <filename>/\.dfm$/i</filename>
+        <filename>/\.(dfm|lfm)$/i</filename>
     </prototype>
     <prototype name="pnuts" group="scripts" description="Java: Pnuts">
         <location link="scripts/pnuts.hrc" />
@@ -824,10 +835,10 @@
 
     <!--  rare languages  -->
     &rare-j2ee-protos;
-  &rare-gen-protos;
-  &rare-scripts-protos;
-  &rare-qrm-protos;
-  &rare-ie-weidu-protos;
+    &rare-gen-protos;
+    &rare-scripts-protos;
+    &rare-qrm-protos;
+    &rare-ie-weidu-protos;
     <prototype name="c1c" group="rare" description="1C">
         <location link="rare/1c.hrc" />
         <filename>/\.1c$/i</filename>
@@ -850,7 +861,7 @@
     </prototype>
 
     <!--  !! you may wish to swap next two types
-  because of collision with extensions  -->
+     because of collision with extensions  -->
     <prototype name="dssp" group="rare" description="Dssp">
         <location link="rare/dssp.hrc" />
         <filename>/\.dsp$/i</filename>
@@ -1087,6 +1098,7 @@
     </prototype>
 
     <prototype name="default" group="other" description="default type">
+        <location link="base/default.hrc" />
         <filename weight='1'>//</filename>
         <parameters>
             <!-- firstline -->
@@ -1095,15 +1107,10 @@
         </parameters>
     </prototype>
 
-    <type name="default">
-        <scheme name='default' />
-    </type>
-
-
     <!--  packages  -->
 
     <package name="def" description="core definitions">
-        <location link="lib/default.hrc" />
+        <location link="lib/def.hrc" />
     </package>
     <package name="uri" description="URI (RFC 2396)">
         <location link="lib/uri.hrc" />

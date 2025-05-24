@@ -1,20 +1,17 @@
 import os
-import sys
 import logging
 
-import ctypes as ct
 import far2lc
 from far2l.plugin import PluginBase
-from yfar import FarPlugin
 
 log = logging.getLogger(__name__)
 
-class Plugin(FarPlugin):
+class Plugin(PluginBase):
     label = "Python Clip GET"
     openFrom = ["PLUGINSMENU", 'FILEPANEL']
 
     def CopyFiles(self, data):
-        pwd = self.get_panel().directory
+        pwd = self.panel.GetPanelDir()
         data = data.decode('utf8')
         log.debug(f'copyfiles: {data}')
         prefix = 'file://'
@@ -27,10 +24,11 @@ class Plugin(FarPlugin):
             log.debug(f'CopyFile: {fqname} -> {dqname}')
             with open(dqname, 'wb') as fo:
                 with open(fqname, 'rb') as fi:
-                    rec = fi.read(4096)
-                    if not rec:
-                        break
-                    fo.write(rec)
+                    while True:
+                        rec = fi.read(4096)
+                        if not rec:
+                            break
+                        fo.write(rec)
 
     def OpenPlugin(self, OpenFrom):
         winport = self.ffi.cast("struct WINPORTDECL *", far2lc.WINPORT())
@@ -49,13 +47,13 @@ class Plugin(FarPlugin):
             data = winport.GetClipboardData(clipurifmt)
             if data is not None:
                 nb = winport.ClipboardSize(data)
-                result = self.ffi.buffer(data, nb-1)
+                result = self.ffi.buffer(self.ffi.cast("PSTR", data), nb)
                 self.CopyFiles(bytes(result))
             else:
                 data = winport.GetClipboardData(clipgnofmt)
                 if data is not None:
                     nb = winport.ClipboardSize(data)
-                    result = self.ffi.buffer(data, nb-1)
+                    result = self.ffi.buffer(self.ffi.cast("PSTR", data), nb)
                     self.CopyFiles(bytes(result))
         except:
             log.exception('uclipset.GetClipboardData')

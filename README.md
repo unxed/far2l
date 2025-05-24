@@ -2,11 +2,11 @@
 
 # far2l [![tag](https://img.shields.io/github/tag/elfmz/far2l.svg)](https://github.com/elfmz/far2l/tags)
 Linux fork of FAR Manager v2 (http://farmanager.com/)   
-Works also on OSX/MacOS and BSD (but latter not tested on regular manner)   
+Works also on macOS and BSD (but latter not tested on regular manner)
 BETA VERSION.   
 **Use on your own risk!**
 
-Plug-ins that are currently working: NetRocks (SFTP/SCP/FTP/FTPS/SMB/NFS/WebDAV), colorer, multiarc, tmppanel, align, autowrap, drawline, editcase, SimpleIndent, Calculator, Python (optional scripting support)
+Plug-ins that are currently working: NetRocks (SFTP/SCP/FTP/FTPS/SMB/NFS/WebDAV), colorer, multiarc, tmppanel, Advanced compare, filecase, inside, align, autowrap, drawline, editcase, editorcomp, incsrch, SimpleIndent, Calculator, Python (optional scripting support)
 
 FreeBSD/MacOS (Cirrus CI): [![Cirrus](https://api.cirrus-ci.com/github/elfmz/far2l.svg)](https://cirrus-ci.com/github/elfmz/far2l)
 
@@ -22,13 +22,43 @@ FreeBSD/MacOS (Cirrus CI): [![Cirrus](https://api.cirrus-ci.com/github/elfmz/far
 * 7z ANSI-C Decoder
 * utf-cpp by ww898
 
+### Screenshots
+
+![far2l main UI][scr_far2l] | ![NetRocks][scr_netrocks]
+--------------------------- | -------------------------
+![Attributes][scr_attribs]  | ![Editor][scr_editor]
+
+[scr_far2l]: ./far2l/DE/screenshots/far2l.png
+[scr_netrocks]: ./far2l/DE/screenshots/far2l_NetRocks.png
+[scr_attribs]: ./far2l/DE/screenshots/far2l_attribs_several.png
+[scr_editor]: ./far2l/DE/screenshots/far2l_editor_colorer.png
+
+### Jump To:
+* [Getting Started](#gstarted)
+* [Installing, Running](#inst_run)
+* [Building, Contributing, Hacking](#building)
+* [Compatible Terminals and SSH clients](#terminals)
+* [Useful 3rd-party extras](#useful3party)
+* [Community packages & binaries](#community_bins)
+* See also (in external documents):
+    * [Change log](changelog.md)
+    * [Releases](https://github.com/elfmz/far2l/releases)
+    * [Notes on porting and FAR Plugin API changes](HACKING.md)
+    * [Coding style](CODESTYLE.md)
+    * [Testing](testing/README.md)
+
+<a name="gstarted"></a>
+## Getting Started
+
 <sub><a name="keyshells"></a>_Note_: Far2l uses keyboard shortcurts in the tradition of the Far Manager for Windows,
-but some of them (**Alt**-**F1**, **Alt**-**F2**, **Alt**-**F7**, **Ctrl**-arrows, etc.)
+but some of them (**Alt**+**F1**, **Alt**+**F2**, **Alt**+**F7**, **Ctrl**+arrows, etc.)
 usually exclusively used in desktop environment GNOME, KDE, Xfce, macOS etc. and in terminal emulators.
 To work with these keys in far2l you need to _release keyboard shortcuts globally_
-in the environment settings (see [#2326](https://github.com/elfmz/far2l/issues/2326))
+in the environment settings (see [#2326](https://github.com/elfmz/far2l/issues/2326),
+[#2731](https://github.com/elfmz/far2l/issues/2731),
+under GNOME you can use `dconf-editor org.gnome.desktop.wm.keybindings` to view and change global keybindings)
 or use far2l lifehacks:
-_Sticky controls via **Ctrl**-**Space** or **Alt**-**Space**_ or _Exclusively handle hotkeys option in the Input settings_
+_Sticky controls via **Ctrl**+**Space** or **Alt**+**Space**_ or _Exclusively handle hotkeys option in the Input settings_
 (see details in buil-in far2l help).</sub>
 
 ### UI Backends
@@ -54,8 +84,8 @@ _Sticky controls via **Ctrl**-**Space** or **Alt**-**Space**_ or _Exclusively ha
 | **Keyboard:** | <sub>_Typical terminals_:<br>**only essential<br>key combinations**<br><br>_KiTTY_ (putty fork),<br>_kitty_ (\*nix one),<br>_iTerm2_,<br>_Windows Terminal_,<br>far2l’s VT: **full support**</sub> | <sub>_Typical terminals_:<br>**only essential<br>key combinations**<br><br>_KiTTY_ (putty fork),<br>_kitty_ (\*nix one),<br>_iTerm2_,<br>_Windows Terminal_,<br>far2l’s VT: **full support**</sub> | <sub>_Typical terminals_:<br>**most of key<br>combinations under x11**;<br>**only essential key<br>combinations<br>under Wayland**<br><br>_KiTTY_ (putty fork),<br>_kitty_ (\*nix one),<br>_iTerm2_,<br>_Windows Terminal_,<br>far2l’s VT: **full support**</sub> | **All key<br>combinations** |
 | **Clipboard<br>access:** | <sub>_Typical terminals_:<br>via command line<br>tools like xclip<br><br>_kitty_ (\*nix one),<br>_iTerm2_:<br>via **OSC52**<br><br>_Windows Terminal_:<br>via **OSC52**<br>or via **command line<br>tools under WSL**<br><br>_KiTTY_ (putty fork),<br>far2l’s VT:<br>via **far2l extensions**</sub> | <sub>_Typical terminals_,<br>_kitty_ (\*nix one):<br>via **x11 interaction**<br><br>_iTerm2_:<br>via **OSC52**<br><br>_Windows Terminal_:<br>via **OSC52**<br>or via **command line<br>tools under WSL**<br><br>_KiTTY_ (putty fork),<br>far2l’s VT:<br>via **far2l extensions**</sub> | <sub>_Typical terminals_,<br>_kitty_ (\*nix one):<br>via **x11 interaction**<br><br>_iTerm2_:<br>via **OSC52**<br><br>_Windows Terminal_:<br>via **OSC52**<br>or via **command line<br>tools under WSL**<br><br>_KiTTY_ (putty fork),<br>far2l’s VT:<br>via **far2l extensions**</sub> | via<br>**wxWidgets API**<br><br><sub>via command line<br>tools under WSL</sub> |
 | **Typical<br>use case:** | **Servers**,<br>embedded<br>(\*wrt, etc) | <sub>Run far2l in<br>favorite terminal<br>but with<br>**better UX**</sub> | <sub>Run far2l in<br>favorite terminal<br>but with<br>**best UX**</sub> | **Desktop** |
-| [Debian](#debian) / [Ubuntu](#debian)<br><sup>official repositories:</sup> | _none_<br><sup>(use `far2l` due to<br>[auto downgrade](#downgrade))</sup> | `far2l` | `far2l` | `far2l-wx`<br><sup>(since _2.6.4_ /<br>Ubuntu 25.04+)</sup> |
-| Community [PPA](#community_bins): | `far2l` | `far2l-ttyx` | `far2l-ttyx` | `far2l-gui` |
+| [Debian](#debian) / [Ubuntu](#debian)<br><sup>official repositories<br>(packages names):</sup> | _none_<br><sup>(use `far2l` due to<br>[auto downgrade](#downgrade))</sup> | `far2l` | `far2l` | `far2l-wx`<br><sup>(since _2.6.4_ /<br>Ubuntu 25.04+)</sup> |
+| Community [PPA](#community_bins)<br><sup>(packages names):</sup> | `far2l` | `far2l-ttyx` | `far2l-ttyx` | `far2l-gui` |
 
 <sub><a name="downgrade"></a>_Note_: When running far2l automatically downgrade
 if its components are not installed (or system libs are not available):
@@ -76,6 +106,7 @@ and in **terminal settings** option OSC 52 must be allowed (by default, OSC 52 i
 OSC 52 in many terminals is implemented only for the copy mode, and paste from the terminal goes by bracketed paste mode).</sub>
 
 
+<a name="inst_run"></a>
 ## Installing, Running
 <a name="debian"></a>
 #### Debian/Ubuntu binaries from the official repositories
@@ -116,7 +147,7 @@ debuild
 </details>
 
 
-#### OSX/MacOS binaries
+#### macOS binaries
 
 You can install prebuilt package for x86_64 platform via Homebrew Cask, by command:
 ```sh
@@ -136,6 +167,7 @@ docker run -it far2l
 See also [Community packages & binaries](#community_bins)
 
 
+<a name="building"></a>
 ## Building, Contributing, Hacking
 #### Required dependencies
 
@@ -149,6 +181,7 @@ See also [Community packages & binaries](#community_bins)
 * `libsmbclient-dev` (_optional_ - needed for **NetRocks/SMB**)
 * `libnfs-dev` (_optional_ - needed for **NetRocks/NFS**)
 * `libneon27-dev` (or later, _optional_ - needed for **NetRocks/WebDAV**)
+* [AWS SDK S3](https://github.com/aws/aws-sdk-cpp) (_optional_ - needed for **NetRocks/AWS S3**)
 * `libarchive-dev` (_optional_ - needed for better archives support in **multiarc**)
 * `libunrar-dev` (_optional_ - needed for RAR archives support in **multiarc**, see `-DUNRAR` command line option)
 * `libicu-dev` (_optional_ - needed if used non-default ICU_MODE, see `-DICU_MODE` command line option)
@@ -207,7 +240,7 @@ To force-disable TTY|X and TTY|Xi backends: add argument `-DTTYX=no`; to disable
 
 To eliminate libuchardet requirement to reduce far2l dependencies by cost of losing automatic charset detection functionality: add `-DUSEUCD=no`
 
-By default far2l uses pre-generated "hardcoded" UNICODE characters properties. But this can be changed by specifying -DICU_MODE when configuring cmake:
+By default far2l uses pre-generated "hardcoded" UNICODE characters properties. But this can be changed by specifying `-DICU_MODE` when configuring cmake:
  `-DICU_MODE=prebuilt` - is a described above default implementaion. Most dependency-less option.
  `-DICU_MODE=build` - re-generate characters properties during build by using libicu available on build system, but it still not required to be present on target.
  `-DICU_MODE=runtime` - obtain properties at runtime (that can be bit slower) using libicu that required to be present on target system.
@@ -226,7 +259,7 @@ To control how RAR archives will be handled in multiarc:
 
 There're also options to toggle other plugins build in same way: ALIGN AUTOWRAP CALC COLORER COMPARE DRAWLINE EDITCASE EDITORCOMP FARFTP FILECASE INCSRCH INSIDE MULTIARC NETROCKS SIMPLEINDENT TMPPANEL
 
-#### OSX/MacOS build
+#### macOS build
 
 To make custom/recent build use brew or MacPorts.
 
@@ -237,7 +270,7 @@ To make custom/recent build use brew or MacPorts.
  * If you want to build using Homebrew - first visit <https://brew.sh/> for installation instructions. Note that there're reported problems with Homebrew-based build under MacOS Big Sur.
  * If you want to build using MacPorts - first visit <https://www.macports.org/install.php> for installation instructions.
 
-##### One line OSX/MacOS install latest far2l git master via unofficial brew tap
+##### One line macOS install latest far2l git master via unofficial brew tap
 
  * With GUI/TTY backends:
 ```sh
@@ -247,9 +280,9 @@ brew install --HEAD yurikoles/yurikoles/far2l
 ```sh
 brew install --HEAD yurikoles/yurikoles/far2l --without-wxwidgets
 ```
- * Additionally you can enable python support by adding `--with-python@3.10` to the one of two above commands.
+ * Additionally you can enable python support by adding `--with-python@3.13` to the one of two above commands.
 
-##### Full OSX/MacOS build from sources (harder):
+##### Full macOS build from sources (harder):
 Some issues can be caused by conflicting dependencies, like having two versions of wxWidgets, so avoid such situation when installing dependencies.
 
  * Clone:
@@ -338,28 +371,31 @@ You can import the project into your favourite IDE like QtCreator, CodeLite, or 
  * **Visual Studio Code** (required _CMake Tools extension_): open far2l root directory (by default building in subdirectory `_build`; you can change in `.vscode/settings.json`)
 
 <a name="terminals"></a>
-## Terminals and SSH clients
-Supporting extended far2l keyboard shortcuts and clipboard access
-
- * **kovidgoyal's kitty** (Linux/BSD, macOS): https://github.com/kovidgoyal/kitty & https://sw.kovidgoyal.net/kitty (TTY|k backend: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l and kitty for clipboard support)
- * **Alacritty** (Linux/BSD, macOS, Windows): https://github.com/alacritty/alacritty & https://alacritty.org/ (TTY|k backend: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support) [in Windows in system must be conpty.dll: https://github.com/alacritty/alacritty/issues/8360]
- * **Rio Terminal** (Linux/BSD, macOS, Windows): https://github.com/raphamorim/rio & https://raphamorim.io/rio/ (TTY|k backend: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support)
- * **Ghostty** (Linux, macOS): https://github.com/ghostty-org/ghostty & https://ghostty.org/ (TTY|k backend: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support)
- * **Wez's Terminal Emulator** (Linux/BSD, Windows): https://github.com/wez/wezterm & https://wezfurlong.org/wezterm (TTY|k backend: keys in Linux/BSD by kovidgoyal's kitty keyboard protocol; TTY|w backend: keys in Windows by win32-input-mode, enabled by default; turn on OSC 52 for clipboard support) [kitty keyboard protocol not supported in macOS & Windows]
- * **iTerm2** (macOS): https://gitlab.com/gnachman/iterm2 & https://iterm2.com (TTY|a backend: keys by iTerm2 "raw keyboard" protocol; turn on OSC 52 for clipboard support)
- * **foot** (Linux Wayland only): https://codeberg.org/dnkl/foot (TTY|k backend: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support)
- * **Windows Terminal** (TTY|w backend: keys by win32-input-mode; turn on OSC 52 for clipboard support; has mouse bug: https://github.com/microsoft/terminal/issues/15083 )
-
- * _Original PuTTY_ does _not correctly send some keyboard shortcuts_. Please use putty forks with _special far2l TTY extensions support (fluent keypresses, clipboard sharing etc)_:
-   * **putty4far2l** (Windows ssh-client): https://github.com/ivanshatsky/putty4far2l/releases & https://github.com/unxed/putty4far2l (TTY|F backend: keys and clipboard by FAR2L TTY extensions support)
-   * **cyd01's KiTTY** (Windows ssh-client): https://github.com/cyd01/KiTTY & https://www.9bis.net/kitty (TTY|F backend: keys and clipboard by FAR2L TTY extensions support)
-   * **putty-nd** (Windows ssh-client): https://sourceforge.net/projects/putty-nd & https://github.com/noodle1983/putty-nd (TTY|F backend: keys and clipboard by FAR2L TTY extensions support)
-   * **PuTTY 0.82+**: since 0.82 in vanilla PuTTY you can set keyboard settings `Xterm 216+` and `xterm-style bitmap` (see: https://github.com/elfmz/far2l/issues/2630 )
+## Compatible Terminals and SSH clients
 
 _Note_: to full transfer extended keyboard shortcuts and the clipboard to/from the **remote far2l**
 one of the best way to initiate the connection **inside local far2l-GUI**
-(see details in build-in help section **UI backends**).
+(see details about _TTY|F backend_ in build-in help section **UI backends**).
 
+Terminals/SSH clients with support extended far2l keyboard shortcuts and clipboard access:
+
+ * **kovidgoyal's kitty** (Linux/BSD, macOS): https://github.com/kovidgoyal/kitty & https://sw.kovidgoyal.net/kitty (_TTY|k backend_: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l and kitty for clipboard support)
+ * **Alacritty** (Linux/BSD, macOS, Windows): https://github.com/alacritty/alacritty & https://alacritty.org/ (_TTY|k backend_: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support) [in Windows in system must be conpty.dll: https://github.com/alacritty/alacritty/issues/8360]
+ * **Rio Terminal** (Linux/BSD, macOS, Windows): https://github.com/raphamorim/rio & https://raphamorim.io/rio/ (_TTY|k backend_: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support)
+ * **Ghostty** (Linux, macOS): https://github.com/ghostty-org/ghostty & https://ghostty.org/ (_TTY|k backend_: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support)
+ * **Wez's Terminal Emulator** (Linux/BSD, Windows): https://github.com/wez/wezterm & https://wezfurlong.org/wezterm (_TTY|k backend_: keys in Linux/BSD by kovidgoyal's kitty keyboard protocol; _TTY|w backend_: keys in Windows by win32-input-mode, enabled by default; turn on OSC 52 for clipboard support) [kitty keyboard protocol not supported in macOS & Windows]
+ * **iTerm2** (macOS): https://gitlab.com/gnachman/iterm2 & https://iterm2.com (_TTY|a backend_: keys by iTerm2 "raw keyboard" protocol; turn on OSC 52 for clipboard support)
+ * **foot** (Linux Wayland only): https://codeberg.org/dnkl/foot (_TTY|k backend_: keys by kovidgoyal's kitty keyboard protocol; turn on OSC 52 in far2l for clipboard support)
+ * **Windows Terminal** (_TTY|w backend_: keys by win32-input-mode; turn on OSC 52 for clipboard support; has mouse bug: https://github.com/microsoft/terminal/issues/15083 )
+
+ * _Original PuTTY_ does _not correctly send some keyboard shortcuts_. Please use putty forks with _special far2l TTY extensions support (fluent keypresses, clipboard sharing etc)_:
+    + **putty4far2l** (Windows ssh-client): https://github.com/ivanshatsky/putty4far2l/releases & https://github.com/unxed/putty4far2l (_TTY|F backend_: keys and clipboard by FAR2L TTY extensions support)
+    + **cyd01's KiTTY** (Windows ssh-client): https://github.com/cyd01/KiTTY & https://www.9bis.net/kitty (_TTY|F backend_: keys and clipboard by FAR2L TTY extensions support)
+    + **putty-nd** (Windows ssh-client): https://sourceforge.net/projects/putty-nd & https://github.com/noodle1983/putty-nd (_TTY|F backend_: keys and clipboard by FAR2L TTY extensions support)
+    + **PuTTY 0.82+**: since 0.82 in vanilla PuTTY you can set keyboard settings `Xterm 216+` and `xterm-style bitmap` (see: https://github.com/elfmz/far2l/issues/2630 ),
+but vanilla PuTTY can not transfer clipboard.
+
+<a name="useful3party"></a>
 ## Useful 3rd-party extras
 
  * A collection of macros for far2l: https://github.com/corporateshark/far2l-macros

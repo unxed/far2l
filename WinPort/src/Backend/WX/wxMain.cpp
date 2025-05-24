@@ -782,6 +782,16 @@ void WinPortPanel::CheckForResizePending()
 	}
 }
 
+
+void WinPortPanel::CheckForUnfreeze(bool force)
+{
+	if (_qedit_unfreeze_start_ticks != 0
+			&& (force || WINPORT(GetTickCount)() - _qedit_unfreeze_start_ticks >= QEDIT_UNFREEZE_DELAY)) {
+		WINPORT(UnfreezeConsoleOutput)();
+		_qedit_unfreeze_start_ticks = 0;
+	}
+}
+
 void WinPortPanel::OnTimerPeriodic(wxTimerEvent& event)
 {
 	if (_extra_refresh) {
@@ -796,11 +806,7 @@ void WinPortPanel::OnTimerPeriodic(wxTimerEvent& event)
 		return;
 	}
 
-	if (_qedit_unfreeze_start_ticks != 0
-			&& WINPORT(GetTickCount)() - _qedit_unfreeze_start_ticks >= QEDIT_UNFREEZE_DELAY) {
-		WINPORT(UnfreezeConsoleOutput)();
-		_qedit_unfreeze_start_ticks = 0;
-	}
+	CheckForUnfreeze(false);
 
 	CheckForResizePending();
 	CheckPutText2CLip();	
@@ -1335,6 +1341,7 @@ bool isLayoutDependentKey( wxKeyEvent& event ) {
 void WinPortPanel::OnKeyDown( wxKeyEvent& event )
 {
 	ResetTimerIdling();
+	CheckForUnfreeze(true);
 	DWORD now = WINPORT(GetTickCount)();
 	const auto uni = event.GetUnicodeKey();
 	fprintf(stderr, "\nOnKeyDown: %s %s raw=%x code=%x uni=%x \"%lc\" ts=%lu [now=%u]",
@@ -1433,6 +1440,10 @@ void WinPortPanel::OnKeyDown( wxKeyEvent& event )
 	}
 #endif
 
+	// Do not enqueue empty events
+	// This is needed to fix https://github.com/elfmz/far2l/issues/2744
+	bool empty_event = !event.GetKeyCode() && !uni;
+
 	// We can not trust OnKeyDown Unicode character value for Alt+letter due to wx issue #23421,
 	// so let's fall back to OnChar value for such key combinations.
 
@@ -1444,7 +1455,7 @@ void WinPortPanel::OnKeyDown( wxKeyEvent& event )
 #endif
 			)
 		|| event.GetKeyCode() == WXK_DELETE || event.GetKeyCode() == WXK_RETURN
-		|| (event.GetUnicodeKey()==WXK_NONE && !IsForcedCharTranslation(event.GetKeyCode()) ))
+		|| (event.GetUnicodeKey()==WXK_NONE && !IsForcedCharTranslation(event.GetKeyCode()) && !empty_event))
 	{
 		wxConsoleInputShim::Enqueue(&ir, 1);
 		_last_keydown_enqueued = true;
@@ -1600,7 +1611,9 @@ void WinPortPanel::OnChar( wxKeyEvent& event )
 		INPUT_RECORD ir = {0};
 		ir.EventType = KEY_EVENT;
 		ir.Event.KeyEvent.wRepeatCount = 1;
-		ir.Event.KeyEvent.wVirtualKeyCode = VK_OEM_PERIOD;
+		// we can not determine correct VirtualKeyCode value here because of
+		// https://github.com/wxWidgets/wxWidgets/issues/25379
+		ir.Event.KeyEvent.wVirtualKeyCode = VK_NONAME;
 		if (event.GetUnicodeKey() <= 0x7f) { 
 			if (_key_tracker.LastKeydown().GetTimestamp() == event.GetTimestamp()) {
 				wx2INPUT_RECORD irx(TRUE, _key_tracker.LastKeydown(), _key_tracker);

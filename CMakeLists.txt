@@ -1,6 +1,7 @@
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
+include(${CMAKE_SOURCE_DIR}/cmake/FuncCopyResources.cmake)
 
-cmake_minimum_required (VERSION 3.0.2)
+cmake_minimum_required (VERSION 3.5.0)
 
 project (far2l)
 
@@ -395,11 +396,22 @@ if (NOT DEFINED MULTIARC OR MULTIARC)
 
     find_package(PkgConfig REQUIRED)
     pkg_search_module(LibArchive QUIET libarchive)
-    if(NOT LibArchive_FOUND)
+    find_package(LibArchive)
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         # workaround for MacOS brew's/macports' libarchive
-        if(IS_DIRECTORY "/usr/local/opt/libarchive/include")
-            set(LibArchive_INCLUDE_DIR "/usr/local/opt/libarchive/include")
-            set(LibArchive_LIBRARY "/usr/local/opt/libarchive/lib/libarchive.dylib")
+        execute_process(COMMAND brew --prefix
+            OUTPUT_VARIABLE BREW_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+        if("${BREW_PREFIX}" STREQUAL "")
+            set(BREW_PREFIX "/usr/local")
+            message(STATUS "Fallback BREW_PREFIX=${BREW_PREFIX}")
+        else()
+            message(STATUS "Detected BREW_PREFIX=${BREW_PREFIX}")
+        endif()
+        if(IS_DIRECTORY "${BREW_PREFIX}/opt/libarchive/include")
+            set(LibArchive_INCLUDE_DIR "${BREW_PREFIX}/opt/libarchive/include")
+            set(LibArchive_LIBRARY "${BREW_PREFIX}/opt/libarchive/lib/libarchive.dylib")
         elseif(EXISTS "/opt/local/lib/libarchive.dylib")
             set(LibArchive_LIBRARY "/opt/local/lib/libarchive.dylib")
         endif()
@@ -477,10 +489,6 @@ if (DEFINED PYTHON AND PYTHON)
         DESTINATION "lib/far2l/Plugins/python/plug/" USE_SOURCE_PERMISSIONS
         COMPONENT base FILES_MATCHING
         PATTERN "*")
-    install(DIRECTORY "${INSTALL_DIR}/Plugins/python/plug/plugins"
-        DESTINATION "lib/far2l/Plugins/python/plug/" USE_SOURCE_PERMISSIONS
-        COMPONENT base FILES_MATCHING
-        PATTERN "*")
 else()
     message(STATUS "${ColorRed}PYTHON plugin disabled, use -DPYTHON=yes if you need it${ColorNormal}")
     install(CODE "
@@ -531,6 +539,7 @@ install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "lib/far2l" USE_SOURCE_PERMISSIO
     PATTERN "far2l_ttyx.broker"
     PATTERN "plug/*.far-plug-*"
     PATTERN "plug/*.broker"
+    PATTERN "python/plugins" EXCLUDE
 )
 
 install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "share/far2l" USE_SOURCE_PERMISSIONS COMPONENT base FILES_MATCHING
@@ -539,7 +548,7 @@ install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "share/far2l" USE_SOURCE_PERMISS
     PATTERN "far2l_*" EXCLUDE
     PATTERN "*.far-plug-*" EXCLUDE
     PATTERN "*.broker" EXCLUDE
-    PATTERN "python/plug/python" EXCLUDE
+    PATTERN "python/plug/far2l" EXCLUDE
     PATTERN "*"
 )
 
