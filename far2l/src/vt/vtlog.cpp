@@ -128,15 +128,33 @@ namespace VTLog
 	
 	static class Lines
 	{
+		struct LogLine
+		{
+			HANDLE con_hnd;
+			std::string text;
+			bool wrapped;
+		};
+
 		std::mutex _mutex;
-		std::list< std::pair<HANDLE, std::string> > _memories;
+		std::list<LogLine> _memories;
 		
 	public:
-		void Add(HANDLE con_hnd, unsigned int Width, const CHAR_INFO *Chars)
+		void Add(HANDLE con_hnd, unsigned int actual_width, const CHAR_INFO *Chars, bool is_wrapped)
 		{
-			const size_t limit = (size_t)std::max(Opt.CmdLine.VTLogLimit, 2);
+			if (actual_width == 0)
+				return;
+
 			std::lock_guard<std::mutex> lock(_mutex);
-			// a little hustling to reduce reallocations
+
+			if (!_memories.empty() && _memories.back().con_hnd == con_hnd && _memories.back().wrapped)
+			{
+				auto &last = _memories.back();
+				EncodeLine(last.text, actual_width, Chars, true);
+				last.wrapped = is_wrapped;
+				return;
+			}
+
+			const size_t limit = (size_t)std::max(Opt.CmdLine.VTLogLimit, 2);
 			if (_memories.size() >= limit) {
 				while (_memories.size() > limit) {
 					_memories.pop_front();
@@ -145,32 +163,45 @@ namespace VTLog
 			} else {
 				_memories.emplace_back();
 			}
+
 			auto &last = _memories.back();
-			last.first = con_hnd;
-			last.second.clear();
-			if (Width) {
-				EncodeLine(last.second, Width, Chars, true);
-			}
+			last.con_hnd = con_hnd;
+			last.text.clear();
+			EncodeLine(last.text, actual_width, Chars, true);
+			last.wrapped = is_wrapped;
 		}
 		
-		void DumpToFile(HANDLE con_hnd, int fd, DumpState &ds, bool colored)
+		void DumpTo(HANDLE con_hnd, std::string &s, DumpState &ds, bool colored, bool &was_wrapped)
 		{
 			std::lock_guard<std::mutex> lock(_mutex);
-			for (auto m : _memories) {
-				if (m.first == con_hnd && (ds.nonempty || !m.second.empty())) {
-					ds.nonempty = true;
-					if (!colored) {
-						for (;;) {
-							size_t i = m.second.find('\033');
-							if (i == std::string::npos) break;
-							size_t j = m.second.find('m', i + 1);
-							if (j == std::string::npos) break;
-							m.second.erase(i, j + 1 - i);
+			was_wrapped = false;
+			for (const auto& m : _memories)
+			{
+				if (m.con_hnd == con_hnd)
+				{
+					if (!m.text.empty() || ds.nonempty)
+					{
+						ds.nonempty = true;
+
+						if (!s.empty() && !was_wrapped)
+						{
+							s += NATIVE_EOL;
 						}
+
+						std::string temp_text = m.text;
+						if (!colored)
+						{
+							for (;;) {
+								size_t i = temp_text.find('\033');
+								if (i == std::string::npos) break;
+								size_t j = temp_text.find('m', i + 1);
+								if (j == std::string::npos) break;
+								temp_text.erase(i, j + 1 - i);
+							}
+						}
+						s += temp_text;
+						was_wrapped = m.wrapped;
 					}
-					m.second+= NATIVE_EOL;
-					if (write(fd, m.second.c_str(), m.second.size()) != (int)m.second.size())
-						perror("VTLog: WriteToFile");
 				}
 			}
 		}
@@ -179,7 +210,7 @@ namespace VTLog
 		{
 			std::lock_guard<std::mutex> lock(_mutex);
 			for (auto it = _memories.begin(); it != _memories.end();) {
-				if (it->first == con_hnd) {
+				if (it->con_hnd == con_hnd) {
 					it = _memories.erase(it);
 				} else {
 					++it;
@@ -192,10 +223,10 @@ namespace VTLog
 			std::lock_guard<std::mutex> lock(_mutex);
 			size_t remain = _memories.size();
 			for (auto it = _memories.begin(); remain; --remain) {
-				if (it->first == con_hnd) {
+				if (it->con_hnd == con_hnd) {
 					auto next = it;
 					++next;
-					it->first = NULL;
+					it->con_hnd = NULL;
 					_memories.splice(_memories.end(), _memories, it);
 					it = next;
 				} else {
@@ -211,7 +242,9 @@ namespace VTLog
 	void OnConsoleScroll(PVOID pContext, HANDLE hConsole, unsigned int Width, CHAR_INFO *Chars)
 	{
 		if (g_pause_cnt == 0) {
-			g_lines.Add(hConsole, ActualLineWidth(Width, Chars), Chars);
+			const unsigned int actual_width = ActualLineWidth(Width, Chars);
+			const bool is_wrapped = (actual_width >= Width);
+			g_lines.Add(hConsole, actual_width, Chars, is_wrapped);
 		}
 	}
 
@@ -247,41 +280,64 @@ namespace VTLog
 		g_lines.Reset(con_hnd);
 	}
 	
-	static void AppendScreenLine(const CHAR_INFO *line, unsigned int width, std::string &s, DumpState &ds, bool colored)
+	static void AppendBufferLines(const CHAR_INFO *buffer, int total_height, int line_width, std::string &s, DumpState &ds, bool &was_wrapped, bool colored)
 	{
-		width = ActualLineWidth(width, line);
-		if (width || ds.nonempty) {
+		const CHAR_INFO *current_line = buffer;
+		for (int y = 0; y < total_height; ++y, current_line += line_width)
+		{
+			unsigned int actual_width = ActualLineWidth((unsigned int)line_width, current_line);
+
+			if (actual_width == 0)
+			{
+				if (!was_wrapped)
+				{
+					if (ds.nonempty || !s.empty())
+					{
+						s += NATIVE_EOL;
+					}
+				}
+				was_wrapped = false;
+				continue;
+			}
+
 			ds.nonempty = true;
-			EncodeLine(s, width, line, colored);
-			s+= NATIVE_EOL;
+
+			if (!was_wrapped)
+			{
+				if (!s.empty())
+				{
+					s += NATIVE_EOL;
+				}
+			}
+
+			EncodeLine(s, actual_width, current_line, colored);
+			was_wrapped = (actual_width >= (unsigned int)line_width);
 		}
 	}
 
-	static void AppendActiveScreenLines(HANDLE con_hnd, std::string &s, DumpState &ds, bool colored)
+	static void AppendActiveScreenLines(HANDLE con_hnd, std::string &s, DumpState &ds, bool &was_wrapped, bool colored)
 	{
 		CONSOLE_SCREEN_BUFFER_INFO csbi = { };
 		if (WINPORT(GetConsoleScreenBufferInfo)(con_hnd, &csbi) && csbi.dwSize.X > 0 && csbi.dwSize.Y > 0) {
-			std::vector<CHAR_INFO> line(csbi.dwSize.X);
-			COORD buf_pos = { }, buf_size = {csbi.dwSize.X, 1};
-			SMALL_RECT rc = {0, 0, (SHORT) (csbi.dwSize.X - 1), 0};
-			for (rc.Top = rc.Bottom = 0; rc.Top < csbi.dwSize.Y; rc.Top = ++rc.Bottom) {
-				if (WINPORT(ReadConsoleOutput)(con_hnd, &line[0], buf_size, buf_pos, &rc)) {
-					AppendScreenLine(&line[0], (unsigned int)csbi.dwSize.X, s, ds, colored);
-				}
+			std::vector<CHAR_INFO> screen_buffer(csbi.dwSize.X * csbi.dwSize.Y);
+			COORD buf_size = { csbi.dwSize.X, csbi.dwSize.Y };
+			COORD buf_coord = { 0, 0 };
+			SMALL_RECT read_region = { 0, 0, (SHORT)(csbi.dwSize.X - 1), (SHORT)(csbi.dwSize.Y - 1) };
+
+			if (WINPORT(ReadConsoleOutput)(con_hnd, &screen_buffer[0], buf_size, buf_coord, &read_region))
+			{
+				AppendBufferLines(&screen_buffer[0], csbi.dwSize.Y, csbi.dwSize.X, s, ds, was_wrapped, colored);
 			}
-		}		
+		}
 	}
 
-	static void AppendSavedScreenLines(std::string &s, DumpState &ds, bool colored)
+	static void AppendSavedScreenLines(std::string &s, DumpState &ds, bool &was_wrapped, bool colored)
 	{
 		if (CtrlObject->CmdLine) {
 			int w = 0, h = 0;
 			const CHAR_INFO *ci = CtrlObject->CmdLine->GetBackgroundScreen(w, h);
 			if (ci && w > 0 && h > 0) {
-				while (h--) {
-					AppendScreenLine(ci, (unsigned int)w, s, ds, colored);
-					ci+= w;
-				}
+				AppendBufferLines(ci, h, w, s, ds, was_wrapped, colored);
 			}
 		}
 	}
@@ -305,24 +361,30 @@ namespace VTLog
 			return std::string();
 		}
 			
+		std::string total_log_content;
 		DumpState ds;
-		g_lines.DumpToFile(con_hnd, fd, ds, colored);
+		bool was_wrapped = false;
+
+		g_lines.DumpTo(con_hnd, total_log_content, ds, colored, was_wrapped);
+
 		if (append_screen_lines) {
-			std::string s;
 			if (!con_hnd && !VTShell_Busy()) {
-				AppendSavedScreenLines(s, ds, colored);
+				AppendSavedScreenLines(total_log_content, ds, was_wrapped, colored);
 			} else {
-				AppendActiveScreenLines(con_hnd, s, ds, colored);
-			}
-			if (!s.empty()) {
-				if (write(fd, s.c_str(), s.size()) != (int)s.size())
-					perror("VTLog: write");				
+				AppendActiveScreenLines(con_hnd, total_log_content, ds, was_wrapped, colored);
 			}
 		}
+
+		if (!total_log_content.empty()) {
+			// Add a final newline for consistency, if the log doesn't already end with one.
+			if (!was_wrapped) {
+				total_log_content += NATIVE_EOL;
+			}
+			if (write(fd, total_log_content.c_str(), total_log_content.size()) != (int)total_log_content.size())
+				perror("VTLog: write");
+		}
+
 		close(fd);
 		return path;
 	}
 }
-
-
-
