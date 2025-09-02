@@ -173,6 +173,7 @@ jadoxa@yahoo.com.au
 #include <list>
 #include <vector>
 #include "vtansi.h"
+#include "vtshell.h"
 #include "AnsiEsc.hpp"
 #include "UtfConvert.hpp"
 
@@ -530,6 +531,7 @@ struct VTAnsiContext
 			if (ansi_state.crm)
 				char_buffer[chars_in_buffer++] = c;
 			FlushBuffer();
+			SyncLogicalCursor();
 			WINPORT(GetConsoleScreenBufferInfo)( con_hnd, &csbi );
 			if (ansi_state.crm) {
 				if (csbi.dwCursorPosition.X != 0)
@@ -586,18 +588,33 @@ struct VTAnsiContext
 						default: ;
 					}
 
+					int width = wcwidth(effective_char);
+					if (width < 0) { width = 1; } // 1 cell for undetected cases
+
 					if (current_cursor_line->size() <= current_cursor_col) {
 						current_cursor_line->resize(current_cursor_col + 1, { L' ', ansi_state.font_state.ToConsoleAttributes() });
 					}
 					CI_SET_WCATTR((*current_cursor_line)[current_cursor_col], effective_char, ansi_state.font_state.ToConsoleAttributes());
-					current_cursor_col++;
+
+					// Для символов двойной ширины следующую ячейку нужно пометить как "пустую"
+					if (width > 1) {
+						if (current_cursor_line->size() <= current_cursor_col + 1) {
+							current_cursor_line->resize(current_cursor_col + 2, { L' ', ansi_state.font_state.ToConsoleAttributes() });
+						}
+						// Используем специальный символ или просто пробел, чтобы обозначить вторую половину
+						CI_SET_WCATTR((*current_cursor_line)[current_cursor_col + 1], L'\0', ansi_state.font_state.ToConsoleAttributes());
+					}
+
+					current_cursor_col += width;
 				}
 			}
 
 			// Теперь обрабатываем физический вывод. Все символы, кроме \n, буферизуются.
 			char_buffer[chars_in_buffer] = c;
-			if (++chars_in_buffer == BUFFER_SIZE)
+			if (++chars_in_buffer == BUFFER_SIZE) {
 				FlushBuffer();
+				SyncLogicalCursor();
+			}
 		}
 	}
 
@@ -1030,30 +1047,36 @@ struct VTAnsiContext
 						return;
 
 					case 2:		// ESC[2J Clear screen and home cursor
-						ClearScreenAndHomeCursor(Info); // Физическая очистка экрана
 
-						if (in_alternative_buffer) {
-							current_buffer.clear();
-							current_buffer.emplace_back();
-							current_cursor_line = current_buffer.begin();
-							current_cursor_col = 0;
-						}
+						ClearScreenAndHomeCursor(Info); // Сначала выполняем физическую очистку экрана консоли.
 
-						if (vt_shell->IsInteractiveAppRunning()) {
-							// ИНТЕРАКТИВНЫЙ РЕЖИМ (less/git):
-							// Очищаем содержимое видимой части лога, НЕ удаляя сами строки из истории.
+						// Теперь нужно решить, как эта "очистка" должна отразиться в нашем логическом буфере (в истории).
+						// Поведение зависит от типа запущенного приложения.
+
+						// Проверяем флаг `in_alternative_buffer`, который выставляется
+						// при переключении в специальный режим для полноэкранных приложений
+						if (VTShell_Busy()) {
+
+							//
+							// РЕЖИМ ПОЛНОЭКРАННОГО ПРИЛОЖЕНИЯ (например, mc, less, vim).
+							//
+							// Такие программы используют "альтернативный экранный буфер", чтобы рисовать свой интерфейс.
+							// Команда "очистить экран" для них означает "подготовить холст для новой отрисовки".
+							// Мы не удаляем историю, а лишь затираем видимую часть лога пробелами, сохраняя scrollback.
+							//
+
 							SHORT screen_height = Info.srWindow.Bottom - Info.srWindow.Top + 1;
 							if (screen_height <= 0) screen_height = 24; // Безопасное значение по умолчанию
 
 							SHORT screen_width = Info.srWindow.Right - Info.srWindow.Left + 1;
 							if (screen_width <= 0) screen_width = 80;
 
-							// Создаем "пробел" с текущим цветом фона
+							// Создаем "пробел" с текущим цветом фона для затирания.
 							CHAR_INFO blank_char_with_color;
 							const WORD attributes = ansi_state.font_state.ToConsoleAttributes();
 							CI_SET_WCATTR(blank_char_with_color, L' ', attributes);
 
-							// Итератор на начало видимой области (отсчитываем N строк от конца)
+							// Находим в нашем логе строку, которая сейчас является верхней на экране.
 							auto top_visible_line_it = current_buffer.end();
 							if ((size_t)screen_height <= current_buffer.size()) {
 								top_visible_line_it = std::prev(current_buffer.end(), screen_height);
@@ -1061,36 +1084,49 @@ struct VTAnsiContext
 								top_visible_line_it = current_buffer.begin();
 							}
 
-							// Очищаем и ЗАПОЛНЯЕМ видимые строки "цветными пробелами"
+							// Заполняем видимые строки "цветными пробелами".
 							for (auto it = top_visible_line_it; it != current_buffer.end(); ++it) {
 								it->assign(screen_width, blank_char_with_color);
 							}
 
-							// Устанавливаем логический курсор в начало очищенной области (левый верхний угол)
+							// Устанавливаем логический курсор в начало очищенной области (левый верхний угол).
 							current_cursor_line = top_visible_line_it;
 							current_cursor_col = 0;
 
 						} else {
-							// ОБЫЧНЫЙ РЕЖИМ (команда 'clear'):
-							// Добавляем пустые строки, чтобы отделить старый вывод от нового.
+
+							//
+							// РЕЖИМ ПОТОКОВОГО ВЫВОДА (стандартное поведение shell, команда `clear`).
+							//
+							// Очистка экрана здесь - это эмуляция прокрутки: добавляем пустые строки,
+							// чтобы визуально "очистить" экран. Предыдущий вывод уходит вверх в историю прокрутки (scrollback).
+							//
+
 							SHORT screen_height = Info.srWindow.Bottom - Info.srWindow.Top + 1;
 							if (screen_height <= 0) screen_height = 24;
+
+							// Добавляем N пустых строк в конец лога.
 							for (SHORT i = 0; i < screen_height; ++i) {
 								current_buffer.emplace_back();
 							}
 
+							// Ограничиваем общий размер лога.
 							while (current_buffer.size() > MAX_LOGICAL_LINES) {
 								current_buffer.pop_front();
 							}
+
+							// Перемещаем логический курсор на первую из новых пустых строк.
 							current_cursor_line = std::prev(current_buffer.end(), screen_height);
 							current_cursor_col = 0;
 						}
-						return;
 
-					default:
+						// Не забываем синхронизировать, т.к. ClearScreenAndHomeCursor изменил физ. курсор
+						SyncLogicalCursor();
+
 						return;
 					}
 				}
+				return;
 
 				case 'K':
 					if (es_argc == 0) es_argv[es_argc++] = 0; // ESC[K == ESC[0K
@@ -1219,6 +1255,8 @@ struct VTAnsiContext
 						CI_SET_WCATTR(CharInfo, blank_character, ansi_state.font_state.ToConsoleAttributes());
 						WINPORT(ScrollConsoleScreenBuffer)( con_hnd, &Rect, &Info.srWindow, Pos, &CharInfo );
 					}
+
+					SyncLogicalCursor();
 					return;
 
 			case 'T':                 // ESC[#T Scroll down
@@ -1254,6 +1292,7 @@ struct VTAnsiContext
 						WINPORT(ScrollConsoleScreenBuffer)( con_hnd, &Rect, &Info.srWindow, Pos, &CharInfo );
 					}
 				}
+				SyncLogicalCursor();
 				return;
 
 			case 'M': // Delete # lines.
@@ -1276,6 +1315,7 @@ struct VTAnsiContext
 					CI_SET_WCATTR(CharInfo, L' ', attributes);
 					WINPORT(ScrollConsoleScreenBuffer)(con_hnd, &Rect, NULL, Pos, &CharInfo);
 				}
+				SyncLogicalCursor();
 				return;
 
 			case 'P': // Delete # characters.
@@ -1295,6 +1335,7 @@ struct VTAnsiContext
 					CI_SET_WCATTR(CharInfo, L' ', attributes);
 					WINPORT(ScrollConsoleScreenBuffer)(con_hnd, &Rect, &Rect, Pos, &CharInfo);
 				}
+				SyncLogicalCursor();
 				return;
 
 			case '@': // Insert # blank characters.
@@ -1317,6 +1358,7 @@ struct VTAnsiContext
 					CI_SET_WCATTR(CharInfo, L' ', attributes);
 					WINPORT(ScrollConsoleScreenBuffer)(con_hnd, &Rect, NULL, Pos, &CharInfo);
 				}
+				SyncLogicalCursor();
 				return;
 
 			case 'k':                 // ESC[#k
@@ -1414,41 +1456,6 @@ struct VTAnsiContext
 					es_argv[es_argc++] = 1; // ESC[#H == ESC[#;1H
 				if (es_argc > 2) return;
 
-				if (!output_disabled) {
-					auto& current_buffer = GetCurrentBuffer();
-					auto& current_cursor_line = GetCurrentCursorLine();
-					auto& current_cursor_col = GetCurrentCursorCol();
-
-					CONSOLE_SCREEN_BUFFER_INFO csbi;
-					WINPORT(GetConsoleScreenBufferInfo)(con_hnd, &csbi);
-
-					SHORT target_row = es_argv[0] - 1; // 0-based
-					SHORT target_col = es_argv[1] - 1; // 0-based
-					if (target_row < 0) target_row = 0;
-					if (target_col < 0) target_col = 0;
-
-					// Вычисляем, какая логическая строка соответствует target_row на экране.
-					// Мы отсчитываем от КОНЦА нашего буфера.
-					SHORT screen_height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-					int lines_from_bottom = screen_height - 1 - target_row;
-
-					if (lines_from_bottom < 0) lines_from_bottom = 0;
-
-					// Убедимся, что у нас достаточно строк в буфере
-					while ((int)current_buffer.size() < screen_height) {
-						current_buffer.emplace_back();
-					}
-
-					if ((size_t)lines_from_bottom < current_buffer.size()) {
-						current_cursor_line = std::prev(current_buffer.end(), lines_from_bottom + 1);
-					} else {
-						current_cursor_line = current_buffer.begin();
-					}
-
-					current_cursor_col = target_col;
-				}
-
-				// Физическое позиционирование
 				Pos.X = es_argv[1] - 1;
 				if (Pos.X < 0) Pos.X = 0;
 				if (Pos.X > (Info.dwSize.X - 1)) Pos.X = (Info.dwSize.X - 1);
@@ -1487,6 +1494,7 @@ struct VTAnsiContext
 				if (es_argc != 1) return;
 				while (--es_argv[0] >= 0)
 					PushBuffer( prev_char );
+				SyncLogicalCursor();
 				return;
 
 			case 's':                 // ESC[s Saves cursor position for recall later
@@ -1684,7 +1692,7 @@ struct VTAnsiContext
 			current_cursor_line = current_buffer.begin();
 		}
 
-		// Оригинальная логика для физического экрана остается без изменений
+		// Логика для физического экрана
 		HANDLE con_hnd = vt_shell->ConsoleHandle();
 		CONSOLE_SCREEN_BUFFER_INFO info;
 		WINPORT(GetConsoleScreenBufferInfo)( con_hnd, &info );
@@ -1710,6 +1718,8 @@ struct VTAnsiContext
 		CHAR_INFO CharInfo;
 		CI_SET_WCATTR(CharInfo, blank_character, info.wAttributes);
 		WINPORT(ScrollConsoleScreenBuffer)(con_hnd, &Rect, NULL, Pos, &CharInfo);
+
+		SyncLogicalCursor();
 	}
 
 	void ResetTerminal()
@@ -1763,6 +1773,7 @@ struct VTAnsiContext
 	{
 		FlushBuffer();
 		WINPORT(SetConsoleCursorPosition)(vt_shell->ConsoleHandle(), save_cursor_info.dwCursorPosition);
+		SyncLogicalCursor();
 	}
 
 //-----------------------------------------------------------------------------

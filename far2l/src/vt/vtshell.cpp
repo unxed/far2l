@@ -118,7 +118,6 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 	pid_t _leader_pid;
 	std::string _slavename;
 	std::atomic<unsigned char> _keypad{0};
-	bool _interactive_app_running{false};
 	std::atomic<bool> _bracketed_paste_expected{false};
 	std::atomic<bool> _win32_input_mode_expected{false};
 	std::atomic<bool> _focus_change_expected{false};
@@ -1018,7 +1017,7 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 	public:
 	VTShell() : _vta(this), _input_reader(this), _output_reader(this),
 		_fd_out(-1), _fd_in(-1), _pipes_fallback_in(-1), _pipes_fallback_out(-1),
-		_leader_pid(-1), _keypad(0), _interactive_app_running(false)
+		_leader_pid(-1), _keypad(0)
 	{
 		memset(&_last_window_info_ir, 0, sizeof(_last_window_info_ir));
 		if (!Startup())
@@ -1033,8 +1032,6 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 		CheckedCloseFD(_pipes_fallback_in);
 		CheckedCloseFD(_pipes_fallback_out);
 	}
-
-	bool IsInteractiveAppRunning() override { return _interactive_app_running; }
 
 	virtual HANDLE ConsoleHandle()
 	{
@@ -1082,9 +1079,7 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 			_exit_code = -1;
 		}
 
-		_interactive_app_running = true;
 		bool completed = ExecuteCommandCommonTail(may_bgnd);
-		_interactive_app_running = false;
 		return completed;
 	}
 
