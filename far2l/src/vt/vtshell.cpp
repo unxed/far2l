@@ -812,12 +812,8 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 				}
 			}
 
-			if (_kitty_kb_flags) {
-				std::string as_kitty = VT_TranslateKeyToKitty(KeyEvent, _kitty_kb_flags, _keypad);
-				if (as_kitty.length() > 0) {
-					return as_kitty;
-				}
-			}
+			// try win32 input mode first as kitty generation result can be zero in some cases
+			// (key releases without progressive enhancement 2, for example)
 
 			if (_win32_input_mode_expected) {
 
@@ -832,6 +828,13 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 				fprintf(stderr, "win32-input-mode: generated ESC%s\n", result.c_str() + 1); // пропускаем \x1B
 
 				return result;
+			}
+
+			if (_kitty_kb_flags) {
+				std::string as_kitty = VT_TranslateKeyToKitty(KeyEvent, _kitty_kb_flags, _keypad);
+				if (as_kitty.length() > 0) {
+					return as_kitty;
+				}
 			}
 
 			if (!KeyEvent.bKeyDown)
