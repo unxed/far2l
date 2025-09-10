@@ -104,6 +104,11 @@ std::string VT_TranslateKeyToKitty(const KEY_EVENT_RECORD &KeyEvent, int flags, 
 		return "";
 	}
 
+	if (!(flags & 2) && !KeyEvent.bKeyDown) {
+		fprintf(stderr, "kitty kb: not reporting key release\n");
+		return "";
+	}
+
 	// Get legacy representation. We will fall back to in some cases
 	legacy = VT_TranslateSpecialKey(
 		KeyEvent.wVirtualKeyCode, ctrl, alt, shift, keypad, KeyEvent.uChar.UnicodeChar);
