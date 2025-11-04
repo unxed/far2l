@@ -180,7 +180,7 @@ const ConfigOpt g_cfg_opts[] {
 	{false, NSecInterface, "FormatNumberSeparators", &Opt.FormatNumberSeparators, 0},
 	{true,  NSecInterface, "CopyShowTotal", &Opt.CMOpt.CopyShowTotal, 1},
 	{true,  NSecInterface, "DelShowTotal", &Opt.DelOpt.DelShowTotal, 0},
-	{true,  NSecInterface, "WindowTitle", &Opt.strWindowTitle, L"%State - FAR2L %Ver %Backend %User@%Host"}, // %Platform 
+	{true,  NSecInterface, "WindowTitle", &Opt.strWindowTitle, L"%State - FAR2L %Ver %Backend %User@%Host"}, // %Platform
 	{true,  NSecInterfaceCompletion, "Exceptions", &Opt.AutoComplete.Exceptions, L"git*reset*--hard;*://*:*@*;\" *\""},
 	{true,  NSecInterfaceCompletion, "ShowList", &Opt.AutoComplete.ShowList, 1},
 	{true,  NSecInterfaceCompletion, "ModalList", &Opt.AutoComplete.ModalList, 0},
@@ -241,6 +241,7 @@ const ConfigOpt g_cfg_opts[] {
 	{true,  NSecEditor, "SearchSelFound", &Opt.EdOpt.SearchSelFound, 0},
 	{true,  NSecEditor, "SearchRegexp", &Opt.EdOpt.SearchRegexp, 0},
 	{true,  NSecEditor, "SearchPickUpWord", &Opt.EdOpt.SearchPickUpWord, 0},
+	{true,  NSecEditor, "WordWrap", &Opt.EdOpt.WordWrap, 0},
 	{true,  NSecEditor, "ShowWhiteSpace", &Opt.EdOpt.ShowWhiteSpace, 0},
 
 	{true,  NSecNotifications, "OnFileOperation", &Opt.NotifOpt.OnFileOperation, 1},
@@ -392,7 +393,6 @@ const ConfigOpt g_cfg_opts[] {
 	{true,  NSecPanel, "CaseSensitiveCompareSelect", &Opt.PanelCaseSensitiveCompareSelect, 1},
 	{true,  NSecPanel, "ReverseSort", &Opt.ReverseSort, 1},
 	{false, NSecPanel, "RightClickRule", &Opt.PanelRightClickRule, 2},
-	{false, NSecPanel, "CtrlFRule", &Opt.PanelCtrlFRule, 1},
 	{false, NSecPanel, "CtrlAltShiftRule", &Opt.PanelCtrlAltShiftRule, 0},
 	{false, NSecPanel, "RememberLogicalDrives", &Opt.RememberLogicalDrives, 0},
 	{true,  NSecPanel, "AutoUpdateLimit", &Opt.AutoUpdateLimit, 0},
