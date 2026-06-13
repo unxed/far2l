@@ -129,6 +129,7 @@ Panel::Panel()
 	NumericSort(0),
 	CaseSensitiveSort(0),
 	DirectoriesFirst(1),
+	ExecutablesFirst(0),
 	ModalMode(0),
 	ViewSettings(),
 	ProcessingPluginCommand(0)
@@ -292,15 +293,15 @@ static void ConfigureChangeDriveMode()
 
 	//	BOOL ShowSizeAny = Opt.ChangeDriveMode & (DRIVE_SHOW_SIZE | DRIVE_SHOW_SIZE_FLOAT);
 
-	//	DialogItemEx *ShowSize = Builder.AddCheckbox(Msg::ChangeDriveShowSize, &ShowSizeAny);
-	//	DialogItemEx *ShowSizeFloat = Builder.AddCheckbox(Msg::ChangeDriveShowSizeFloat, &Opt.ChangeDriveMode, DRIVE_SHOW_SIZE_FLOAT);
+	//	auto ShowSize = Builder.AddCheckbox(Msg::ChangeDriveShowSize, &ShowSizeAny);
+	//	auto ShowSizeFloat = Builder.AddCheckbox(Msg::ChangeDriveShowSizeFloat, &Opt.ChangeDriveMode, DRIVE_SHOW_SIZE_FLOAT);
 	//	ShowSizeFloat->Indent(3);
 	//	Builder.LinkFlags(ShowSize, ShowSizeFloat, DIF_DISABLE);
 
-	auto *ShowMountsItem =
+	auto ShowMountsItem =
 			Builder.AddCheckbox(Msg::ChangeDriveShowMounts, &Opt.ChangeDriveMode, DRIVE_SHOW_MOUNTS);
 
-	auto *EditItem = Builder.AddEditField(&Opt.ChangeDriveExceptions, 28);
+	auto EditItem = Builder.AddEditField(&Opt.ChangeDriveExceptions, 28);
 	Builder.LinkFlags(ShowMountsItem, EditItem, DIF_DISABLE);
 	Builder.AddTextBefore(EditItem, Msg::ChangeDriveExceptions);
 
@@ -377,7 +378,7 @@ static void AddBookmarkItems(VMenu &ChDisk, int Pos)
 
 			if (!PluginFile.IsEmpty()) {
 				ShortcutPath+= PluginFile;
-				ShortcutPath+= L"/";
+				ShortcutPath+= WGOOD_SLASH;
 			}
 			ShortcutPath+= Folder;
 			if (ShortcutPath.IsEmpty()) {
@@ -816,7 +817,7 @@ bool Panel::SetLocation_Plugin(bool file_plugin, Plugin *plugin, const wchar_t *
 	if (path) {
 		NewPanel->Update(0);
 		NewPanel->Show();
-		CtrlObject->Plugins.SetDirectory(hPlugin, L"/", 0);
+		CtrlObject->Plugins.SetDirectory(hPlugin, WGOOD_SLASH, 0);
 		if (!CtrlObject->Plugins.SetDirectory(hPlugin, path, 0)) {
 			fprintf(stderr, "SetLocation_Plugin(%d, %p, '%ls', '%ls', %lld) FAILED set directory\n",
 					file_plugin, plugin, path, host_file, (long long)item);
@@ -1332,7 +1333,7 @@ int Panel::GetCurDirPluginAware(FARString &strCurDir)
 
 		if (Info.HostFile && *Info.HostFile) {
 			strCurDir+= Info.HostFile;
-			strCurDir+= L"/";
+			strCurDir+= WGOOD_SLASH;
 		}
 
 		strCurDir+= Info.CurDir;
@@ -1518,7 +1519,7 @@ void Panel::ShowScreensCount()
 			}
 
 			if (Viewers > 0) {
-				strScreensText.Format(L"%cV%d", Prefix, Viewers);
+				strScreensText.AppendFormat(L"%cV%d", Prefix, Viewers);
 				Prefix = ' ';
 			}
 
@@ -1655,6 +1656,12 @@ int Panel::SetPluginCommand(int Command, int Param1, LONG_PTR Param2)
 			break;
 		}
 
+		case FCTL_SETEXECUTABLESFIRST: {
+			ChangeExecutablesFirst(Param1);
+			Result = TRUE;
+			break;
+		}
+
 		case FCTL_CLOSEPLUGIN:
 			strPluginParam = (const wchar_t *)Param2;
 			Result = TRUE;
@@ -1719,6 +1726,7 @@ int Panel::SetPluginCommand(int Command, int Param1, LONG_PTR Param2)
 				Flags|= GetDirectoriesFirst() ? PFLAGS_DIRECTORIESFIRST : 0;
 				Flags|= GetNumericSort() ? PFLAGS_NUMERICSORT : 0;
 				Flags|= GetCaseSensitiveSort() ? PFLAGS_CASESENSITIVESORT : 0;
+				Flags|= GetExecutablesFirst() ? PFLAGS_EXECUTABLESFIRST : 0;
 
 				if (CtrlObject->Cp()->LeftPanel == this)
 					Flags|= PFLAGS_PANELLEFT;

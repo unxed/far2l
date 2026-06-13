@@ -70,7 +70,11 @@ struct ITTYInputSpecialSequenceHandler
 	virtual void OnFocusChange(bool focused) = 0;
 	virtual void OnFar2lEvent(StackSerializer &stk_ser) = 0;
 	virtual void OnFar2lReply(StackSerializer &stk_ser) = 0;
+	virtual void OnKittyGraphicsResponse(const std::string &s) = 0;
+	virtual void OnStatusResponse(char c) = 0;
+	virtual void OnCursorShape(int shape) = 0;
 	virtual void OnInputBroken() = 0;
+	virtual void OnGetCellSize(unsigned int w, unsigned int h) = 0;
 };
 
 //wait for more characters from input buffer
@@ -157,6 +161,7 @@ class TTYInputSequenceParser
 	void AddPendingMouseEvent(int action, int col, int row);
 
 	void ParseAPC(const char *s, size_t l);
+	void ParseDCS(const char *s, size_t l);
 	size_t TryParseAsWinTermEscapeSequence(const char *s, size_t l);
 	size_t TryUnwrappWinDoubleEscapeSequence(const char *s, size_t l);
 	size_t ReadUTF8InHex(const char *s, wchar_t *uni_char);
@@ -189,4 +194,5 @@ public:
 	*/
 	void ParseWinDoubleBuffer(bool idle_expired);
 	char UsingExtension() const { return _using_extension; };
+	bool IsBracketedPasteMode() const { return _bracketed_paste_mode; };
 };

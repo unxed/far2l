@@ -72,7 +72,172 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Environment.h"
 #include "WideMB.h"
 #include "clipboard.hpp"
+#include "dialog.hpp"
 #include <limits>
+
+namespace
+{
+void NormalizeMultilineForExec(FARString &text)
+{
+	const wchar_t *src = text.CPtr();
+	size_t len = text.GetLength();
+	FARString out;
+	out.Reserve(len);
+
+	for (size_t i = 0; i < len; ++i) {
+		if (src[i] == L'\r') {
+			if (i + 1 < len && src[i + 1] == L'\n')
+				continue;
+			out.Append(L'\n');
+		} else {
+			out.Append(src[i]);
+		}
+	}
+
+	text = out;
+}
+
+namespace {
+enum
+{
+	MP_BOX,
+	MP_MEMO,
+	MP_SEPARATOR,
+	MP_BTN_CANCEL,
+	MP_BTN_EXEC,
+	MP_BTN_EXEC_NOASK
+};
+
+struct CmdlinePasteDlgLayout
+{
+	int min_width;
+	int min_height;
+};
+
+static void CalcCmdlinePasteDialogLayout(const CmdlinePasteDlgLayout &layout, int &dlg_w, int &dlg_h, int &dlg_x,
+		int &dlg_y)
+{
+	dlg_w = Max(layout.min_width, Min(ScrX - 2, Max(76, (ScrX * 3) / 4)));
+	dlg_h = Max(layout.min_height, Min(ScrY - 2, Max(20, (ScrY * 2) / 3)));
+	dlg_x = Max(0, (ScrX - dlg_w) / 2);
+	dlg_y = Max(0, (ScrY - dlg_h) / 2);
+}
+
+static INT_PTR WINAPI CmdlinePasteDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Param2)
+{
+	if (Msg == DN_RESIZECONSOLE) {
+		auto *layout = reinterpret_cast<CmdlinePasteDlgLayout *>(SendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0));
+		if (!layout)
+			return DefDlgProc(hDlg, Msg, Param1, Param2);
+
+		int dlg_w = 0;
+		int dlg_h = 0;
+		int dlg_x = 0;
+		int dlg_y = 0;
+		CalcCmdlinePasteDialogLayout(*layout, dlg_w, dlg_h, dlg_x, dlg_y);
+
+		SendDlgMessage(hDlg, DM_ENABLEREDRAW, FALSE, 0);
+
+		COORD size = {(SHORT)dlg_w, (SHORT)dlg_h};
+		SendDlgMessage(hDlg, DM_RESIZEDIALOG, 0, reinterpret_cast<LONG_PTR>(&size));
+
+		COORD pos = {(SHORT)dlg_x, (SHORT)dlg_y};
+		SendDlgMessage(hDlg, DM_MOVEDIALOG, TRUE, reinterpret_cast<LONG_PTR>(&pos));
+
+		SMALL_RECT rect;
+		rect.Left = 3;
+		rect.Top = 1;
+		rect.Right = (SHORT)(dlg_w - 4);
+		rect.Bottom = (SHORT)(dlg_h - 2);
+		SendDlgMessage(hDlg, DM_SETITEMPOSITION, MP_BOX, reinterpret_cast<LONG_PTR>(&rect));
+
+		rect.Left = 5;
+		rect.Top = 2;
+		rect.Right = (SHORT)(dlg_w - 6);
+		rect.Bottom = (SHORT)(dlg_h - 5);
+		SendDlgMessage(hDlg, DM_SETITEMPOSITION, MP_MEMO, reinterpret_cast<LONG_PTR>(&rect));
+
+		rect.Left = 0;
+		rect.Right = 0;
+		rect.Top = (SHORT)(dlg_h - 5);
+		rect.Bottom = (SHORT)(dlg_h - 5);
+		SendDlgMessage(hDlg, DM_GETITEMPOSITION, MP_SEPARATOR, reinterpret_cast<LONG_PTR>(&rect));
+		rect.Top = (SHORT)(dlg_h - 4);
+		rect.Bottom = (SHORT)(dlg_h - 4);
+		SendDlgMessage(hDlg, DM_SETITEMPOSITION, MP_SEPARATOR, reinterpret_cast<LONG_PTR>(&rect));
+
+		SendDlgMessage(hDlg, DM_GETITEMPOSITION, MP_BTN_CANCEL, reinterpret_cast<LONG_PTR>(&rect));
+		rect.Top = (SHORT)(dlg_h - 3);
+		rect.Bottom = (SHORT)(dlg_h - 3);
+		SendDlgMessage(hDlg, DM_SETITEMPOSITION, MP_BTN_CANCEL, reinterpret_cast<LONG_PTR>(&rect));
+		SendDlgMessage(hDlg, DM_GETITEMPOSITION, MP_BTN_EXEC, reinterpret_cast<LONG_PTR>(&rect));
+		rect.Top = (SHORT)(dlg_h - 3);
+		rect.Bottom = (SHORT)(dlg_h - 3);
+		SendDlgMessage(hDlg, DM_SETITEMPOSITION, MP_BTN_EXEC, reinterpret_cast<LONG_PTR>(&rect));
+		SendDlgMessage(hDlg, DM_GETITEMPOSITION, MP_BTN_EXEC_NOASK, reinterpret_cast<LONG_PTR>(&rect));
+		rect.Top = (SHORT)(dlg_h - 3);
+		rect.Bottom = (SHORT)(dlg_h - 3);
+		SendDlgMessage(hDlg, DM_SETITEMPOSITION, MP_BTN_EXEC_NOASK, reinterpret_cast<LONG_PTR>(&rect));
+
+		SendDlgMessage(hDlg, DM_ENABLEREDRAW, TRUE, 0);
+		return TRUE;
+	}
+
+	return DefDlgProc(hDlg, Msg, Param1, Param2);
+}
+} // namespace
+
+int ShowMultilinePasteDialog(FARString &text)
+{
+	static const wchar_t kCmdlineMemoFilename[] = L"cmdline.bash";
+	const int min_width = 40;
+	const int min_height = 12;
+	const int dlg_w = Max(min_width, Min(ScrX - 2, Max(76, (ScrX * 3) / 4)));
+	const int dlg_h = Max(min_height, Min(ScrY - 2, Max(20, (ScrY * 2) / 3)));
+	const int sep_y = dlg_h - 4;
+	const int btn_y = dlg_h - 3;
+//	const int dlg_w = Max(min_width, Min(ScrX - 2, 76));
+//	const int dlg_h = Max(min_height, Min(ScrY - 2, 20));
+
+	DialogDataEx DlgData[] = {
+		{DI_DOUBLEBOX, 3, 1, (short)(dlg_w - 4), (short)(dlg_h - 2), {}, 0, Msg::MultilinePaste},
+		{DI_MEMOEDIT,  5, 2, (short)(dlg_w - 6), (short)(dlg_h - 5), {}, DIF_FOCUS, L""},
+		{DI_TEXT,      0, (short)sep_y, 0, (short)sep_y, {}, DIF_SEPARATOR, L""},
+		{DI_BUTTON,    0, (short)btn_y, 0, (short)btn_y, {}, DIF_CENTERGROUP, Msg::HCancel},
+		{DI_BUTTON,    0, (short)btn_y, 0, (short)btn_y, {}, DIF_CENTERGROUP | DIF_DEFAULT, Msg::HExecute},
+		{DI_BUTTON,    0, (short)btn_y, 0, (short)btn_y, {}, DIF_CENTERGROUP, Msg::HExecuteNoAsk}
+	};
+
+	MakeDialogItemsEx(DlgData, DlgItems);
+	DlgItems[MP_MEMO].strData = text;
+	DlgItems[MP_MEMO].UserData = (DWORD_PTR)kCmdlineMemoFilename;
+
+	CmdlinePasteDlgLayout layout = {min_width, min_height};
+	Dialog Dlg(DlgItems, ARRAYSIZE(DlgItems), CmdlinePasteDlgProc, reinterpret_cast<LONG_PTR>(&layout));
+	Dlg.SetPosition(-1, -1, dlg_w, dlg_h);
+	Dlg.Process();
+
+	int exit_code = Dlg.GetExitCode();
+	if (exit_code == MP_BTN_EXEC || exit_code == MP_BTN_EXEC_NOASK) {
+		int len = (int)SendDlgMessage((HANDLE)&Dlg, DM_GETTEXTLENGTH, MP_MEMO, 0);
+		if (len > 0) {
+			FARString edited;
+			wchar_t *buf = edited.GetBuffer(len + 1);
+			FarDialogItemData data = {(size_t)len, buf};
+			SendDlgMessage((HANDLE)&Dlg, DM_GETTEXT, MP_MEMO, (LONG_PTR)&data);
+			edited.ReleaseBuffer(len);
+			text = edited;
+		} else {
+			text = DlgItems[MP_MEMO].strData;
+		}
+		NormalizeMultilineForExec(text);
+		RemoveTrailingSpaces(text);
+		return (exit_code == MP_BTN_EXEC) ? 1 : 2;
+	}
+
+	return 0;
+}
+} // namespace
 
 CommandLine::CommandLine()
 	:
@@ -225,7 +390,7 @@ std::string CommandLine::GetConsoleLog(HANDLE con_hnd, bool colored)
 void CommandLine::ChangeDirFromHistory(bool PluginPath, int SelectType, FARString strDir, FARString strFile)
 {
 	if (SelectType == 2)
-		CtrlObject->FolderHistory->SetAddMode(false, 2, true);
+		CtrlObject->FolderHistory->SetAddMode(false, HISTORY_REMOVE_DUPS_CASE_INSENSITIVE, true);
 
 	// пусть плагин сам прыгает... ;-)
 	Panel *Panel = CtrlObject->Cp()->ActivePanel;
@@ -244,7 +409,7 @@ void CommandLine::ChangeDirFromHistory(bool PluginPath, int SelectType, FARStrin
 				CtrlObject->Cp()->ActivePanel->SetCurPath();
 			}
 			Panel->Redraw();
-			CtrlObject->FolderHistory->SetAddMode(true, 2, true);
+			CtrlObject->FolderHistory->SetAddMode(true, HISTORY_REMOVE_DUPS_CASE_INSENSITIVE, true);
 		}
 	}
 }
@@ -582,23 +747,25 @@ int CommandLine::ProcessKeyIfVisible(FarKey Key)
 			if (Key == KEY_CTRLD)
 				Key = KEY_RIGHT;
 
-			if (Key == KEY_CTRLV || Key == KEY_SHIFTINS || Key == KEY_SHIFTNUMPAD0) {
-				wchar_t *ClipText = PasteFromClipboard();
+			if (Key == KEY_CTRLV || Key == KEY_SHIFTINS || Key == KEY_SHIFTNUMPAD0 || Key == KEY_OP_PLAINTEXT) {
+				FARString clip;
+				if (Key == KEY_OP_PLAINTEXT && !GPastedText.IsEmpty()) {
+					clip = GPastedText;
+				} else {
+					wchar_t *p = PasteFromClipboard();
+					if (p) {
+						clip = p;
+						free(p);
+					}
+				}
+
+				const wchar_t *ClipText = clip.CPtr();
 				if (ClipText && wcschr(ClipText, L'\n') && wcschr(ClipText, L'\n')[1] != L'\0') {
 					CmdStr.GetString(strStr);
 					FARString strToExec = strStr.SubStr(0, CmdStr.GetCurPos()) + ClipText + strStr.SubStr(CmdStr.GetCurPos());
 					RemoveTrailingSpaces(strToExec);
 					if (Opt.CmdLine.AskOnMultilinePaste) {
-						ExMessager em;
-						em.AddMultiline(Msg::MultilinePaste);
-						em.AddMultiline(strToExec);
-						em.AddDup(L"\2");
-						em.AddMultiline(Msg::MultilinePasteWarn);
-						em.AddDup(Msg::HCancel);
-						em.AddDup(Msg::HExecute);
-						em.AddDup(Msg::HExecuteNoAsk);
-
-						int res = em.Show(MSG_LEFTALIGN, 3);
+						int res = ShowMultilinePasteDialog(strToExec);
 						if (res == 1) {
 							ExecString(strToExec);
 						}
@@ -677,8 +844,10 @@ void CommandLine::InsertString(const wchar_t *Str)
 		return;
 
 	LastCmdPartLength = -1;
+	CmdStr.DisableAC();
 	CmdStr.InsertString(Str);
 	CmdStr.Show();
+	CmdStr.RevertAC();
 }
 
 int CommandLine::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
@@ -839,7 +1008,7 @@ void CommandLine::ShowViewEditHistory()
 		if (SelectType != 2)
 			CtrlObject->ViewHistory->AddToHistory(strStr, Type);
 
-		CtrlObject->ViewHistory->SetAddMode(false, 1, true);
+		CtrlObject->ViewHistory->SetAddMode(false, HISTORY_REMOVE_DUPS_CASE_SENSITIVE, true);
 
 		switch (Type) {
 			case 0:		// вьювер
@@ -881,7 +1050,7 @@ void CommandLine::ShowViewEditHistory()
 			}
 		}
 
-		CtrlObject->ViewHistory->SetAddMode(true, 1, true);
+		CtrlObject->ViewHistory->SetAddMode(true, HISTORY_REMOVE_DUPS_CASE_SENSITIVE, true);
 	}
 	else if (SelectType == 3)		// скинуть из истории в ком.строку?
 		SetString(strStr);
@@ -970,6 +1139,17 @@ bool CommandLine::ProcessFarCommands(const wchar_t *CmdLine)
 			? 9 // wcslen(L"far:edit:") or wcslen(L"far:edit ")
 			: 0 );
 	if (p > 0) {
+		int StartLine = -1, StartChar = -1;
+		// check location of optional parametrs with line and column
+		std::string::size_type p1 = std::string::npos, p2 = std::string::npos;
+		if (str_command[p-1] == L':' && p < str_command.length() && str_command[p] == L'[') {
+			p2 = str_command.find(L"]", p+1);
+			if (p2 != std::string::npos) {
+				p1 = p;
+				p = p2 + 1;
+			}
+		}
+		// check filename
 		p = str_command.find_first_not_of(L" \t", p);
 		if (p != std::string::npos) { // after spaces found filename or command
 			if (str_command[p]==L'<') { // redirect command
@@ -983,9 +1163,28 @@ bool CommandLine::ProcessFarCommands(const wchar_t *CmdLine)
 			}
 			else { // filename
 				const std::wstring filename = expandString(str_command.substr(p,std::string::npos));
+				// optional parametrs with line and column to numbers
+				if (p1 != std::string::npos) {
+					p1 = str_command.find_first_not_of(L" \t", p1+1);
+					if (p1 != std::string::npos && p1 < p2) {
+						if (iswdigit(str_command[p1])) {
+							StartLine = _wtoi(str_command.substr(p1).c_str());
+							StartChar = 1;
+						}
+						p = str_command.find_first_of(L",:", p1);
+						if (p != std::string::npos && p < p2) {
+							p = str_command.find_first_not_of(L" \t", p+1);
+							if (p != std::string::npos && p < p2 && iswdigit(str_command[p])) {
+								StartChar = _wtoi(str_command.substr(p).c_str());
+								if (StartLine < 0)
+									StartLine = 1;
+							}
+						}
+					}
+				}
 				new FileEditor(
 					std::make_shared<FileHolder>( filename.c_str() ),
-					CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6);
+					CP_AUTODETECT, FFILEEDIT_CANNEWFILE | FFILEEDIT_ENABLEF6, StartLine, StartChar);
 			}
 		}
 		else // new empty file

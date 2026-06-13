@@ -107,11 +107,11 @@ public:
 
 	////////////////////////////////////////////////////////////////////////////////////
 
-	virtual DLGHANDLE DialogInit(int id, int X1, int Y1, int X2, int Y2, const wchar_t *HelpTopic, 
+	virtual DLGHANDLE DialogInit(int id, int X1, int Y1, int X2, int Y2, const wchar_t *HelpTopic,
 								struct FarDialogItem *Items, unsigned int ItemsNumber,
 								CALCDLGPROC dlgProc)
 	{
-		return Info->DialogInit(Info->ModuleNumber, X1, Y1, X2, Y2, HelpTopic, Items, ItemsNumber, 0, 0, 
+		return Info->DialogInit(Info->ModuleNumber, X1, Y1, X2, Y2, HelpTopic, Items, ItemsNumber, 0, 0,
 								(FARWINDOWPROC)dlgProc, 0);
 	}
 
@@ -138,8 +138,8 @@ public:
 			msg_table = (CalcDialog::CalcDialogCallback *)malloc(max_msg_id * sizeof(CalcDialog::CalcDialogCallback));
 			if (msg_table == NULL)
 				return NULL;
-			
-			memset(msg_table, 0, max_msg_id * sizeof(CalcDialog::CalcDialogCallback));	
+
+			memset(msg_table, 0, max_msg_id * sizeof(CalcDialog::CalcDialogCallback));
 			// fill the LUT
 			msg_table[DN_INITDIALOG]      = &CalcDialog::OnInitDialog;
 			msg_table[DN_CLOSE]           = &CalcDialog::OnClose;
@@ -172,6 +172,7 @@ public:
 	{
 		struct PluginInfo *pInfo = (struct PluginInfo *)pinfo;
 		pInfo->StructSize = sizeof(*pInfo);
+		pInfo->SysID = 0x894EAABB;
 		pInfo->Flags = PF_EDITOR | PF_VIEWER;
 		pInfo->DiskMenuStringsNumber = 0;
 
@@ -210,7 +211,7 @@ public:
 	}
 
 	virtual intptr_t Menu(int X, int Y, int MaxHeight, unsigned long long Flags,
-						const wchar_t *Title, const wchar_t *HelpTopic, 
+						const wchar_t *Title, const wchar_t *HelpTopic,
 						const std::vector<FarMenuItem> & Items)
 	{
 		/// \TODO: find less ugly impl.

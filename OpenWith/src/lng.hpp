@@ -11,8 +11,8 @@ enum LanguageID
 	MNotRealNames,
 	MSaveConfigError,
 	MNoAppsFound,
-	MAndMore,
 	MCannotExecute,
+	MUnsupportedPlatform,
 
 	MConfigTitle,
 
@@ -23,6 +23,8 @@ enum LanguageID
 
 	MUseXdgMimeTool,
 	MUseFileTool,
+	MUseMagikaTool,
+	MUseGlobRules,
 	MUseExtensionBasedFallback,
 	MLoadMimeTypeAliases,
 	MLoadMimeTypeSubclasses,
@@ -34,12 +36,13 @@ enum LanguageID
 	MValidateTryExec,
 	MSortAlphabetically,
 	MTreatUrlsAsPaths,
+	MShowPackageTags,
 
 	MDetails,
 
 	MPathname,
 	MFilesSelected,
-	MMimeType,
+	MMimeProfile,
 	MLaunchCommand,
 	MClose,
 	MLaunch,

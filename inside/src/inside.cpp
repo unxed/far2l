@@ -168,7 +168,7 @@ SHAREDSYMBOL HANDLE WINAPI _export OpenFilePlugin(const char *Name, const unsign
 	if (elf) {
 		out = new PluginImplELF(Name, Data[4], Data[5]);
 
-	} else 
+	} else
 #endif
 	if (plain) {
 		out = new PluginImplPlain(Name, plain);
@@ -259,6 +259,7 @@ SHAREDSYMBOL void WINAPI _export GetPluginInfo(struct PluginInfo *Info)
 {
 	Info->StructSize = sizeof(*Info);
 
+	Info->SysID = 0xFF5449D0;
 	Info->Flags = PF_FULLCMDLINE;
 	static const char *PluginCfgStrings[1];
 	PluginCfgStrings[0] = (char*)G.GetMsg(MTitle);

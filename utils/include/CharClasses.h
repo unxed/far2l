@@ -5,6 +5,8 @@
 #include <memory>
 #include <unordered_map>
 
+extern "C" bool g_far2l_use_vs16;
+
 class CharClasses
 {
 	const wchar_t _c;
@@ -100,7 +102,7 @@ public:
 /*
 		size_t block_count = dedupMap.size();;
 		size_t total_bytes = block_count * CHAR_BLOCK_SIZE * sizeof(uint8_t);
-		fprintf(stderr, "[CharClasses] Allocated blocks: %zu" 
+		fprintf(stderr, "[CharClasses] Allocated blocks: %zu"
 						", total bytes: %zu\n", block_count, total_bytes );
 */
 	}
@@ -116,13 +118,13 @@ public:
 	static inline bool IsFullWidth(const wchar_t* p) {
 		if (!p || *p <= ASCII_MAX) return false;
 		//Variation Selector-16 indicates that the previous character should be rendered as an image
-		if (*(p + 1) == VARIATION_SELECTOR_16) return true;
+		if (g_far2l_use_vs16 && *(p + 1) == VARIATION_SELECTOR_16) return true;
 		return Get(*p) & IS_FULLWIDTH;
 	}
 	static inline bool IsFullWidth(const wchar_t* p, size_t n) {
 		if (!p || *p <= ASCII_MAX) return false;
 		//Variation Selector-16 indicates that the previous character should be rendered as an image
-		if (n > 1 && *(p + 1) == VARIATION_SELECTOR_16) return true;
+		if (g_far2l_use_vs16 && n > 1 && *(p + 1) == VARIATION_SELECTOR_16) return true;
 		return Get(*p) & IS_FULLWIDTH;
 	}
 	static inline bool IsFullWidth(wchar_t c) {

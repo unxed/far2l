@@ -5,7 +5,7 @@ m4_include(`farversion.m4')m4_dnl
 
 @Contents
 $^#File and archive manager#
-`$^#'FULLVERSIONNOBRACES`#'
+`$^#%FAR_BUILD% %FAR_PLATFORM%#'
 `$^#©1996-2000 Eugene Roshal, ©2000-2016 FAR Group,' ©COPYRIGHTYEARS `FAR People'#
    ~FAR2L features - Getting Started~@Far2lGettingStarted@
 
@@ -21,6 +21,7 @@ $^#File and archive manager#
    ~Plugins support~@Plugins@
    ~Overview of plugin capabilities~@PluginsReviews@
    ~Terminal~@Terminal@
+   ~External terminal: configuration~@ExternalTerminal@
 
    ~Panels:~@Panels@  ~File panel~@FilePanel@
             ~Tree panel~@TreePanel@
@@ -44,6 +45,8 @@ $^#File and archive manager#
 
    ~File associations~@FileAssoc@
    ~Operating system commands~@OSCommands@
+   ~Special commands~@SpecCmd@
+   ~Ways to run programs~@WaysToRunPrograms@
    ~Bookmarks~@Bookmarks@
    ~Filters menu~@FiltersMenu@
    ~Screens switching~@ScrSwitch@
@@ -132,9 +135,9 @@ $ # FAR2L features - Getting Started#
 
  #UI Backends#
     FAR2L has base UI Backends (see details in ~UI backends~@UIBackends@):
-        - #GUI#: uses wxWidgets, works in graphics mode, #ideal UX#
+        - #GUI|WX# (uses wxWidgets) or #GUI|SDL#: works in graphics mode, #ideal UX#
 (might add dependencies to your desktop environment, e.g. wxWidgets toolkit and related packages);
-        - #TTY|Xi#: works in terminal mode, requires a dependency on pair X11 libraries
+        - #TTY|Xi#: works in terminal mode, requires a couple of X11 libraries
 (to access clipboard and to get state of all keyboard modifiers), #almost perfect UX#;
         - #TTY|X#: works in terminal mode, uses X11 to access clipboard and to get state of keyboard modifiers.
 It provides better UX than plain TTY, but still some key combinations may be inaccessible;
@@ -149,7 +152,8 @@ when it starts, far2l switches to #TTY|X# without i.
         - to force run in terminal mode TTY|Xi use in command line: #far2l --tty#;
         - to force run in terminal mode TTY|X use in command line: #far2l --tty --nodetect=xi#;
         - to force run in plain mode TTY use in command line: #far2l --tty --nodetect=x#;
-        - run FAR2L-GUI from command line in background without blocking terminal: #far2l --notty &#
+        - run FAR2L-GUI from command line in background without blocking terminal: #far2l --notty &#;
+        - if your far2l compiled with SDL and WX, to force run GUI|SDL: #far2l --SDL#
     (see details in ~Command line switches~@CmdLine@ or #far2l --help#).
 
 
@@ -188,7 +192,7 @@ To work with these keys in FAR2L, you need to release keyboard shortcuts in the 
  #FAR2L command line shell & bash#
     FAR2L internal command line work fully only via #bash#.
     You can change shell by Menu(#F9#)->Options->~Command line settings~@CmdlineSettings@->#Use shell# but command line will work with significant restrictions/bugs especially with native shell commands.
-    If you system has not #bash# recommend installing it and using only bash in FAR2L.
+    If you system does not have #bash# recommend installing it and using only bash in FAR2L.
     If your system's default shell is not bash, you may be convenient to set your environments variables, aliases etc. in bash startup files also.
 
 
@@ -407,7 +411,6 @@ $ #Keyboard reference#
 
  ~Miscellaneous~@MiscCmd@
 
- ~Special commands~@SpecCmd@
 
 @MenuCmd
 $ #Menu control commands#
@@ -683,6 +686,7 @@ dialog is enabled, the full name is used with ~symbolic links~@HardSymLink@ expa
   6. ^<wrap>About hotkeys and other tricks of built-in terminal emulator: ~read here~@Terminal@
 
     See also ~Special commands~@SpecCmd@.
+             ~Ways to run programs~@WaysToRunPrograms@.
 
 @FuncCmd
 $ #Panel control commands - service commands#
@@ -751,6 +755,15 @@ internal editor.
     If the "Print Manager" plugin is installed then the printing of
     the selected files will be carried out using that plugin,
     otherwise by using internal facilities.
+
+    Note: Print manager for Linux is unavailable. Instead, Editor has embedded 
+    support for printing text files even with text highlighting with white background
+    and recomputed colors from the Colorer theme (RGB -> LAB -> RGB conversion).
+
+    GUI version uses wxWidgets capabilities to make print preview, manage printer settings,
+    and printy itself; termibnal version expects the #lp# command works and your CUPS is
+    configured correctly. MacOS version uses native capabilities based upon WebKit 
+    printing automation.
 
   Create ~file links~@HardSymLink@                                           #Alt-F6#
 
@@ -874,13 +887,16 @@ deleted.
 @MiscCmd
 $ #Panel control commands - miscellaneous#
   Screen grabber                                             #Alt-Ins#
-
     Screen grabber allows to select and copy to the clipboard any screen area.
-Use #arrow# keys or click the #left mouse button# to move the cursor. To select
-text use #Shift-arrow# keys or drag the mouse while holding the #left mouse#
-#button#. #Enter#, #Ctrl-Ins#, #right mouse button# or #doubleclick# copy
-selected text to the clipboard, #Ctrl-<Gray +># appends it to the clipboard
-contents, #Esc# leaves the grabbing mode. #Ctrl-U# - deselect block.
+    Use #arrow# keys or click the #left mouse button# to move the cursor.
+    To select text use #Shift-arrow# keys or drag the mouse while holding the #left mouse button#.
+    #Ctrl-A# or #A# - selects whole screen.
+    #Ctrl-U# or #U# - deselect block.
+    #Enter#, #Ctrl-Ins#, #right mouse button# or #doubleclick# copy selected text to the clipboard
+and leaves the grabbing mode.
+    #Ctrl-<Gray +># appends selected text to the clipboard contents
+and leaves the grabbing mode.
+    #Esc# leaves the grabbing mode.
 
   Record a ~keyboard macro~@KeyMacro@                                   #Ctrl-<.>#
 
@@ -948,9 +964,9 @@ $ #Special commands#
 in the far2l ~internal command line~@CmdLineCmd@ and
 in ~associated commands~@FileAssoc@, ~user menu~@UserMenu@ and the ~apply command~@ApplyCmd@.
 
-   #far:about#  - Far information, list and information about plugins.
+   #far:about#  - Far information, list and information about plugins (also via the ~Commands menu~@CmdMenu@).
 
-   #far:config# - ~Configuration editor~@FarConfig@.
+   #far:config# - ~Configuration editor~@FarConfig@ (also via the ~Commands menu~@CmdMenu@).
 
    #view:file# or #far:view:file# or #far:view file# - open in viewer existing #file#.
    #view:<command# or #far:view:<command# or #far:view < command# - open in viewer result of #command# output in temporary file.
@@ -958,6 +974,14 @@ in ~associated commands~@FileAssoc@, ~user menu~@UserMenu@ and the ~apply comman
    #edit:file# or #far:edit:file# or #far:edit file# - open in editor #file# (if #file# not exist will be open empty).
    #edit:# or #far:edit:# or #far:edit# - open in editor new empty file.
    #edit:<command# or #far:edit:<command# or #far:edit < command# - open in editor result of #command# output in temporary file.
+   #edit:[line,col]file# or #edit:[line]file# or #edit:[,col]file#
+or #far:edit:[line,col]file# - open in editor #file# and immediately go to the specified position.
+To do this, immediately after the colon, in square brackets,
+you must specify the desired row and column (any component is optional; by default, one will be equal to 1).
+Square brackets are required!
+   If the filename contains square brackets (for example: "[1].txt"), then for
+the correct opening of the file in the editor you must provide at least one space
+before the filename: #edit: [1].txt#.
 
    #exit#       - reset shell in build-in ~Terminal~@Terminal@.
 
@@ -980,10 +1004,10 @@ however some options are available only here or in configuration ini-files.
  The options are displayed in a list with four fields per item:
   #-# The name in the SectionName.ParamName format (for example, Editor.TabSize)
   #-# The type (boolean, integer, dword, string, binary or unknown)
-  #-# Whether the option is saved when Far configuration is saved (s) or not (-)
+  #-# Whether the option is saved when Far configuration is saved ('#c#' for common, '#p#' for panels) or not ('#-#')
   #-# The value (for integer or dword types the hexadecimal representation additionally displayed).
- If current value of an option is other than the default, the option is marked with the ‘*’ character to the left of the name
-(‘?’ character marked items without default value).
+ If current value of an option is other than the default, the option is marked with the '#*#' character to the left of the name
+('#?#' character marked items without default value).
 
  Besides the list navigation keys, the following key combinations are supported:
 
@@ -1218,11 +1242,11 @@ Pressing #Ctrl-Enter# keys simultaneously will select the next match.
     #Gray +# and #Gray -# keys move up and down the tree to the next branch
 on the same level.
 
-    Key #Left# collapses the currently focused branch. If the branch is already collapsed, moves one level up. 
+    Key #Left# collapses the currently focused branch. If the branch is already collapsed, moves one level up.
     Key #Right# expands a tree branch that was collapsed during construction
 according to the configured exclusion mask or scanning depth.
 
-    Keys #Ctrl+Number# expand all branches up to the selected depth level.
+    Keys #Left Ctrl+1#...#Left Ctrl+0# expand all branches up to the selected depth level (1...10).
 
     See also the list of ~macro keys~@KeyMacroTreeList@, available in the folder tree panel.
 
@@ -1594,12 +1618,34 @@ like NetRocks SFTP/SCP protocols to execute remote commands.
   See also: ~Pseudo-commands~@SpecCmd@
             ~Operating system commands~@OSCommands@
 
+@ExternalTerminal
+$ #External terminal: configuration#
+   To launch console applications in an external terminal emulator, far2l uses the helper script ~$FARHOME~@FAREnv@#/open.sh#.
+
+   #Default terminal selection logic.#
+
+   1. Checks for #/etc/alternatives/x-terminal-emulator#. On distributions using the alternatives mechanism (Debian, Ubuntu, Red Hat), this symbolic link points to the system's preferred terminal emulator. If valid, it is used.
+   2. Otherwise, #xterm# is used.
+
+
+   #Overriding the terminal.#
+
+   There are two main ways to change the emulator.
+   1. System-wide (for distributions with the alternatives mechanism).
+      You can change the global default terminal by running the command:
+         #sudo update-alternatives --config x-terminal-emulator#
+   2. User-defined (specific to far2l).
+      Create the executable file #~~/.config/far2l/open.sh#. Inside, define the #$EXEC_TERM# variable with your preferred terminal, for example:
+         #EXEC_TERM=kitty#
+      Note: The selected terminal must support the #-e# option.
+
 @UIBackends
 $ #UI Backends#
     Depending on build options and available platform features #FAR2L# can render
 its interface using different so-called backends:
 
-    - #GUI backend:# renders into own GUI window, providing most complete keyboard hotkeys support.
+    - #GUI backend:# renders into own GUI window, providing most complete keyboard hotkeys support
+(may be #GUI|WX# based on wxWidgets or #GUI|SDL#).
     - #TTY backend:# renders into plain TTY terminal. Its a most compatible way but also providing
 most lame UX: some hotkeys may not work, clipboard is not shared with host etc.
     - #TTY|X backend:# renders into TTY terminal and uses X11 to access clipboard and to get state of
@@ -1709,7 +1755,7 @@ containing hexadecimal sequence of the specified bytes. In this case #Case#
 #sensitive#, #Whole words#, #Using code page# and #Search for folders#
 options are disabled and their values doesn't affect the search process.
 
-    The drop-down list #Using code page# allows you to select a specific  
+    The drop-down list #Using code page# allows you to select a specific
 code page to be used for text search. If you select the item
 #Standard code pages# in the drop-down list, FAR2L will use all
 standard and #Favorite# code pages for the search (the list of #Favorite#
@@ -1918,7 +1964,7 @@ the folder.
     #Gray +# and #Gray -# should move up and down the tree to the next branch
 on the same level.
 
-    Key #Left# collapses the currently focused branch. If the branch is already collapsed, moves one level up. 
+    Key #Left# collapses the currently focused branch. If the branch is already collapsed, moves one level up.
     Key #Right# expands a tree branch that was collapsed during construction
 according to the configured exclusion mask or scanning depth.
 
@@ -2273,6 +2319,8 @@ the main menu saved in the profile.
       ~Special commands~@SpecCmd@.
       The list of ~macro keys~@KeyMacroUserMenuList@, available in the user menu.
       Common ~menu~@MenuCmd@ keyboard commands.
+      ~Ways to run programs~@WaysToRunPrograms@.
+
 
 @FileAssoc
 $ #File associations #
@@ -2305,6 +2353,7 @@ is on, FAR2L tries to use OS association to execute this file type;
     See also:
       ~Special commands~@SpecCmd@.
       Common ~menu~@MenuCmd@ keyboard commands.
+      ~Ways to run programs~@WaysToRunPrograms@.
 
 
 @FileAssocModify
@@ -2489,7 +2538,11 @@ is also a risk of accidental selection due to unintentional key presses, given t
 of such lists. If you do not use this feature or feel uncomfortable with it, you can disable it.
 
   #Auto save setup#
-  If checked, FAR2L will save setup automatically. The current folders for both panels will be also saved.
+  If checked, FAR2L will save setup automatically on FAR exit.
+The panels state and current folders for both panels will be also saved.
+
+  #Auto save panels state#
+  Panels' state (current folders, files, sort order, etc.) for both panels is automatically saved on FAR exit.
 
 
 @PanelSettings
@@ -2555,7 +2608,7 @@ $ #Settings dialog: panel#
                           panel.
 
   #Scanning depth#          Sets the maximum depth for recursive catalogue scanning
-                          while building the tree. 
+                          while building the tree.
 
   #Mask for subtree#        Defines filename ~masks~@FileMasks@ for subtrees to exclude
   #scanning exclusions#     from automatic scanning. Use this to skip folders
@@ -2890,7 +2943,6 @@ $ #Viewer: control keys#
     #F5#                 Toggle raw/processed mode
     #F6#                 Switch to ~editor~@Editor@
     #Alt-F5#             Print the file
-                       ("Print manager" plugin is used).
     #F7#                 ~Search~@ViewerSearch@
     #Shift-F7, Space#    Continue search
     #Alt-F7#             Continue search in "reverse" mode
@@ -3040,6 +3092,7 @@ behavior can be changed in the ~Editor settings~@EditorSettings@ dialog.
    - Codepage                                         (toggled via #F8# or #Shift-F8#)
    - Line current/all lines
    - Column current
+   - #RSH# or empty: file attributes (Read only, System, Hidden)
    - Code of character under cursor
    - Clock                                            (toggled in the ~Interface settings~@InterfSettings@ dialog)
 
@@ -3048,7 +3101,7 @@ behavior can be changed in the ~Editor settings~@EditorSettings@ dialog.
   Cursor movement
 
    #Left#                    Character left
-   #Ctrl-S#                  ^<wrap>Move the cursor one character to the left, but don't move to the previous line if the line beginning is reached.
+   #Ctrl-S#                  ^<wrap>Move the cursor one character to the left, but don't move to the previous line if the line beginning is reached
    #Right#                   Character right
    #Up#                      Line up
    #Down#                    Line down
@@ -3077,9 +3130,13 @@ behavior can be changed in the ~Editor settings~@EditorSettings@ dialog.
   Block operations
 
    #Shift-Cursor keys#       Select block
+   Drag mouse              Select block
+   with holding left button
    #Ctrl-Shift-Cursor keys#  Select block by words
    #Alt-Cursor keys#         Select vertical block (only when unwrap mode)
    #Alt-Shift-Cursor keys#   Select vertical block (use NumLock cursor keys, only when unwrap mode)
+   #Alt# + drag mouse        Select vertical block (only when unwrap mode)
+   with holding left button
    #Ctrl-A#                  Select all text
    #Ctrl-U#                  Deselect block
    #Shift-Ins, Ctrl-V#       Paste block from clipboard
@@ -3100,11 +3157,12 @@ behavior can be changed in the ~Editor settings~@EditorSettings@ dialog.
    #F2#                      Save file
    #Shift-F2#                ~Save file as...~@FileSaveAs@
    #F3# or #Alt-W#             Toggle line wrap/unwrap
+   #Ctrl-F3#                 Toggle line numbers display
    #Shift-F4#                Edit ~new file~@FileOpenCreate@
    #F5#                      Toggle whitespace characters displaying
    #Shift-F5#                Change Tab character width
    #Ctrl-F5#                 Toggle Tab-to-spaces expansion
-   #Alt-F5#                  ^<wrap>Print file or selected block ("Print manager" plugin is used).
+   #Alt-F5#                  ^<wrap>Print file or selected block.
    #F6#                      Switch to ~viewer~@Viewer@
    #F7#                      ~Search~@EditorSearch@
    #Ctrl-F7#                 ~Replace~@EditorSearch@
@@ -3113,8 +3171,9 @@ behavior can be changed in the ~Editor settings~@EditorSettings@ dialog.
    #F8#                      Toggle UTF8/~ANSI/OEM~@CodePagesSet@ code page
    #Shift-F8#                Select code page
    #Alt-F8#                  ~Go to~@EditorGotoPos@ specified line and column
+   #F9#                      Call menu bar for the editor, with the list of available commands
    #Alt-F9#                  Toggles the size of the FAR2L console window
-   #F9, Alt-Shift-F9#        Call ~Editor settings~@EditorSettings@ dialog
+   #Alt-Shift-F9#            Call ~Editor settings~@EditorSettings@ dialog
    #F10, F4, Esc#            Quit
    #Shift-F10#               Save and quit
    #Ctrl-F10#                Position to the current file
@@ -3141,12 +3200,23 @@ behavior can be changed in the ~Editor settings~@EditorSettings@ dialog.
 
     1. #Alt-U#/#Alt-I# indent the current line if no block is selected.
 
-    2. ^<wrap>Holding down #Alt# and typing a character code on the numeric
+    2. ^<wrap>Typing text or pressing #BS#/#Del# is applied to each row
+of selected vertical block.
+
+    3. ^<wrap>Holding down #Alt# and typing a character code on the numeric
 keypad inserts the character that has the specified code (0-65535).
 
-    3. ^<wrap>If no block is selected, #Ctrl-Ins#/#Ctrl-C# marks the current
+    4. ^<wrap>If no block is selected, #Ctrl-Ins#/#Ctrl-C# marks the current
 line as a block and copies it to the clipboard.
 
+    5. Print manager for Linux is unavailable. Instead, Editor has embedded 
+    support for printing text files even with text highlighting with white background
+    and recomputed colors from the Colorer theme (RGB -> LAB -> RGB conversion).
+
+    GUI version uses wxWidgets capabilities to make print preview, manage printer settings,
+    and printy itself; termibnal version expects the #lp# command works and your CUPS is
+    configured correctly. MacOS version uses native capabilities based upon WebKit 
+    printing automation.
 
 @EditorSearch
 $ #Editor: search/replace#
@@ -3546,6 +3616,9 @@ $ #Settings dialog: viewer#
   #Show arrows#             Show scrolling arrows in viewer if the text
                           doesn't fit in the window horizontally.
 
+  #Enable URL links#        Recognize, highlight and make clickable
+                          URLs starting with https:, http: or mailto:.
+
   #Persistent selection#    Do not remove block selection after
                           moving the cursor.
 
@@ -3632,6 +3705,14 @@ $ #Settings dialog: editor#
   #Pick up the word#        When the search/replace dialog is invoked,
                           the word under the cursor will be inserted
                           into the search string.
+
+  #Show line numbers#       Show line numbers on the left side of the
+                          editor. This option can also be toggled by
+                          pressing #Ctrl-F3# in the editor.
+
+  #Word wrap#               Word wrap. This option can also be toggled by
+                          pressing #F3# in the editor.
+
 
   #Use .editorconfig#       Processing .editorconfig parameters
   #settings files#          (see ~https://editorconfig.org~@https://editorconfig.org@ for details)
@@ -4224,6 +4305,8 @@ of the same name already exists.
     #Overwrite# - all target files will be replaced;
     #Skip# - target files will not be replaced;
     #Append# - target file will be appended with the file being copied;
+    #Resume# - the existing target file remans, and the source is being appended
+to it (by skipping first N bytes that equal to target file size).
     #Only newer file(s)# - only files with newer write date and time
 will be copied; This option affects only the current copy session and not saved
 for later copy operations.
@@ -4257,6 +4340,9 @@ prompted to select on of the following actions:
 the file being copied;
 
     #Append# - target file will be appended with the file being copied;
+
+    #Resume# - the existing target file remans, and the source is being appended
+to it (by skipping first N bytes that equal to target file size).
 
     If #Remember choice# is checked, the selected action will be applied to
 all existing files and the confirmation dialog will not be displayed again for
@@ -4353,8 +4439,10 @@ as in ~File associations~@FileAssoc@ should be used to denote the file name.
 at a time, and the command 'tar --remove-files -cvjf !.!.tar.bz2 !.!' will move all selected files
 into TAR/BZIP2 archives with the same names.
 
-    See also: ~Special commands~@SpecCmd@
-              ~Operating system commands~@OSCommands@
+    See also: ~Special commands~@SpecCmd@.
+              ~Operating system commands~@OSCommands@.
+              ~Ways to run programs~@WaysToRunPrograms@.
+
 
 @OSCommands
 $ #Operating system commands#
@@ -4764,6 +4852,9 @@ usually does as a reaction to this combination.
 
     Playing the macro will display the symbol '\2FP\-' in the upper left corner of the screen.
 
+    Note: To let you see the macro in the config file or in Macro Browser, you have an ability
+    to make short description as you prefer.
+
 
 @KeyMacroDelete
 $ #Macro command: deleting a macro command#
@@ -4797,6 +4888,10 @@ desired options in the dialog:
    #Sequence:#
 
     Allows to edit the recorded key sequence.
+
+   #Description:#
+
+    Allows to specify user-defined brief description of the macro sequence.
 
    #Allow screen output while executing macro#
 
@@ -4871,6 +4966,57 @@ FAR2L.
     #$Rep#          - loop operator
     #%var#          - using variables
      and others...
+
+    Macro text can be written directly in the macro configuration file
+    #~~/.config/far2l/settings/key_macros.ini#. Each macro is a section named:
+    #KeyMacros/<Area>/<Key># where:
+    - #Area# is one of: #Common#, #Shell#, #Editor#, #Viewer#, #Dialog#, #Search#, #Tree#,
+#Info#, #QView#, #MainMenu#, #UserMenu#, #Disks#, #Help#, #Menu#, #Other#;
+    - #Key# is a key name such as #CtrlShiftF3#, #AltF1#, #F7#, etc.
+
+    Common fields inside a section:
+    #Description# - short text shown in the macro browser;
+    #DisableOutput# - #0x1# to suppress screen redraw during playback;
+    #Sequence# - macro text (may include #$If#, #$Else#, #$End#, etc.).
+
+    Example (open FAR2L internal terminal log in viewer; if the active panel is visible, temporarily hide panels):
+ #[KeyMacros/Shell/CtrlShiftF3]#
+ #DisableOutput=0x1#
+ #Sequence=$If (APanel.Visible) CtrlO F3 $Else F3 $End#
+
+    #Macro keywords (variables / conditions)#
+    General:
+      #Bof#, #Eof#, #Empty#, #Selected# - state of the current object in this area.
+      #Far.Width#, #Far.Height#, #Far.Title# - console size / title.
+      #MacroArea# - current macro area name.
+      #ItemCount#, #CurPos#, #Title#, #Height#, #Width# - current object properties.
+
+    Panels (Active/Passive):
+      #APanel.*# and #PPanel.*# are for active/passive panel.
+      #Empty#, #Bof#, #Eof#, #Root#, #Visible#, #Plugin#, #FilePanel#, #Folder#,
+      #Selected#, #Left#, #LFN#, #Filter# - panel state flags.
+      #Type#, #ItemCount#, #CurPos#, #Current#, #SelCount# - panel values.
+      #Path#, #Path0#, #UNCPath# - panel paths.
+      #Height#, #Width#, #OPIFlags#, #DriveType#, #ColumnCount# - panel geometry / mode.
+      #HostFile#, #Prefix# - plugin panel host file / prefix.
+
+    Command line:
+      #CmdLine.Bof#, #CmdLine.Eof#, #CmdLine.Empty#, #CmdLine.Selected# - state.
+      #CmdLine.ItemCount#, #CmdLine.CurPos#, #CmdLine.Value# - values.
+
+    Editor:
+      #Editor.FileName#, #Editor.CurLine#, #Editor.Lines#, #Editor.CurPos#,
+      #Editor.RealPos#, #Editor.State#, #Editor.Value#, #Editor.SelValue#.
+
+    Dialog:
+      #Dlg.ItemType#, #Dlg.ItemCount#, #Dlg.CurPos#, #Dlg.Info.Id#.
+
+    Help:
+      #Help.FileName#, #Help.Topic#, #Help.SelTopic#.
+
+    Viewer / Menu / Other:
+      #Viewer.FileName#, #Viewer.State#, #Menu.Value#,
+      #Drv.ShowPos#, #Drv.ShowMode#, #Fullscreen#, #IsUserAdmin#.
 
     Addition of macro language commands to a ~macro~@KeyMacro@ can only be done
 by manually editing the config file or by using special tools/plugins.
@@ -5053,3 +5199,24 @@ $ #Macros: Other areas#
 @Index
 $ #Index help file#
 <%INDEX%>
+
+
+@WaysToRunPrograms
+$ #Ways to run programs without blocking far2l#
+  When running programs on the internal ~Command line~@CmdLineCmd@, ~File Associations~@FileAssoc@, ~User Menu~@UserMenu@ and actions ~Apply Command~@ApplyCmd@ far2l may be blocked. The following describes how to run without blocking far2l:
+
+  Launching programs in an ~external terminal~@ExternalTerminal@ from the far2l command line:
+  - #program#: to launch in an external terminal using #Shift-Enter# (using ~$FARHOME~@FAREnv@/open.sh to launch); 
+  - #$FARHOME/open.sh exec program#: to run in an external terminal using #Enter#, exec is required as the first parameter for open.sh;
+  - #$FARHOME/open.sh exec sh -c "ls;read k"#: in this case, the ls command will be executed in the external terminal, but the terminal will not close;
+
+  Running programs from far2l:
+  - #program params &#: just add at the end & - will close the program after closing far2l;
+  - #nohup program params &#: the launch is performed by the nohup program. A nohup.out file is created in the current directory with the program output. You can delete this file later. Such a launch will keep the program running after completing far2l;
+  - #nohup program params >/dev/null 2>&1 &#: will leave the program running after completing far2l without unnecessary output;
+  - #setsid program params >/dev/null 2>/dev/null#: when used in the examples above & some programs, when closed, output information about their termination to the current terminal - using setsid avoids such clogging of the output of the current program;
+
+  See also:
+   ~Special commands~@SpecCmd@
+   ~File Masks~@FileMasks@
+   ~Metasymbols~@MetaSymbols@

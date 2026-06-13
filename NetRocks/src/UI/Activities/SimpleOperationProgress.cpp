@@ -53,7 +53,7 @@ void SimpleOperationProgress::Show()
 
 LONG_PTR SimpleOperationProgress::DlgProc(int msg, int param1, LONG_PTR param2)
 {
-	uint64_t Colors[4];
+	uint64_t Colors[DLG_ITEM_MAX_CUST_COLORS];
 
 	//fprintf(stderr, "%x %x\n", msg, param1);
 	if (msg == DN_ENTERIDLE) {
@@ -123,6 +123,6 @@ LONG_PTR SimpleOperationProgress::DlgProc(int msg, int param1, LONG_PTR param2)
 		_state.aborting = true;
 		return TRUE;
 	}*/
-	
+
 	return BaseDialog::DlgProc(msg, param1, param2);
 }

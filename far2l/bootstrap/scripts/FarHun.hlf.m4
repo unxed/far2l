@@ -5,7 +5,7 @@ m4_include(`farversion.m4')m4_dnl
 
 @Contents
 $^#Fájl- és archívumkezelő program#
-`$^#'FULLVERSIONNOBRACES`#'
+`$^#%FAR_BUILD% %FAR_PLATFORM%#'
 $^#Copyright (C) 1996-2000 Eugene Roshal#
 $^#Copyright (C) 2000-2016 FAR Group
 `$^#Copyright (C)' COPYRIGHTYEARS `FAR People'
@@ -20,6 +20,7 @@ $^(help file last translated for build 882)
    ~Billentyűparancsok~@KeyRef@
    ~Pluginek támogatása~@Plugins@
    ~A pluginek képességeinek áttekintése~@PluginsReviews@
+   ~External terminal: configuration~@ExternalTerminal@
 
    ~Panelek:~@Panels@ ~Fájlpanel~@FilePanel@
             ~Fastruktúra panel~@TreePanel@
@@ -43,6 +44,8 @@ $^(help file last translated for build 882)
 
    ~Fájltársítások~@FileAssoc@
    ~Operációs rendszer parancsok~@OSCommands@
+   ~Special commands~@SpecCmd@
+   ~Ways to run programs~@WaysToRunPrograms@
    ~Mappa gyorsbillentyűk~@Bookmarks@
    ~Szűrők menü~@FiltersMenu@
    ~Képernyők váltása~@ScrSwitch@
@@ -224,7 +227,6 @@ $ #Billentyűparancsok#
 
  ~Egyebek~@MiscCmd@
 
- ~Special commands~@SpecCmd@
 
 @MenuCmd
 $ #Menu control commands#
@@ -503,7 +505,8 @@ dialog is enabled, the full name is used with ~symbolic links~@HardSymLink@ expa
 
 
 
-    See also ~Special commands~@SpecCmd@.
+    See also ~Special commands~@SpecCmd@
+             ~Ways to run programs~@WaysToRunPrograms@
 
 @FuncCmd
 $ #Panelvezérlő parancsok - rendszerparancsok#
@@ -702,15 +705,15 @@ System.WipeSymbol a ~far:config~@FarConfig@ párbeszédablakban), ezután a fáj
 @MiscCmd
 $ #Panelvezérlő parancsok - egyebek#
   Képernyőgrabber                                            #Alt-Ins#
-
     A képernyőgrabberrel bármelyik képernyőterület kijelölhető és a
     vágólapra másolható. A kurzor a #kurzornyilakkal# vagy az #egérrel#
     mozgatható. A szöveg a #Shift-kurzornyilakkal# vagy az egérrel,
     lenyomott #bal gombnál# mozgatással jelölhető ki. Az #Enter#, a
     #Ctrl-Ins#, a #jobb egérgomb# vagy a #kettős kattintás# a kijelölt
     szöveget a vágólapra másolja, a #Ctrl-<Szürke +># hozzáfűzi a
-    vágólap aktuális tartalmához, az #Esc# pedig kiléptet a grab
-    módból. A #Ctrl-U# leveszi a kijelölést a blokkról.
+    vágólap aktuális tartalmához, az #Esc# pedig kiléptet a grab módból.
+    A #Ctrl-A# vagy #A# selects whole screen.
+    A #Ctrl-U# vagy #U# leveszi a kijelölést a blokkról.
 
   ~Makró~@KeyMacro@ rögzítése                                           #Ctrl-<.>#
 
@@ -783,9 +786,9 @@ $ #Special commands#
 in the far2l ~internal command line~@CmdLineCmd@ and
 in ~associated commands~@FileAssoc@, ~user menu~@UserMenu@ and the ~apply command~@ApplyCmd@.
 
-   #far:about#  - Far information, list and information about plugins.
+   #far:about#  - Far information, list and information about plugins (also via the ~Commands menu~@CmdMenu@).
 
-   #far:config# - ~Configuration editor~@FarConfig@.
+   #far:config# - ~Configuration editor~@FarConfig@ (also via the ~Commands menu~@CmdMenu@).
 
    #view:file# or #far:view:file# or #far:view file# - open in viewer existing #file#.
    #view:<command# or #far:view:<command# or #far:view < command# - open in viewer result of #command# output in temporary file.
@@ -793,6 +796,14 @@ in ~associated commands~@FileAssoc@, ~user menu~@UserMenu@ and the ~apply comman
    #edit:file# or #far:edit:file# or #far:edit file# - open in editor #file# (if #file# not exist will be open empty).
    #edit:# or #far:edit:# or #far:edit# - open in editor new empty file.
    #edit:<command# or #far:edit:<command# or #far:edit < command# - open in editor result of #command# output in temporary file.
+   #edit:[line,col]file# or #edit:[line]file# or #edit:[,col]file#
+or #far:edit:[line,col]file# - open in editor #file# and immediately go to the specified position.
+To do this, immediately after the colon, in square brackets,
+you must specify the desired row and column (any component is optional; by default, one will be equal to 1).
+Square brackets are required!
+   If the filename contains square brackets (for example: "[1].txt"), then for
+the correct opening of the file in the editor you must provide at least one space
+before the filename: #edit: [1].txt#.
 
    #exit#       - reset shell in build-in ~Terminal~@Terminal@.
 
@@ -815,10 +826,10 @@ however some options are available only here or in configuration ini-files.
  The options are displayed in a list with four fields per item:
   #-# The name in the SectionName.ParamName format (for example, Editor.TabSize)
   #-# The type (boolean, integer, dword, string, binary or unknown)
-  #-# Whether the option is saved when Far configuration is saved (s) or not (-)
+  #-# Whether the option is saved when Far configuration is saved ('#c#' for common, '#p#' for panels) or not ('#-#')
   #-# The value (for integer or dword types the hexadecimal representation additionally displayed).
- If current value of an option is other than the default, the option is marked with the ‘*’ character to the left of the name
-(‘?’ character marked items without default value).
+ If current value of an option is other than the default, the option is marked with the '#*#' character to the left of the name
+('#?#' character marked items without default value).
 
  Besides the list navigation keys, the following key combinations are supported:
 
@@ -1077,7 +1088,7 @@ a szintnek a mappáin.
     A #Jobb nyíl# kibontja a faágat, amely a létrehozáskor a beállított kizárási maszk
 vagy a meghatározott beolvasási mélység szerint lett összecsukva.
 
-    #Ctrl+Szám# — Kibontja az összes ágat a megadott mélységi szintig.
+    #Balra Ctrl+1#...#Balra Ctrl+0# — Kibontja az összes ágat a megadott mélységi szintig (1...10).
 
 @InfoPanel
 $ #Panels: info panel#
@@ -1954,6 +1965,7 @@ akár almenü volt megnyitva benne.
       ~Special commands~@SpecCmd@.
       The list of ~macro keys~@KeyMacroUserMenuList@, available in the user menu.
       Common ~menu~@MenuCmd@ keyboard commands.
+      ~Ways to run programs~@WaysToRunPrograms@.
 
 @FileAssoc
 $ #Fájltársítások#
@@ -1983,6 +1995,7 @@ Windows társításait alkalmazni.
     See also:
       ~Special commands~@SpecCmd@.
       common ~menu~@MenuCmd@ keyboard commands.
+      ~Ways to run programs~@WaysToRunPrograms@.
 
 @FileAssocModify
 $ #Fájltársítások: szerkesztés#
@@ -2171,6 +2184,8 @@ of such lists. If you do not use this feature or feel uncomfortable with it, you
   #mentése#                 a FAR önműködően menti a beállításait, a
                           panelek aktuális helyzetével együtt.
 
+  #Panelek állapot mentése#
+  Panels' state (current folder, sort order, etc.) for both panels is automatically saved on FAR exit.
 
 @PanelSettings
 $ #Beállítások: panel beállítások#
@@ -2232,7 +2247,7 @@ opciót kikapcsolni.
                           ^<wrap>mappát vált. Ha nincs engedélyezve,
 a fastruktúrán a mappaváltáshoz #Entert# kell ütni.
 
-  #Scanning depth#          Sets the maximum depth for recursive catalogue scanning 
+  #Scanning depth#          Sets the maximum depth for recursive catalogue scanning
                           while building the tree.
 
   #Mask for subtree#        Defines filename ~masks~@FileMasks@ for subtrees to exclude
@@ -2657,6 +2672,7 @@ menüben kikapcsolható.
    - Codepage                                         (toggled via #F8# or #Shift-F8#)
    - Line current/all lines
    - Column current
+   - #RSH# or empty: file attributes (Read only, System, Hidden)
    - Code of character under cursor
    - Clock                                            (toggled in the ~Interface settings~@InterfSettings@ dialog)
 
@@ -2697,9 +2713,13 @@ kijelölt szöveget is törölheti, a
   Blokkműveletek
 
    #Shift-Kurzorbill.#       Blokk kijelölése
+   Drag mouse              Select block
+   with holding left button
    #Ctrl-Shift-Kurzorbill.#  Blokk kijelölése
    #Alt-Kurzorbill.#   Függőleges blokk kijelölése (csak akkor, ha a sortörések le vannak tiltva)
    #Alt-Shift-Kurzorbill.#   Függőleges blokk kijelölése (NumLock Kurzorbill, csak akkor, ha a sortörések le vannak tiltva)
+   #Alt# + drag mouse        Select vertical block (only when unwrap mode)
+   with holding left button
    #Ctrl-A#                  Az egész szöveg kijelölése
    #Ctrl-U#                  Leveszi a blokk kijelölését
    #Shift-Ins, Ctrl-V#       Blokk beillesztése a vágólapról
@@ -2723,6 +2743,7 @@ kurzorpozícióba (csak maradó blokk módban)
    #F2#                      Fájl mentése
    #Shift-F2#                ~Fájl mentése másként~@FileSaveAs@
    #F3# vagy #Alt-W#           Sortörés be/ki
+   #Ctrl-F3#                 Sorszámozás be/ki
    #Shift-F4#                ~Új fájl~@FileOpenCreate@ szerkesztése
    #F5#                      Toggle whitespace characters displaying
    #Shift-F5#                Change Tab character width
@@ -2737,8 +2758,9 @@ kurzorpozícióba (csak maradó blokk módban)
    #F8#                      UTF8/~ANSI/OEM~@CodePagesSet@ kódlap váltó
    #Shift-F8#                Kódlap kiválasztása
    #Alt-F8#                  ~Ugrás~@EditorGotoPos@ megadott sorra és oszlopra
+   #F9#                      Call menu bar for the editor, with the list of available commands
    #Alt-F9#                  A FAR konzolablak méretének átváltása
-   #F9,Alt-Shift-F9#         A ~szerkesztő beállítások~@EditorSettings@
+   #Alt-Shift-F9#            A ~szerkesztő beállítások~@EditorSettings@
 párbeszédablakot jeleníti meg
    #F10, Esc#                Kilépés
    #Shift-F10#               Mentés és kilépés
@@ -2777,10 +2799,13 @@ a képernyő alján
     1. ^<wrap>Az #Alt-U#/#Alt-I# a sor behúzását állítja, ha nincs
 kijelölt blokk.
 
-    2. ^<wrap>Lenyomott #Alt#-tal a karaktereket decimális kódjukkal
+    2. ^<wrap>A szöveg beírása vagy a #BS#/#Del# billentyűkombináció
+lenyomása a kijelölt függőleges blokk minden sorára hatással van.
+
+    3. ^<wrap>Lenyomott #Alt#-tal a karaktereket decimális kódjukkal
 írhatjuk be a numerikus billentyűzeten (0-65535).
 
-    3. ^<wrap>Ha nincs kijelölt blokk, a #Ctrl-Ins#/#Ctrl-C# kijelöli
+    4. ^<wrap>Ha nincs kijelölt blokk, a #Ctrl-Ins#/#Ctrl-C# kijelöli
 a teljes aktuális sort és a vágólapra másolja.
 
 @EditorSearch
@@ -2792,7 +2817,7 @@ $ #Szerkesztő: fájl megnyitása/létrehozása#
     A #Shift-F4# billentyűkombinációval létező vagy új fájlt nyithatunk meg
 szerkesztésre.
 
-Az új fájl kódolása a ~szerkesztő beállításaitól~@EditorSettings@ 
+Az új fájl kódolása a ~szerkesztő beállításaitól~@EditorSettings@
 függően lesz. De szükség esetén a kódlapok #listájából# más
 kódlapot is választhatunk.
 
@@ -2907,7 +2932,7 @@ $ #ANSI and OEM codepage setting#
 
 @DriveDlg
 $ #Location menu#
-    This menu allows to change the current location of a panel, unmount mountpoint 
+    This menu allows to change the current location of a panel, unmount mountpoint
 or open a new ~plugin~@Plugins@ panel.
 
     Select the item and press Enter to change the location to specified filesystem path
@@ -3124,6 +3149,9 @@ ha megmozdítjuk a kurzort.
   #Gördítőnyilak mutatva#   ^<wrap>Kikapcsolt sortörésnél a vízszintesen
 túlnyúló sorok végein gördítőnyilak jelennek meg.
 
+  #URL-felismerés#          ^<wrap>Felismerni, kiemelni és aktiválni
+az https:, http: vagy mailto: kezdetű hivatkozásokat.
+
   #Fájlpozíció mentése#     ^<wrap>Elmenti és visszatölti a legutóbb
 megnézett fájlok szöveghelyzetét, vele a kódlapot is (ha "kézzel" választottuk
 ki), valamint a nézet módját (normál vagy hexadecimális).
@@ -3211,6 +3239,13 @@ elhelyezett könyvjelzőinket.
 
   #Gördítősáv mutatva#      ^<wrap>Az oldalsó gördítősáv megjelenítése a
 a belső szerkesztőben.
+
+  #Show line numbers#       Show line numbers on the left side of the
+                          editor. This option can also be toggled by
+                          pressing #Ctrl-F3# in the editor.
+
+  #Word wrap#               Word wrap. This option can also be toggled by
+                          pressing #F3# in the editor.
 
 
   #Use .editorconfig#       Processing .editorconfig parameters
@@ -3798,7 +3833,7 @@ párbeszédablakot;
     #Felülír#   - a létező fájlt felülírja;
     #Kihagy#    - a létező fájlt nem írja felül;
     #Hozzáfűz#  - a létező fájl végéhez hozzáfűzi az új fájl
-tartalmát;
+tartalmát (az első N bájt kihagyásával, ami megegyezik a célfájl méretével);
     #Csak az újabb fájlokat# - csak a frissebb módosítási dátumú
 fájlok írják felül a célhelyen létezőket;
     #Csak olvasható fájloknál is kérdez# - ha a célhelyen "csak
@@ -3851,7 +3886,7 @@ párbeszédablakban a következő lehetőségek közül választhatunk:
     #Kihagy#     - a forrással azonos nevű fájlt nem írja felül;
 
     #Hozzáfűz#   - ^<wrap>a létező fájl végéhez hozzáfűzi a forrásfájl
-tartalmát.
+tartalmát (az első N bájt kihagyásával, ami megegyezik a célfájl méretével).
 
     Ha másolás során bekapcsoljuk a #Mindent a kiválasztott módon# opciót,
 a FAR megjegyzi választásainkat és az adott másolási feladat minden azonos
@@ -3960,6 +3995,7 @@ megegyező nevű TAR/BZIP2 tömörített fájlokba mozgatja a kijelölt fájloka
 
     See also ~Special commands~@SpecCmd@
     Lásd még ~Operációs rendszer parancsok~@OSCommands@.
+             ~Ways to run programs~@WaysToRunPrograms@
 
 
 @OSCommands
@@ -4277,9 +4313,60 @@ végzett mindennapi munka hatékony segédeszközévé.
 
       és így tovább...
 
-    Makrónyelvi utasításokat csak a Windows regisztrációs adatbázisának
-szerkesztésével (HKEY_CURRENT_USER\\Software\\Far2\\KeyMacros) vagy az
-erre a célra kifejlesztett segédprogramokkal és pluginekkel adhatunk a
+    A makró szövegét közvetlenül a
+    #~~/.config/far2l/settings/key_macros.ini# fájlban is megadhatjuk.
+    Minden makró egy #KeyMacros/<Area>/<Key># szekció, ahol:
+    - #Area# pl.: #Common#, #Shell#, #Editor#, #Viewer#, #Dialog#, #Search#, #Tree#,
+#Info#, #QView#, #MainMenu#, #UserMenu#, #Disks#, #Help#, #Menu#, #Other#;
+    - #Key# billentyűnév, pl. #CtrlShiftF3#, #AltF1#, #F7#.
+
+    Fő mezők:
+    #Description# - rövid leírás;
+    #DisableOutput# - #0x1# esetén nincs képernyőfrissítés futás közben;
+    #Sequence# - a makró szövege (#$If#, #$Else#, #$End#, stb.).
+
+    Példa (FAR2L belső terminál napló megnyitása a nézőkében;
+    ha az aktív panel látható, átmenetileg elrejtjük a paneleket):
+ #[KeyMacros/Shell/CtrlShiftF3]#
+ #DisableOutput=0x1#
+ #Sequence=$If (APanel.Visible) CtrlO F3 $Else F3 $End#
+
+    #Makró kulcsszavak (változók / feltételek)#
+    Általános:
+      #Bof#, #Eof#, #Empty#, #Selected# - aktuális objektum állapota.
+      #Far.Width#, #Far.Height#, #Far.Title# - konzol méret / cím.
+      #MacroArea# - aktuális makróterület neve.
+      #ItemCount#, #CurPos#, #Title#, #Height#, #Width# - objektum jellemzők.
+
+    Panelek (aktív/passzív):
+      #APanel.*# és #PPanel.*#.
+      #Empty#, #Bof#, #Eof#, #Root#, #Visible#, #Plugin#, #FilePanel#, #Folder#,
+      #Selected#, #Left#, #LFN#, #Filter# - állapot.
+      #Type#, #ItemCount#, #CurPos#, #Current#, #SelCount# - értékek.
+      #Path#, #Path0#, #UNCPath# - útvonalak.
+      #Height#, #Width#, #OPIFlags#, #DriveType#, #ColumnCount# - méret / mód.
+      #HostFile#, #Prefix# - plugin panel adatai.
+
+    Parancssor:
+      #CmdLine.Bof#, #CmdLine.Eof#, #CmdLine.Empty#, #CmdLine.Selected#.
+      #CmdLine.ItemCount#, #CmdLine.CurPos#, #CmdLine.Value#.
+
+    Szerkesztő:
+      #Editor.FileName#, #Editor.CurLine#, #Editor.Lines#, #Editor.CurPos#,
+      #Editor.RealPos#, #Editor.State#, #Editor.Value#, #Editor.SelValue#.
+
+    Párbeszéd:
+      #Dlg.ItemType#, #Dlg.ItemCount#, #Dlg.CurPos#, #Dlg.Info.Id#.
+
+    Súgó:
+      #Help.FileName#, #Help.Topic#, #Help.SelTopic#.
+
+    Nézőke / menü / egyéb:
+      #Viewer.FileName#, #Viewer.State#, #Menu.Value#,
+      #Drv.ShowPos#, #Drv.ShowMode#, #Fullscreen#, #IsUserAdmin#.
+
+    Makrónyelvi utasításokat a konfigurációs fájl kézi szerkesztésével
+vagy erre készült segédprogramokkal és pluginekkel adhatunk a
 ~makrókhoz~@KeyMacro@.
 
     A makrónyelv leírása megtalálható a kísérő dokumentációban.
@@ -4309,3 +4396,45 @@ adatbázisából kiolvasott leírásaikkal együtt:
 @Index
 $ #A súgó betűrendes tartalomjegyzéke#
 <%INDEX%>
+
+
+@WaysToRunPrograms
+$ #Ways to run programs without blocking far2l#
+  When running programs on the internal ~Command line~@CmdLineCmd@, ~File Associations~@FileAssoc@, ~User Menu~@UserMenu@ and actions ~Apply Command~@ApplyCmd@ far2l may be blocked. The following describes how to run without blocking far2l:
+
+  Launching programs in an external terminal from the far2l command line:
+  - #program#: to launch in an external terminal using Shift-Enter (using ~$FARHOME~@FAREnv@/open.sh to launch);
+  - #$FARHOME/open.sh exec program#: to run in an external terminal using Enter, exec is required as the first parameter for open.sh;
+  - #$FARHOME/open.sh exec sh -c "ls;read k"#: in this case, the ls command will be executed in the external terminal, but the terminal will not close;
+
+  Running programs from far2l:
+  - #program params &#: just add at the end & — will close the program after closing far2l;
+  - #nohup program params &#: the launch is performed by the nohup program. A nohup.out file is created in the current directory with the program output. You can delete this file later. Such a launch will keep the program running after completing far2l;
+  - #nohup program params >/dev/null 2>&1 &#: will leave the program running after completing far2l without unnecessary output;
+  - #setsid program params >/dev/null 2>/dev/null#: when used in the examples above & some programs, when closed, output information about their termination to the current terminal - using setsid avoids such clogging of the output of the current program;
+
+  See also:
+   ~Special commands~@SpecCmd@
+   ~File Masks~@FileMasks@
+   ~Metasymbols~@MetaSymbols@
+
+@ExternalTerminal
+$ #External terminal: configuration#
+   To launch console applications in an external terminal emulator, far2l uses the helper script ~$FARHOME~@FAREnv@#/open.sh#.
+
+   #Default terminal selection logic.#
+
+   1. Checks for #/etc/alternatives/x-terminal-emulator#. On distributions using the alternatives mechanism (Debian, Ubuntu, Red Hat), this symbolic link points to the system's preferred terminal emulator. If valid, it is used.
+   2. Otherwise, #xterm# is used.
+
+
+   #Overriding the terminal.#
+
+   There are two main ways to change the emulator.
+   1. System-wide (for distributions with the alternatives mechanism).
+      You can change the global default terminal by running the command:
+         #sudo update-alternatives --config x-terminal-emulator#
+   2. User-defined (specific to far2l).
+      Create the executable file #~~/.config/far2l/open.sh#. Inside, define the #$EXEC_TERM# variable with your preferred terminal, for example:
+         #EXEC_TERM=kitty#
+      Note: The selected terminal must support the #-e# option.

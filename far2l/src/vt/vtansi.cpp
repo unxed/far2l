@@ -171,6 +171,7 @@ jadoxa@yahoo.com.au
 #include <optional>
 #include <map>
 #include "vtansi.h"
+#include "vtansi_kitty.h"
 #include "AnsiEsc.hpp"
 #include "UtfConvert.hpp"
 
@@ -300,6 +301,10 @@ struct VTAnsiContext
 	std::string cur_title;
 	std::atomic<bool> output_disabled{false};
 	std::map<DWORD, std::pair<DWORD, DWORD> > orig_palette;
+	std::optional<VTAnsiKitty> vta_kitty;
+	std::mutex vta_kitty_mtx;
+	std::vector<DWORD> kitty_flag_stack;
+
 
 	int   state;					// automata state
 	char  prefix;				// escape sequence prefix ( '[', ']' or '(' );
@@ -526,6 +531,15 @@ struct VTAnsiContext
 		vt_shell->InjectInput(seq);
 	}
 
+	void SendSequenceFmt( const char *fmt, ... )
+	{
+		va_list args;
+		va_start(args, fmt);
+		const auto &seq = StrPrintfV(fmt, args);
+		va_end(args);
+		SendSequence(seq.c_str());
+	}
+
 
 	class AlternativeScreenBuffer
 	{
@@ -568,20 +582,6 @@ struct VTAnsiContext
 
 // ========== Print functions
 
-//-----------------------------------------------------------------------------
-//   InterpretEscSeq()
-// Interprets the last escape sequence scanned by ParseAndPrintString
-//   prefix             escape sequence prefix
-//   es_argc            escape sequence args count
-//   es_argv[]          escape sequence args array
-//   suffix             escape sequence suffix
-//
-// for instance, with \e[33;45;1m we have
-// prefix = '[',
-// es_argc = 3, es_argv[0] = 33, es_argv[1] = 45, es_argv[2] = 1
-// suffix = 'm'
-//-----------------------------------------------------------------------------
-
 	void ParseOSCPalette(int cmd, const char *args, size_t args_size)
 	{
 		size_t pos = 0;
@@ -601,9 +601,8 @@ struct VTAnsiContext
 					fg = bk;
 				}
 				// reply with OSC 4 ; index ; rgb : [red] / [green] / [blue] ST
-				const auto &reply = StrPrintf("\e]4;%d;rgb:%02x/%02x/%02x\a",
+				SendSequenceFmt("\e]4;%d;rgb:%02x/%02x/%02x\a",
 					orig_index, fg & 0xff, (fg >> 8) & 0xff, (fg >> 16) & 0xff);
-				SendSequence(reply.c_str());
 //				abort();
 				return;
 			}
@@ -703,6 +702,21 @@ struct VTAnsiContext
 		fprintf(stderr, "FailedEscSeq: '%s' due to '%s'\n", s.c_str(), why.c_str());
 	}
 
+//-----------------------------------------------------------------------------
+//   InterpretEscSeq()
+// Interprets the last escape sequence scanned by ParseAndPrintString
+//   prefix             escape sequence prefix
+//   es_argc            escape sequence args count
+//   es_argv[]          escape sequence args array
+//   suffix             escape sequence suffix
+//   suffix2            escape sequence extra suffix
+//
+// for instance, with \e[33;45;1m we have
+// prefix = '[',
+// es_argc = 3, es_argv[0] = 33, es_argv[1] = 45, es_argv[2] = 1
+// suffix = 'm'
+//-----------------------------------------------------------------------------
+
 	void InterpretEscSeq( void )
 	{
 		int i;
@@ -715,6 +729,16 @@ struct VTAnsiContext
 		CHAR_INFO  CharInfo;
 		DWORD      mode;
 		HANDLE con_hnd = vt_shell->ConsoleHandle();
+		if (suffix2 != 0) {
+			if (prefix == '[' && suffix == 'p' && suffix2 == '$') {
+				int mode = (es_argc > 0) ? es_argv[0] : 0;
+				int status = vt_shell->OnModeQuery(mode, prefix2 == '?');
+				SendSequenceFmt("\e%s%d;%d$y", (prefix2 == '?') ? "[?" : "[", mode, status);
+			}
+			return;
+		}
+
+
 		if (prefix == '[') {
 			if (prefix2 == '?' && (suffix == 'h' || suffix == 'l')) {
 				for (i = 0; i < es_argc; ++i) {
@@ -781,30 +805,40 @@ struct VTAnsiContext
 				return;
 			}
 
-			// kitty keys stuff
-
-			// proceed only if mode is not specified or specified as 1 (default)
-			// we do not support other modes currently
-			if ((suffix == 'u') && ((es_argc < 2) || (es_argv[1] == 1))) {
+			if (suffix == 'u') {
 				if (prefix2 == '=') {
-					vt_shell->SetKittyFlags(es_argc > 0 ? es_argv[0] : 0);
+					DWORD flags = (es_argc > 0) ? es_argv[0] : 0;
+					DWORD mode = (es_argc > 1) ? es_argv[1] : 1;
+					DWORD current = vt_shell->GetKittyFlags();
+					if (mode == 1) vt_shell->SetKittyFlags(flags);
+					else if (mode == 2) vt_shell->SetKittyFlags(current | flags);
+					else if (mode == 3) vt_shell->SetKittyFlags(current & ~flags);
 					return;
 
 				} else if (prefix2 == '>') {
-					// we do not support flags stack currently, just set new mode
-					vt_shell->SetKittyFlags(es_argc > 0 ? es_argv[0] : 0);
+					// push
+					if (kitty_flag_stack.size() >= 32) // limit stack size
+						kitty_flag_stack.erase(kitty_flag_stack.begin());
+					kitty_flag_stack.push_back(vt_shell->GetKittyFlags());
+					vt_shell->SetKittyFlags((es_argc > 0) ? es_argv[0] : 0);
 					return;
 
 				} else if (prefix2 == '<') {
-					// we do not support flags stack currently, just reset flags
-					vt_shell->SetKittyFlags(0);
+					// pop
+					int count = (es_argc > 0) ? es_argv[0] : 1;
+					while (count-- > 0) {
+						if (kitty_flag_stack.empty()) {
+							vt_shell->SetKittyFlags(0);
+							return;
+						}
+						vt_shell->SetKittyFlags(kitty_flag_stack.back());
+						kitty_flag_stack.pop_back();
+					}
 					return;
 
 				} else if (prefix2 == '?') {
 					// reply with "CSI ? flags u"
-					char buf[64] = {0};
-					snprintf( buf, sizeof(buf), "\x1b[?%du", vt_shell->GetKittyFlags());
-					SendSequence( buf );
+					SendSequenceFmt("\x1b[?%du", vt_shell->GetKittyFlags());
 					return;
 				}
 			}
@@ -1128,36 +1162,47 @@ struct VTAnsiContext
 					SendSequence( "\x1b[0n" ); // "OK"
 					return;
 
-				case 6: {	// ESC[6n Report cursor position
-					char buf[64] = {0};
-					snprintf( buf, sizeof(buf), "\x1b[%d;%dR", Info.dwCursorPosition.Y - Info.srWindow.Top + 1, Info.dwCursorPosition.X + 1);
-					SendSequence( buf );
-				}
-				return;
+				case 6: 	// ESC[6n Report cursor position
+					SendSequenceFmt("\x1b[%d;%dR", Info.dwCursorPosition.Y - Info.srWindow.Top + 1, Info.dwCursorPosition.X + 1);
+					return;
 
 				default:
 					return;
 				}
 
-			case 't':                 // ESC[#t Window manipulation
-				if (es_argc != 1) return;
-				if (es_argv[0] == 21) {	// ESC[21t Report xterm window's title
-					std::string seq;
-					{
-						std::lock_guard<std::mutex> lock(title_mutex);
-						seq.reserve(cur_title.size() + 8);
-						// Too bad if it's too big or fails.
-						seq+= ESC;
-						seq+= ']';
-						seq+= 'l';
-						seq+= cur_title;
-						seq+= ESC;
-						seq+= '\\';
+			case 't': {                 // ESC[#t Window manipulation
+				std::string reply;
+				if (es_argc == 1 && es_argv[0] == 18) { // Report text area cells size: ESC [ 8 ; height ; width t
+					reply = StrPrintf("\e[8;%d;%dt", Info.dwSize.Y, Info.dwSize.X);
+				} else if (es_argc == 1 && (es_argv[0] == 14 || es_argv[0] == 16) ) {
+					WinportGraphicsInfo wgi{};
+					if (!WINPORT(GetConsoleImageCaps)(NULL, sizeof(wgi), &wgi)) {
+						wgi.PixPerCell.Y = wgi.PixPerCell.X = 0;
 					}
-					SendSequence( seq.c_str() );
+					int x = wgi.PixPerCell.X > 0 ? wgi.PixPerCell.X : 8;
+					int y = wgi.PixPerCell.Y > 0 ? wgi.PixPerCell.Y : 16;
+					if (es_argv[0] == 14) { // Report text area pixel size: ESC [ 4 ; height ; width t
+						reply = StrPrintf("\e[4;%d;%dt", y * Info.dwSize.Y, x * Info.dwSize.X);
+					} else if (es_argv[0] == 16) { // Report text cell pixel size: ESC [ 6 ; height ; width t
+						reply = StrPrintf("\e[6;%d;%dt", y, x);
+					}
+
+				} else if (es_argc == 1 && es_argv[0] == 21) {	// ESC[21t Report xterm window's title
+					std::lock_guard<std::mutex> lock(title_mutex);
+					reply.reserve(cur_title.size() + 8);
+					// Too bad if it's too big or fails.
+					reply+= ESC;
+					reply+= ']';
+					reply+= 'l';
+					reply+= cur_title;
+					reply+= ESC;
+					reply+= '\\';
+				}
+				if (!reply.empty()) {
+					SendSequence( reply.c_str() );
 				}
 				return;
-
+			}
 			case 'h':                 // ESC[#h Set Mode
 				if (es_argc == 1 && es_argv[0] == 3)
 					ansi_state.crm = TRUE;
@@ -1176,6 +1221,7 @@ struct VTAnsiContext
 					es_argv[0] - 1, es_argv[1] - 1, Info.srWindow.Top, Info.srWindow.Bottom);
 				WINPORT(SetConsoleScrollRegion)(con_hnd, es_argv[0] - 1, es_argv[1] - 1);
 				return;
+
 
 			case 'c': // CSI P s c Send Device Attributes (Primary DA)
 				if (prefix2 == 0 && (es_argc < 1 || es_argv[0] == 0)) {
@@ -1235,7 +1281,17 @@ struct VTAnsiContext
 	{
 		FlushBuffer();
 		if (prefix == '_') {//Application Program Command
-			if (StrStartsWith(os_cmd_arg, "set-blank="))  {
+			if (StrStartsWith(os_cmd_arg, "G"))  {
+				if (os_cmd_arg.size() > 1) {
+					_crds.reset(); // prevent miss repaints
+					std::lock_guard<std::mutex> lock(vta_kitty_mtx);
+					if (!vta_kitty) {
+						vta_kitty.emplace(vt_shell);
+					}
+					vta_kitty->InterpretControlString(os_cmd_arg.c_str() + 1, os_cmd_arg.size() - 1);
+				}
+
+			} else if (StrStartsWith(os_cmd_arg, "set-blank="))  {
 				blank_character = (os_cmd_arg.size() > 10) ? os_cmd_arg[10] : L' ';
 
 			} else if (os_cmd_arg == "push-attr")  {
@@ -1318,6 +1374,10 @@ struct VTAnsiContext
 	void ResetTerminal()
 	{
 		fprintf(stderr, "ANSI: ResetTerminal\n");
+		{ // remove all images after command completion
+			std::lock_guard<std::mutex> lock(vta_kitty_mtx);
+			vta_kitty.reset();
+		}
 		WINPORT(SetConsoleScrollRegion)(vt_shell->ConsoleHandle(), 0, MAXSHORT);
 
 		chars_in_buffer = 0;
@@ -1440,8 +1500,6 @@ struct VTAnsiContext
 					prefix2 = *s;
 				} else if (*s >= '\x20' && *s <= '\x2f') {
 					suffix2 = *s;
-				} else if (suffix2 != 0) {
-					state = 1;
 				} else {
 					es_argc = 0;
 					suffix = *s;
@@ -1460,8 +1518,6 @@ struct VTAnsiContext
 					// ignore 'em
 				} else if (*s >= '\x20' && *s <= '\x2f') {
 					suffix2 = *s;
-				} else if (suffix2 != 0) {
-					state = 1;
 				} else {
 					es_argc++;
 					suffix = *s;
@@ -1534,6 +1590,20 @@ struct VTAnsiContext
 		ASSERT(i == 0);
 	}
 
+	void HideImages()
+	{
+		std::lock_guard<std::mutex> lock(vta_kitty_mtx);
+		if (vta_kitty)
+			vta_kitty->HideImages();
+	}
+
+	void ShowImages()
+	{
+		std::lock_guard<std::mutex> lock(vta_kitty_mtx);
+		if (vta_kitty)
+			vta_kitty->ShowImages();
+	}
+
 	VTAnsiContext()
 	{
 	}
@@ -1579,6 +1649,7 @@ struct VTAnsiState *VTAnsi::Suspend()
 		HANDLE con_hnd = _ctx->vt_shell->ConsoleHandle();
 		out->InitFromConsole(con_hnd);
 		_ctx->saved_state.ApplyToConsole(con_hnd);
+		_ctx->HideImages();
 	} else
 		perror("VTAnsi::Suspend");
 
@@ -1588,6 +1659,7 @@ struct VTAnsiState *VTAnsi::Suspend()
 void VTAnsi::Resume(struct VTAnsiState* state)
 {
 	state->ApplyToConsole(_ctx->vt_shell->ConsoleHandle());
+	_ctx->ShowImages();
 	delete state;
 }
 
@@ -1615,6 +1687,7 @@ void VTAnsi::OnStop()
 
 void VTAnsi::OnDetached()
 {
+	_ctx->HideImages();
 	WINPORT(GetConsoleScrollRegion)(NULL, &_detached_state.scrl_top, &_detached_state.scrl_bottom);
 	RevertConsoleState(NULL);
 }
@@ -1627,6 +1700,13 @@ void VTAnsi::OnReattached()
 	}
 	WINPORT(SetConsoleScrollRegion)(con_hnd, _detached_state.scrl_top, _detached_state.scrl_bottom);
 	_ctx->ApplyConsoleTitle(con_hnd);
+	_ctx->ShowImages();
+}
+
+bool VTAnsi::HasImages()
+{
+	std::lock_guard<std::mutex> lock(_ctx->vta_kitty_mtx);
+	return (_ctx->vta_kitty && _ctx->vta_kitty->HasImages());
 }
 
 
@@ -1678,4 +1758,8 @@ std::string VTAnsi::GetTitle()
 {
 	std::lock_guard<std::mutex> lock(_ctx->title_mutex);
 	return _ctx->cur_title;
+}
+bool VTAnsi::IsCRM()
+{
+	return _ctx->ansi_state.crm;
 }

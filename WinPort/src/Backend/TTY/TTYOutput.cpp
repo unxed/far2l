@@ -14,6 +14,7 @@
 #include <os_call.hpp>
 #include <VT256ColorTable.h>
 #include <utils.h>
+#include <crc64.h>
 #include <TestPath.h>
 #include "TTYOutput.h"
 #include "FarTTY.h"
@@ -67,7 +68,7 @@ template <DWORD64 R, DWORD64 G, DWORD64 B>
 
 void TTYOutput::WriteUpdatedAttributes(DWORD64 attr, bool is_space)
 {
-	if (_norgb) {
+	if (_tty_caps.norgb) {
 		attr&= ~(FOREGROUND_TRUECOLOR | BACKGROUND_TRUECOLOR);
 	}
 	const DWORD64 xa = _prev_attr_valid ? attr ^ _prev_attr : (DWORD64)-1;
@@ -85,7 +86,7 @@ void TTYOutput::WriteUpdatedAttributes(DWORD64 attr, bool is_space)
 	_tmp_attrs = ESC "[";
 // wikipedia claims that colors 90-97 are nonstandard, so in case of some
 // terminal missing '90–97 Set bright foreground color' - use bold font
-	if (_kernel_tty && (xa & FOREGROUND_INTENSITY) != 0) {
+	if (_tty_caps.kind == TTYCaps::KERNEL && (xa & FOREGROUND_INTENSITY) != 0) {
 		_tmp_attrs+= (attr & FOREGROUND_INTENSITY) ? "1;" : "22;";
 	}
 
@@ -154,43 +155,27 @@ void TTYOutput::WriteUpdatedAttributes(DWORD64 attr, bool is_space)
 
 ///////////////////////
 
-TTYOutput::TTYOutput(int out, bool far2l_tty, bool norgb, DWORD nodetect)
+TTYOutput::TTYOutput(int out, TTYCaps tty_caps, TTYRestrict restrict)
 	:
-	_out(out), _far2l_tty(far2l_tty), _norgb(norgb), _kernel_tty(false), _nodetect(nodetect)
+	_out(out), _tty_caps(tty_caps), _restrict(restrict)
 {
-	const char *env = getenv("TERM");
-	_screen_tty = (env && strncmp(env, "screen", 6) == 0); // TERM=screen.xterm-256color
-
-	env = getenv("TERM_PROGRAM");
-	_wezterm = (env && strcasecmp(env, "WezTerm") == 0);
-
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
-	unsigned long int leds = 0;
-	if (ioctl(out, KDGETLED, &leds) == 0) {
-		// running under linux 'real' TTY, such kind of terminal cannot be dropped due to lost connection etc
-		// also detachable session makes impossible using of ioctl(_stdin, TIOCLINUX, &state) in child (#653),
-		// so lets default to mortal mode in Linux/BSD TTY
-		_kernel_tty = true;
-	}
-#endif
-
 	// enable mouse and focus notifications
 	Format(ESC "7" ESC "[?47h" ESC "[?1049h" ESC "[?2004h" ESC "[?1004h");
 
-	if ((_nodetect & NODETECT_W) == 0) {
+	if (!_restrict.win32) {
 		Format(ESC "[?9001h"); // win32-input-mode on
 	}
-	if ((_nodetect & NODETECT_A) == 0) {
+	if (!_restrict.apple) {
 		Format(ESC "[?1337h"); // iTerm2 input mode on
 	}
-	if ((_nodetect & NODETECT_K) == 0) {
+	if (!_restrict.kitty) {
 		Format(ESC "[=15;1u"); // kovidgoyal's kitty mode on
 	}
 
 	ChangeKeypad(true);
 	ChangeMouse(true);
 
-	if (far2l_tty) {
+	if (_tty_caps.kind == TTYCaps::FAR2L) {
 		uint64_t wanted_feats = FARTTY_FEAT_COMPACT_INPUT;
 		if (!isatty(_out)) {
 			wanted_feats|= FARTTY_FEAT_TERMINAL_SIZE;
@@ -201,7 +186,6 @@ TTYOutput::TTYOutput(int out, bool far2l_tty, bool norgb, DWORD nodetect)
 		stk_ser.PushNum((uint8_t)0); // zero ID means not expecting reply
 		SendFar2lInteract(stk_ser);
 	}
-
 	Flush();
 }
 
@@ -211,17 +195,14 @@ TTYOutput::~TTYOutput()
 		ChangeCursor(true, true);
 		ChangeMouse(false);
 		ChangeKeypad(false);
-		if (!_kernel_tty) {
-			Format(ESC "[0 q");
-		}
-		if ((_nodetect & NODETECT_K) == 0) {
+		if (!_restrict.kitty) {
 			Format(ESC "[=0;1u" "\r"); // kovidgoyal's kitty mode off
 		}
 		Format(ESC "[0m" ESC "[?1049l" ESC "[?47l" ESC "8" ESC "[?2004l" ESC "[?1004l" "\r\n");
-		if ((_nodetect & NODETECT_W) == 0) {
+		if (!_restrict.win32) {
 			Format(ESC "[?9001l"); // win32-input-mode off
 		}
-		if ((_nodetect & NODETECT_A) == 0) {
+		if (!_restrict.apple) {
 			Format(ESC "[?1337l"); // iTerm2 input mode off
 		}
 		TTYBasePalette def_palette;
@@ -248,7 +229,7 @@ void TTYOutput::ChangePalette(const TTYBasePalette &palette)
 
 			WinPortRGB fg(palette.foreground[i]), bk(palette.background[i]);
 
-			if (_far2l_tty) { // far2l may set separate foreground & background colors
+			if (_tty_caps.kind == TTYCaps::FAR2L) { // far2l may set separate foreground & background colors
 				Format(ESC "]4;%d;#%06x;#%06x\a", j, fg.AsBGR(), bk.AsBGR());
 			} else {
 				Format(ESC "]4;%d;#%06x\a", j, (i < 8) ? bk.AsBGR() : fg.AsBGR());
@@ -286,8 +267,8 @@ void TTYOutput::FinalizeSameChars()
 	// - Use repeat last char sequence when (#925 #929) terminal is far2l that definitely supports it
 	// - Under other terminals except screen and if repeated char is space - use erase chars + move cursor forward
 	// - Otherwise just output copies of repeated char sequence
-	if (_screen_tty || _same_chars.count <= 5
-			|| (!_far2l_tty && (_same_chars.wch != L' ' || _same_chars.count <= 8))) {
+	if (_tty_caps.strict_dups || _same_chars.count <= 5
+			|| (_tty_caps.kind != TTYCaps::FAR2L && (_same_chars.wch != L' ' || _same_chars.count <= 8))) {
 
 		// output plain <count> copies of repeated char sequence
 		_rawbuf.reserve(_rawbuf.size() + _same_chars.tmp.size() * _same_chars.count);
@@ -298,7 +279,7 @@ void TTYOutput::FinalizeSameChars()
 	} else {
 		char sz[32];
 		int sz_len;
-		if (_far2l_tty) {
+		if (_tty_caps.kind == TTYCaps::FAR2L) {
 			_rawbuf.insert(_rawbuf.end(), _same_chars.tmp.begin(), _same_chars.tmp.end());
 			sz_len = snprintf(sz, // repeat last character <count-1> times
 				sizeof(sz), ESC "[%ub", _same_chars.count - 1);
@@ -314,8 +295,29 @@ void TTYOutput::FinalizeSameChars()
 	}
 }
 
+void TTYOutput::FinalizeLineDrawing()
+{
+	if (_DEC_line_drawing) {
+		_rawbuf.insert(_rawbuf.end(), {*ESC, '(', 'B'}); // Disable 'DEC Line Drawing mode' ESC sequence
+		_DEC_line_drawing = false;
+	}
+}
+
+static const char s_DEC_linedrawing_chars[114] = "qqxxqqxxqqxxllllkkkkmmmmjjjjttttttttuuuuuuuuwwwwwwwwvvvvvvvvnnnnnnnnnnnnnnnnqqxxqxlllkkkmmmjjjtttuuuwwwvvvnnnlkjm";
+
 void TTYOutput::WriteWChar(WCHAR wch)
 {
+	if (_tty_caps.DEC_lines && wch >= 0x2500 && wch <= 0x2570) {
+		if (!_DEC_line_drawing) {
+			FinalizeSameChars();
+			_rawbuf.insert(_rawbuf.end(), {*ESC, '(', '0'}); // Enable 'DEC Line Drawing mode' ESC sequence
+			_DEC_line_drawing = true;
+		}
+		_rawbuf.push_back(s_DEC_linedrawing_chars[wch - 0x2500]);
+		return;
+	}
+	FinalizeLineDrawing();
+
 	if (_same_chars.count == 0) {
 		_same_chars.wch = wch;
 
@@ -329,13 +331,20 @@ void TTYOutput::WriteWChar(WCHAR wch)
 void TTYOutput::Write(const char *str, int len)
 {
 	if (len > 0) {
+		FinalizeLineDrawing();
 		FinalizeSameChars();
 		_rawbuf.insert(_rawbuf.end(), str, str + len);
 	}
 }
 
+void TTYOutput::Write(const char *str)
+{
+	Write(str, strlen(str));
+}
+
 void TTYOutput::Format(const char *fmt, ...)
 {
+	FinalizeLineDrawing();
 	FinalizeSameChars();
 
 	char tmp[0x100];
@@ -375,6 +384,7 @@ void TTYOutput::Format(const char *fmt, ...)
 
 void TTYOutput::Flush()
 {
+	FinalizeLineDrawing();
 	FinalizeSameChars();
 	if (!_rawbuf.empty()) {
 		WriteReally(&_rawbuf[0], _rawbuf.size());
@@ -390,7 +400,7 @@ void TTYOutput::ChangeCursorHeight(unsigned int height)
 	// https://unix.stackexchange.com/questions/49485/escape-code-to-change-cursor-shape
 	// https://github.com/kovidgoyal/kitty/issues/715
 
-	if (_far2l_tty) {
+	if (_tty_caps.kind == TTYCaps::FAR2L) {
 		StackSerializer stk_ser;
 		stk_ser.PushNum(UCHAR(height));
 		stk_ser.PushNum(FARTTY_INTERACT_SET_CURSOR_HEIGHT);
@@ -399,7 +409,7 @@ void TTYOutput::ChangeCursorHeight(unsigned int height)
 
 	} else if (height < 30) {
 
-		if (_kernel_tty) {
+		if (_tty_caps.kind == TTYCaps::KERNEL) {
 
 			// Available sizes are from 2 to 8
 			Format(ESC "[?2c");
@@ -409,18 +419,19 @@ void TTYOutput::ChangeCursorHeight(unsigned int height)
 			Format(ESC "]1337;CursorShape=2\x07"); // Same for iTerm2
 		}
 
+	} else if (_tty_caps.kind == TTYCaps::KERNEL) {
+		// Available sizes are from 2 to 8
+		Format(ESC "[?6c");
+
 	} else {
-
-		if (_kernel_tty) {
-
-			// Available sizes are from 2 to 8
-			Format(ESC "[?6c");
-
-		} else {
-			Format(ESC "[0 q"); // Blink Block (Default)
-			Format(ESC "]1337;CursorShape=0\x07"); // Same for iTerm2
-		}
+		Format(ESC "[0 q"); // Blink Block (Default)
+		Format(ESC "]1337;CursorShape=0\x07"); // Same for iTerm2
 	}
+}
+
+void TTYOutput::ChangeCursorShape(int shape)
+{
+	Format(ESC "[%d q", shape);
 }
 
 void TTYOutput::ChangeCursor(bool visible, bool force)
@@ -434,13 +445,13 @@ void TTYOutput::ChangeCursor(bool visible, bool force)
 void TTYOutput::MoveCursorStrict(unsigned int y, unsigned int x)
 {
 // ESC[#;#H Moves cursor to line #, column #
-	if (x == 1 && !_wezterm) {
+	if (x == 1) {
 		if (y == 1) {
 			Write(ESC "[H", 3);
-		} else if (_far2l_tty) { // many other terminals support this too, but not all (see #1725)
+		} else if (_tty_caps.kind == TTYCaps::FAR2L) { // many other terminals support this too, but not all (see #1725)
 			Format(ESC "[%dH", y);
 		} else {
-			Format(ESC "[%d;H", y);
+			Format(ESC "[%d;1H", y); // cant leave empty space between semicolon and H cuz wezterm goes crazy due to this
 		}
 	} else {
 		Format(ESC "[%d;%dH", y, x);
@@ -452,7 +463,7 @@ void TTYOutput::MoveCursorStrict(unsigned int y, unsigned int x)
 void TTYOutput::MoveCursorLazy(unsigned int y, unsigned int x)
 {
 	// workaround for https://github.com/elfmz/far2l/issues/1889
-	if ((_cursor.y != y && _cursor.x != x) || _wezterm) {
+	if (_cursor.y != y && _cursor.x != x) {
 		MoveCursorStrict(y, x);
 
 	} else if (x != _cursor.x) {
@@ -568,6 +579,74 @@ void TTYOutput::SendOSC52ClipSet(const std::string &clip_data)
 	base64_encode(request, (const unsigned char *)clip_data.data(), clip_data.size());
 	request+= '\a';
 	Write(request.c_str(), request.size());
+}
+
+void TTYOutput::RequestCellSize()
+{
+	// Expected reply: ESC [ 6 ; height ; width t
+	Format(ESC "[16t");
+}
+
+void TTYOutput::RequestStatus()
+{
+	Format(ESC "[5n");
+}
+
+static unsigned int KittyImageID(const std::string &str_id)
+{
+	unsigned int out = crc64(123, (const unsigned char *)str_id.c_str(), str_id.size());
+	return out ? out : 1;
+}
+
+unsigned int TTYOutput::SendKittyImage(const std::string &str_id, const TTYConsoleImage &img, char action)
+{
+	unsigned int id = KittyImageID(str_id);
+
+    std::string base64_data;
+    base64_encode(base64_data, img.pixel_data.data(), img.pixel_data.size());
+
+	MoveCursorStrict(img.area.Top + 1, img.area.Left + 1);
+
+    for (size_t offset = 0;offset < base64_data.length(); ) {
+        const size_t chunk_len = std::min(base64_data.length() - offset, (size_t)4096);
+        const unsigned more_to_follow = (offset + chunk_len < base64_data.length()) ? 1 : 0;
+        if (offset == 0) {
+			Format(ESC "_Ga=%c,f=%u,t=d,i=%u,m=%u", action, img.fmt, id, more_to_follow);
+			if (img.fmt != 100) {
+				Format(",s=%u,v=%u", img.width, img.height);
+			}
+			if (img.area.Right != -1) {
+				if (img.pixel_offset) {
+					Format(",X=%d", img.area.Right);
+				} else {
+					Format(",c=%d", img.area.Right + 1 - img.area.Left);
+				}
+			}
+			if (img.area.Bottom != -1) {
+				if (img.pixel_offset) {
+					Format(",Y=%d", img.area.Bottom);
+				} else {
+					Format(",r=%d", img.area.Bottom + 1 - img.area.Top);
+				}
+			}
+        } else {
+			Format(ESC "_Gm=%u", more_to_follow);
+        }
+		Write(";");
+        Write(base64_data.c_str() + offset, chunk_len);
+        Write(ESC "\\");
+        offset += chunk_len;
+    }
+	_cursor.x = _cursor.y = -1;
+	return id;
+}
+
+unsigned int TTYOutput::DeleteKittyImage(const std::string &str_id)
+{
+	unsigned int id = KittyImageID(str_id);
+	// a=d (delete), d=I (by ID)
+	Format(ESC "_Ga=d,d=I,i=%u" ESC "\\", id);
+	return id;
 }
 
 // iTerm2 cmd+v workaround

@@ -2,6 +2,7 @@
 #include <locale>
 #include <set>
 #include <vector>
+#include <array>
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -191,7 +192,7 @@ extern "C"
 
 #ifndef __linux__
 		if ((dwFlagsAndAttributes & (FILE_FLAG_WRITE_THROUGH|FILE_FLAG_NO_BUFFERING)) != 0) {
-#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__HAIKU__)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__HAIKU__)
 			fcntl(r, O_DIRECT, 1);
 #elif !defined(__CYGWIN__)
 			fcntl(r, F_NOCACHE, 1);
@@ -465,10 +466,10 @@ extern "C"
 
 		// posix_fallocate/F_PREALLOCATE unsupported or failed, try to fallback
 		// to file expansion by writing zero bytes to ensure space allocation
-		char dummy[0x10000]{};
+		static thread_local std::array<char, 0x10000> dummy{};
 		for (off_t ofs = s.st_size; ofs < (off_t)RequireFileSize; ) {
-			const size_t piece = (size_t)std::min((off_t)sizeof(dummy), (off_t)RequireFileSize - ofs);
-			const ssize_t r = pwrite(wph->fd, dummy, piece, ofs);
+			const size_t piece = (size_t)std::min((off_t)dummy.size(), (off_t)RequireFileSize - ofs);
+			const ssize_t r = pwrite(wph->fd, dummy.data(), piece, ofs);
 			if (r == 0 || (r < 0 && errno != EAGAIN && errno != EINTR)) {
 				int err = errno;
 				if (ftruncate(wph->fd, s.st_size) == -1) { // revert original size

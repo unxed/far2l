@@ -135,11 +135,11 @@ static void SetDefaultHighlighting()
 	{L"System",        L"*", 1, FILE_ATTRIBUTE_SYSTEM, 0x00, 0x10 | F_CYAN, 0xFFFFFFFD0F, 0x30 | F_DARKGRAY, 0xFFFFFFFD0F, 0xFF263C, 1, 0},
 	{L"Hardlinks > 1", L"*", 1, FILE_ATTRIBUTE_HARDLINKS, FILE_ATTRIBUTE_DIRECTORY, 0x10 | F_LIGHTCYAN, 0xFFFFFFFD0F, 0x30 | F_BLUE, 0xFFFFFFFD0F, 0xFF00AB, 0, FFF_DISABLED},
 	// without any mark, only different colors
+	{L"Scripts",    L"<exec>",   0, 0x00, FILE_ATTRIBUTE_DIRECTORY, 0x10 | F_LIGHTGREEN, 0xFFFFFFFD0F, 0x30 | F_LIGHTGREEN, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	{L"Shared",     L"<shared>", 0, 0x00, FILE_ATTRIBUTE_DIRECTORY, (0x00b800ull << 16) | (0x10 | F_GREEN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, (0x005500ull << 16) | (0x30 | F_GREEN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	{L"Source",     L"<src>",    0, 0x00, FILE_ATTRIBUTE_DIRECTORY, (0xffbcacull << 16) | (0x10 | F_GREEN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, (0x8F0C00ull << 16) | (0x30 | F_GREEN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	{L"Image",      L"<pic>",    0, 0x00, FILE_ATTRIBUTE_DIRECTORY, (0x00ffaeull << 16) | (0x10 | F_BROWN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, (0x00432eull << 16) | (0x30 | F_BROWN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	{L"Model",      L"<3d>",     0, 0x00, FILE_ATTRIBUTE_DIRECTORY, (0x00ffaeull << 16) | (0x10 | F_BROWN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, (0x00432eull << 16) | (0x30 | F_BROWN) | FOREGROUND_TRUECOLOR, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
-	{L"Scripts",    L"<exec>",   0, 0x00, FILE_ATTRIBUTE_DIRECTORY, 0x10 | F_LIGHTGREEN, 0xFFFFFFFD0F, 0x30 | F_LIGHTGREEN, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	{L"Archives",   L"<arc>",    0, 0x00, FILE_ATTRIBUTE_DIRECTORY, 0x10 | F_LIGHTMAGENTA, 0xFFFFFFFD0F, 0x30 | F_LIGHTMAGENTA, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	{L"Temporary",  L"<temp>",   0, 0x00, FILE_ATTRIBUTE_DIRECTORY, 0x10 | F_BROWN, 0xFFFFFFFD0F, 0x30 | F_BROWN, 0xFFFFFFFD0F, 0xFF0000, 0, 0},
 	// sound '♪' (disabled by default)
@@ -818,31 +818,15 @@ void HighlightFiles::HiEdit(int MenuPos)
 							em.AddDupWrap(fmask);
 
 							// expand all groups
-							int ngroups = 0;
-							size_t pos_open, pos_close = 0;
-							FARString fs_group_name, fs_masks_from_group;
-							fs = fmask;
-							for( ;; ) {
-								if( !fs.Pos(pos_open, '<', pos_close) )
-									break;
-								if( !fs.Pos(pos_close, '>', pos_open+1) )
-									break;
-								if( pos_close-pos_open < 2 )
-									continue;
-								fs_group_name = fs.SubStr(pos_open+1, pos_close-pos_open-1);
-								if( !GetMaskGroup(fs_group_name, fs_masks_from_group) )
-									continue;
-								fs.Replace(pos_open, pos_close-pos_open+1, fs_masks_from_group);
-								pos_close = pos_open; // may be need recursive expand
-								ngroups++;
-							}
-							em.AddDup(L"");
-							fs_group_name = Msg::HighlightViewMasksCountExpandedGroups;
-							fs_group_name.AppendFormat(L" %d", ngroups);
-							em.AddDup(fs_group_name);
+							FARString fsmask_expanded = fmask;
+							unsigned ngroups = GetMaskGroupExpandRecursiveAll(fsmask_expanded);
+							em.AddDup(L"\x1");
+							fs = Msg::HighlightViewMasksCountExpandedGroups;
+							fs.AppendFormat(L" %u", ngroups);
+							em.AddDup(fs);
 							em.AddDup(L"");
 							em.AddDup(Msg::HighlightViewMasksAfterExpand);
-							em.AddDupWrap(fs);
+							em.AddDupWrap(fsmask_expanded);
 						}
 						em.AddDup(Msg::Ok);
 						em.AddDup(Msg::MaskGroupTitle);

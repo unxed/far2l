@@ -594,11 +594,11 @@ static void SetPluginDirectory(const wchar_t *DirName, HANDLE hPlugin, bool Upda
 
 			if (*DirPtr) {
 				if (*DirPtr != GOOD_SLASH)	// fix #182
-					CtrlObject->Plugins.SetDirectory(hPlugin, L"/", OPM_SILENT);
+					CtrlObject->Plugins.SetDirectory(hPlugin, WGOOD_SLASH, OPM_SILENT);
 
 				CtrlObject->Plugins.SetDirectory(hPlugin, DirPtr, OPM_SILENT);
 			} else {
-				CtrlObject->Plugins.SetDirectory(hPlugin, L"/", OPM_SILENT);
+				CtrlObject->Plugins.SetDirectory(hPlugin, WGOOD_SLASH, OPM_SILENT);
 			}
 		}
 
@@ -973,7 +973,7 @@ static bool GetPluginFile(size_t ArcIndex, const FAR_FIND_DATA_EX &FindData, con
 	CtrlObject->Plugins.GetOpenPluginInfo(ArcItem.hPlugin, &Info);
 	FARString strSaveDir = NullToEmpty(Info.CurDir);
 	AddEndSlash(strSaveDir);
-	CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, L"/", OPM_SILENT);
+	CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, WGOOD_SLASH, OPM_SILENT);
 	// SetPluginDirectory(ArcList[ArcIndex]->strRootPath,hPlugin);
 	SetPluginDirectory(FindData.strFileName, ArcItem.hPlugin);
 	const wchar_t *lpFileNameToFind = PointToName(FindData.strFileName);
@@ -998,7 +998,7 @@ static bool GetPluginFile(size_t ArcIndex, const FAR_FIND_DATA_EX &FindData, con
 		CtrlObject->Plugins.FreeFindData(ArcItem.hPlugin, pItems, nItemsNumber);
 	}
 
-	CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, L"/", OPM_SILENT);
+	CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, WGOOD_SLASH, OPM_SILENT);
 	SetPluginDirectory(strSaveDir, ArcItem.hPlugin);
 	return nResult;
 }
@@ -1075,8 +1075,7 @@ static bool ScanFileByMapping(const char *Name)
 	return false;
 }
 
-static void
-AddMenuRecord(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &FindData, size_t ArcIndex);
+static void AddMenuRecord(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &FindData, size_t ArcIndex);
 
 struct ScanFileWorkItem : IThreadedWorkItem
 {
@@ -1179,10 +1178,9 @@ static void AnalyzeFileItem(HANDLE hDlg, PluginPanelItem *FileItem, const wchar_
 			FarMkTempEx(strTempDir);
 			apiCreateDirectory(strTempDir, nullptr);
 
-			bool GetFileResult = false;
-			GetFileResult = CtrlObject->Plugins.GetFile(hPlugin, FileItem, strTempDir, FileToScan,
-										OPM_SILENT | OPM_FIND)
-						!= FALSE;
+			bool GetFileResult = CtrlObject->Plugins.GetFile(hPlugin,
+				FileItem, strTempDir, FileToScan, OPM_SILENT | OPM_FIND) != FALSE;
+
 			if (!GetFileResult) {
 				apiRemoveDirectory(strTempDir);
 				return;
@@ -1247,7 +1245,7 @@ class FindDlg_TempFileHolder : public TempFileUploadHolder
 			strSaveDir = NullToEmpty(Info.CurDir);
 			AddEndSlash(strSaveDir);
 		}
-		CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, L"/", OPM_SILENT);
+		CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, WGOOD_SLASH, OPM_SILENT);
 		// SetPluginDirectory(ArcList[ArcIndex]->strRootPath,hPlugin);
 		SetPluginDirectory(FindData.strFileName, ArcItem.hPlugin);
 		//		const wchar_t *lpFileNameToFind = PointToName(FindData.strFileName);
@@ -1275,7 +1273,7 @@ class FindDlg_TempFileHolder : public TempFileUploadHolder
 		if (ClosePlugin) {
 			CtrlObject->Plugins.ClosePlugin(ArcItem.hPlugin);
 		} else {
-			CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, L"/", OPM_SILENT);
+			CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, WGOOD_SLASH, OPM_SILENT);
 			SetPluginDirectory(strSaveDir, ArcItem.hPlugin);
 		}
 
@@ -1313,9 +1311,9 @@ static LONG_PTR WINAPI FindDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Pa
 				if (!strFindStr.IsEmpty()) {
 					FARString strFStr(strFindStr);
 					TruncStrFromEnd(strFStr, 10);
-					FARString strTemp(L" \"");
-					strTemp+= strFStr+= "\"";
-					strSearchStr.Format(Msg::FindSearchingIn, strTemp.CPtr());
+					strFStr.Insert(0, L" \"");
+					strFStr+= L'\"';
+					strSearchStr.Format(Msg::FindSearchingIn, strFStr.CPtr());
 				} else
 					strSearchStr.Format(Msg::FindSearchingIn, L"");
 
@@ -1833,12 +1831,8 @@ static LONG_PTR WINAPI FindDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Pa
 	return DefDlgProc(hDlg, Msg, Param1, Param2);
 }
 
-static void
-AddMenuRecord(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &FindData, size_t ArcIndex)
+static int AddMenuRecordSynched(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &FindData, size_t ArcIndex)
 {
-	if (!hDlg)
-		return;
-
 	VMenu *ListBox = reinterpret_cast<Dialog *>(hDlg)->GetAllItem()[FD_LISTBOX]->ListPtr;
 
 	if (!ListBox->GetItemCount()) {
@@ -1968,7 +1962,7 @@ AddMenuRecord(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &Find
 				if (!IsSlash(strPathName.At(0)))
 					AddEndSlash(strArcPathName);
 
-				strArcPathName+= (!StrCmp(strPathName, L"./") ? L"/" : strPathName.CPtr());
+				strArcPathName+= (!StrCmp(strPathName, L"./") ? WGOOD_SLASH : strPathName.CPtr());
 				strPathName = strArcPathName;
 			}
 		}
@@ -2031,6 +2025,16 @@ AddMenuRecord(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &Find
 	itd.SetFileCount(FC);
 	itd.SetDirCount(DC);
 	itd.SetLastFoundNumber(LF);
+	return 0;
+}
+
+static void AddMenuRecord(HANDLE hDlg, const wchar_t *FullName, const FAR_FIND_DATA_EX &FindData, size_t ArcIndex)
+{
+	if (!hDlg) {
+		fprintf(stderr, "%s: !hDlg\n", __FUNCTION__);
+	} else if (InterThreadCall<int, -1>(std::bind(AddMenuRecordSynched, hDlg, FullName, FindData, ArcIndex)) < 0) {
+		fprintf(stderr, "%s: InterThreadCall failed\n", __FUNCTION__);
+	}
 }
 
 static void DoPreparePluginList(HANDLE hDlg);
@@ -2252,7 +2256,7 @@ static void ScanPluginTree(HANDLE hDlg, HANDLE hPlugin, DWORD Flags, int &Recurs
 				}
 				if (SetDirectoryResult) {
 					strPluginSearchPath+= strCurName;
-					strPluginSearchPath+= L"/";
+					strPluginSearchPath+= WGOOD_SLASH;
 					ScanPluginTree(hDlg, hPlugin, Flags, RecurseLevel);
 
 					size_t pos = 0;
@@ -2302,10 +2306,10 @@ static void DoPrepareFileList(HANDLE hDlg)
 		}
 		List.Set(strPathEnv);
 	} else if (SearchMode == FINDAREA_ROOT) {
-		strRoot = L"/";
+		strRoot = WGOOD_SLASH;
 		List.Set(strRoot);
 	} else if (SearchMode == FINDAREA_ALL || SearchMode == FINDAREA_ALL_BUTNETWORK) {
-		List.AddItem(L"/");
+		List.AddItem(WGOOD_SLASH);
 	} else {
 		List.Set(strRoot);
 	}
@@ -2330,7 +2334,7 @@ static void DoPreparePluginList(HANDLE hDlg)
 		strSaveDir = Info.CurDir;
 		if (SearchMode == FINDAREA_ROOT || SearchMode == FINDAREA_ALL || SearchMode == FINDAREA_ALL_BUTNETWORK
 				|| SearchMode == FINDAREA_INPATH) {
-			CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, L"/", OPM_FIND);
+			CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, WGOOD_SLASH, OPM_FIND);
 			CtrlObject->Plugins.GetOpenPluginInfo(ArcItem.hPlugin, &Info);
 		}
 	}
@@ -2496,6 +2500,7 @@ static bool FindFilesProcess(Vars &v)
 	// Надо бы показать диалог, а то инициализация элементов запаздывает
 	// иногда при поиске и первые элементы не добавляются
 	Dlg.InitDialog();
+	Dlg.SetRegularIdle(true);
 	Dlg.Show();
 
 	strLastDirName.Clear();
@@ -2617,7 +2622,7 @@ static bool FindFilesProcess(Vars &v)
 						//						CtrlObject->Plugins.GetOpenPluginInfo(ArcItem.hPlugin,&Info);
 						if (SearchMode == FINDAREA_ROOT || SearchMode == FINDAREA_ALL
 								|| SearchMode == FINDAREA_ALL_BUTNETWORK || SearchMode == FINDAREA_INPATH)
-							CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, L"/", 0);
+							CtrlObject->Plugins.SetDirectory(ArcItem.hPlugin, WGOOD_SLASH, 0);
 
 						SetPluginDirectory(strFileName, ArcItem.hPlugin, TRUE);
 					}

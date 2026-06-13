@@ -110,3 +110,8 @@ DWORD RedrawTimeout = 200;
 FormatScreen FS;
 
 DWORD ErrorMode;
+
+extern "C"
+{
+	__attribute__((visibility("default"))) bool g_far2l_use_vs16 = true;
+}

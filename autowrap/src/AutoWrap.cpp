@@ -32,7 +32,7 @@ SHAREDSYMBOL HANDLE WINAPI EXP_NAME(OpenPlugin)(int OpenFrom, INT_PTR Item)
 {
 	PluginDialogBuilder Builder(Info, MAutoWrap, NULL);
 	Builder.AddCheckbox(MEnableWrap, &Opt.Wrap);
-	FarDialogItem *RightMargin = Builder.AddIntEditField(&Opt.RightMargin, 3);
+	auto RightMargin = Builder.AddIntEditField(&Opt.RightMargin, 3);
 	Builder.AddTextAfter(RightMargin, MRightMargin);
 	Builder.AddSeparator();
 	Builder.AddText(MFileMasks);
@@ -214,6 +214,7 @@ SHAREDSYMBOL int WINAPI EXP_NAME(ProcessEditorInput)(const INPUT_RECORD *Rec)
 SHAREDSYMBOL void WINAPI EXP_NAME(GetPluginInfo)(struct PluginInfo *Info)
 {
 	Info->StructSize = sizeof(*Info);
+	Info->SysID = 0xDEEC52C3;
 	Info->Flags = PF_EDITOR | PF_DISABLEPANELS;
 	Info->DiskMenuStringsNumber = 0;
 	static const TCHAR *PluginMenuStrings[1];

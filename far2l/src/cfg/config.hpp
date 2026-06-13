@@ -104,6 +104,7 @@ struct PanelOptions
 	int NumericSort;
 	int CaseSensitiveSort;
 	int DirectoriesFirst;
+	int ExecutablesFirst;
 };
 
 struct AutoCompleteOptions
@@ -219,12 +220,15 @@ struct EditorOptions
 	DWORD FileSizeLimitHi;
 	int ShowKeyBar;
 	int ShowTitleBar;
+	int ShowMenuBar;
 	int ShowScrollBar;
 	int UseEditorConfigOrg;
 	int SearchSelFound;
 	int SearchRegexp;
 	int SearchPickUpWord;
 	int ShowWhiteSpace;
+	int ShowLineNumbers;
+	int ShowGutterMarks;
 
 	int WordWrap;
 	FARString strWordDiv;
@@ -240,6 +244,7 @@ struct ViewerOptions
 	int AutoDetectCodePage;
 	int ShowScrollbar;		// $ 18.07.2000 tran пара настроек для viewer
 	int ShowArrows;
+	int ClickableURLs;
 	int PersistentBlocks;	// $ 14.05.2002 VVM Постоянные блоки во вьюере
 	int ViewerIsWrap;		// (Wrap|WordWarp)=1 | UnWrap=0
 	int ViewerWrap;			// Wrap=0|WordWarp=1
@@ -250,6 +255,7 @@ struct ViewerOptions
 	UINT DefaultCodePage;
 	int ShowTitleBar;
 	int SearchRegexp;
+	int ShowMenuBar;
 };
 
 // "Полиция"
@@ -393,6 +399,13 @@ struct MacroOptions
 	FARString strDateFormat;		// Для $Date
 };
 
+enum HistoryRemoveDupsRule
+{
+	HISTORY_REMOVE_DUPS_NEVER = 0,
+	HISTORY_REMOVE_DUPS_BY_NAME = 1,
+	HISTORY_REMOVE_DUPS_BY_NAME_EXTRA = 2,
+};
+
 struct Options
 {
 	int Clock;
@@ -468,6 +481,7 @@ struct Options
 	FARString strQuotedSymbols;
 	DWORD QuotedName;
 	int AutoSaveSetup;
+	int AutoSavePanels;
 	int SetupArgv;	// количество каталогов в ком.строке ФАРа
 	int ChangeDriveMode;
 	int ChangeDriveDisconnectMode;
@@ -646,6 +660,11 @@ struct Options
 	DWORD OwnerGroupShowId;
 
 	bool IsFirstStart;
+
+    // Theme support: theme name and flag indicating we need to save colors
+	FARString CurrentTheme;
+	bool IsColorsChanged;    /* transient, do not need to store in file */
+	bool IsSystemTheme;
 
 	std::vector<std::wstring> CmdLineStrings;
 };

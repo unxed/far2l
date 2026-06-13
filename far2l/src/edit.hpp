@@ -118,6 +118,8 @@ class SystemCPEncoder : public ICPEncoder
 class Dialog;
 class Editor;
 
+bool TranslateInsertKey(FarKey &Key);
+
 class Edit : public ScreenObject
 {
 	friend class DlgEdit;
@@ -211,6 +213,7 @@ protected:
 	inline int CalcPosFwd(int LimitPos = -1) const { return CalcPosFwdTo(CurPos, LimitPos); }
 	inline int CalcPosBwd() const { return CalcPosBwdTo(CurPos); }
 
+	int FindVisualLine(int Pos) const;
 	int GetVisualLineCount() const;
 	void GetVisualLine(int line, int& start, int& end) const;
 public:
@@ -322,6 +325,7 @@ public:
 	void SetDialogParent(DWORD Sets);
 	void SetCursorType(bool Visible, DWORD Size);
 	void GetCursorType(bool &Visible, DWORD &Size);
+	void SetCursorVisibleFlag(bool Visible) { Flags.Change(FEDITLINE_CURSORVISIBLE, Visible); }
 	int GetReadOnly() { return Flags.Check(FEDITLINE_READONLY); }
 	void SetReadOnly(int NewReadOnly) { Flags.Change(FEDITLINE_READONLY, NewReadOnly); }
 	int GetDropDownBox() { return Flags.Check(FEDITLINE_DROPDOWNBOX); }

@@ -461,7 +461,7 @@ SHORT ConsoleOutput::ModifySequenceEntityAt(SequenceModifier &sm, COORD pos, SMA
 						CI_SET_COMPOSITE(prev_ch, prev_str.c_str());
 						_buf.Write(prev_ch, _prev_pos);
 						AffectArea(area, _prev_pos.X, _prev_pos.Y);
-						
+
 						return 0;
 					}
 				}
@@ -955,5 +955,39 @@ unsigned int ConsoleOutput::WaitForChange(unsigned int prev_change_id, unsigned 
 
 const char *ConsoleOutput::BackendInfo(int entity)
 {
-	return _backend->OnConsoleBackendInfo(entity);
+	return _backend ? _backend->OnConsoleBackendInfo(entity) : nullptr;
+}
+
+void ConsoleOutput::OnGetConsoleImageCaps(WinportGraphicsInfo *wgi)
+{
+	if (_backend) {
+		_backend->OnGetConsoleImageCaps(wgi);
+	} else {
+		memset(wgi, 0, sizeof(*wgi));
+	}
+}
+
+bool ConsoleOutput::OnSetConsoleImage(const char *id, DWORD64 flags, const SMALL_RECT *area, DWORD width, DWORD height, const void *buffer)
+{
+	bool bad = (!id || !buffer || width == 0 || height == 0);
+	fprintf(stderr,
+		"OnSetConsoleImage: id='%s' flags=0x%llx area={%d:%d %d:%d} width=%d height=%d %s\n",
+		id, flags, area->Left, area->Top, area->Right, area->Bottom, width, height, bad ? "- BAD ARGS" : "");
+	if (bad || !_backend) {
+		return false;
+	}
+	return _backend->OnSetConsoleImage(id, flags, area, width, height, buffer);
+}
+
+bool ConsoleOutput::OnTransformConsoleImage(const char *id, const SMALL_RECT *area, uint16_t tf)
+{
+	fprintf(stderr, "OnTransformConsoleImage: id='%s' area={%d:%d %d:%d} tf=%u\n",
+		id, area->Left, area->Top, area->Right, area->Bottom, tf);
+	return _backend ? _backend->OnTransformConsoleImage(id, area, tf) : false;
+}
+
+bool ConsoleOutput::OnDeleteConsoleImage(const char *id)
+{
+	fprintf(stderr, "OnDeleteConsoleImage: id='%s'\n", id);
+	return _backend ? _backend->OnDeleteConsoleImage(id) : false;
 }

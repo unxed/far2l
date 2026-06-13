@@ -10,7 +10,7 @@
 
 #ifdef __APPLE__
 	#include <sys/mount.h>
-#elif !defined(__FreeBSD__) && !defined(__DragonFly__) && !defined(__HAIKU__)
+#elif !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__DragonFly__) && !defined(__HAIKU__)
 	#include <sys/statfs.h>
 #endif
 
@@ -245,7 +245,7 @@ public:
 			}
 
 			name = de->d_name;
-			
+
 			_subpath = _path;
 			_subpath+= name;
 			struct stat s = {};

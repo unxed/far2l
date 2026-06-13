@@ -68,7 +68,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "wakeful.hpp"
 #include "WideMB.h"
 #include "UtfConvert.hpp"
+#include "LinkHighlighter.hpp"
 #include <algorithm>
+#include <cwctype>
+#include <vector>
 
 #define MAX_VIEWLINE 0x2000
 
@@ -174,6 +177,9 @@ Viewer::Viewer(bool bQuickView, UINT aCodePage)
 	OpenFailed = false;
 	HostFileViewer = nullptr;
 	bVE_READ_Sent = false;
+	VisibleTopPos = -1;
+	VisibleBottomPos = -1;
+	VisibleLineCount = 0;
 }
 
 FARString Viewer::ComposeCacheName()
@@ -419,12 +425,6 @@ int Viewer::OpenFile(FileHolderPtr NewFileHolder, int warning)
 			CodePageChangedByUser = TRUE;
 		}
 
-		// BUGBUG
-		// пока что запретим переключать hex в UTF8/UTF32, ибо не работает.
-		if (VM.Hex && (VM.CodePage == CP_UTF8 || VM.CodePage == CP_UTF32LE || VM.CodePage == CP_UTF32BE)) {
-			VM.CodePage = WINPORT(GetACP)();
-		}
-
 		if (!IsUnicodeOrUtfCodePage(VM.CodePage)) {
 			ViewFile.SetPointer(0);
 		}
@@ -471,11 +471,12 @@ void Viewer::SetCRSym()
 	if (!ViewFile.Opened())
 		return;
 
-	wchar_t Buf[2048];
+	const int buf_size = 2048;
+	std::vector<wchar_t> Buf(buf_size);
 	int CRCount = 0, LFCount = 0;
 	int ReadSize, I;
 	vseek(0, SEEK_SET);
-	ReadSize = vread(Buf, ARRAYSIZE(Buf));
+	ReadSize = vread(Buf.data(), buf_size);
 
 	for (I = 0; I < ReadSize; I++)
 		switch (Buf[I]) {
@@ -500,6 +501,7 @@ void Viewer::ShowPage(int nMode)
 {
 	int I, Y;
 	AdjustWidth();
+	const int lineCount = std::max(0, Y2 - Y1 + 1);
 
 	if (!ViewFile.Opened()) {
 		if (!FHP->GetPathName().IsEmpty() && ((nMode == SHOW_RELOAD) || (nMode == SHOW_HEX))) {
@@ -520,6 +522,17 @@ void Viewer::ShowPage(int nMode)
 
 	if (!SelectSize)
 		SelectPos = FilePos;
+
+	if (nMode == SHOW_HEX) {
+		LineLinks.clear();
+		PageLinks.clear();
+		VisibleTopPos = -1;
+		VisibleBottomPos = -1;
+		VisibleLineCount = 0;
+		FocusedLinkId = -1;
+	} else {
+		LineLinks.resize(static_cast<size_t>(lineCount));
+	}
 
 	switch (nMode) {
 		case SHOW_HEX:
@@ -557,7 +570,27 @@ void Viewer::ShowPage(int nMode)
 			break;
 	}
 
+	if (!VM.Hex)
+		UpdateWrapFlags();
+
 	if (nMode != SHOW_HEX) {
+		const int64_t topPos    = lineCount > 0 ? Strings[0].nFilePos : -1;
+		const int64_t bottomPos = lineCount > 0 ? Strings[lineCount - 1].nFilePos  : -1;
+
+		if (topPos != VisibleTopPos ||
+			bottomPos != VisibleBottomPos ||
+			lineCount != VisibleLineCount)
+		{
+			FocusedLinkId = -1;
+		}
+
+		VisibleTopPos    = topPos;
+		VisibleBottomPos = bottomPos;
+		VisibleLineCount = lineCount;
+
+		if (ViOpt.ClickableURLs)
+			CollectVisibleLinks();
+
 		std::unique_ptr<ViewerPrinter> printer;
 		if (VM.Processed)
 			printer.reset(new AnsiEsc::Printer(B_BLACK | F_WHITE));
@@ -608,6 +641,9 @@ void Viewer::ShowPage(int nMode)
 					printer->SetSelection(false);
 				}
 			}
+
+			if (ViOpt.ClickableURLs)
+				UnderlineLinks(Y, LineLinks[I]);
 
 			if (StrLen > LeftPos + Width && ViOpt.ShowArrows) {
 				GotoXY(XX2, Y);
@@ -685,28 +721,14 @@ void Viewer::ShowHex()
 				if (SelectSize > 0 && (SelectPos == fpos)) {
 					bSelStartFound = true;
 					SelStart = (int)wcslen(OutStr);
-					//					SelSize=SelectSize;
-					/*
-						$ 22.01.2001 IS
-						Внимание! Возможно, это не совсем верное решение проблемы
-						выделения из плагинов, но мне пока другого в голову не пришло.
-						Я приравниваю SelectSize нулю в Process*
-					*/
-					// SelectSize=0;
 				}
 
 				if (SelectSize > 0 && (fpos == (SelectPos + SelectSize - 1))) {
 					bSelEndFound = true;
 					SelEnd = (int)wcslen(OutStr) + 3;
-					//					SelSize=SelectSize;
 				}
 
-				if (!vgetc(Ch)) {
-					/*
-						$ 28.06.2000 tran
-						убираем показ пустой строки, если длина
-						файла кратна 16
-					*/
+				if (vread(&Ch, 1, true) <= 0) {
 					EndFile = 1;
 					LastPage = 1;
 
@@ -724,8 +746,9 @@ void Viewer::ShowHex()
 					swprintf(OutStr + OutStrLen, ARRAYSIZE(OutStr) - OutStrLen, L"%02X%02X ",
 							(unsigned int)HIBYTE(OutChar), (unsigned int)LOBYTE(OutChar));
 
-					if (!Ch) {
-						Ch = L' ';
+					Ch = OutChar;
+					if (!Ch || iswcntrl(Ch)) {
+						Ch = L'.';
 					}
 
 					TextStr[TextPos++] = Ch;
@@ -736,34 +759,29 @@ void Viewer::ShowHex()
 					wcscat(OutStr, BorderLine);
 			}
 		} else {
+			int64_t line_start_pos = vtell();
+			wchar_t wsequence[16];
+			int seq_len = vread(wsequence, 16, true);
+			BYTE sequence[16];
+			for (int i = 0; i < seq_len; ++i) {
+				sequence[i] = (BYTE)wsequence[i];
+			}
+			vseek(line_start_pos, SEEK_SET);
+
 			for (X = 0; X < 16; X++) {
 				int64_t fpos = vtell();
 
 				if (SelectSize > 0 && (SelectPos == fpos)) {
 					bSelStartFound = true;
 					SelStart = (int)wcslen(OutStr);
-					//					SelSize=SelectSize;
-					/*
-						$ 22.01.2001 IS
-						Внимание! Возможно, это не совсем верное решение проблемы
-						выделения из плагинов, но мне пока другого в голову не пришло.
-						Я приравниваю SelectSize нулю в Process*
-					*/
-					// SelectSize=0;
 				}
 
 				if (SelectSize > 0 && (fpos == (SelectPos + SelectSize - 1))) {
 					bSelEndFound = true;
 					SelEnd = (int)wcslen(OutStr) + 1;
-					//					SelSize=SelectSize;
 				}
 
-				if (!vgetc(Ch)) {
-					/*
-						$ 28.06.2000 tran
-						убираем показ пустой строки, если длина
-						файла кратна 16
-					*/
+				if (vread(&Ch, 1, true) <= 0) {
 					EndFile = 1;
 					LastPage = 1;
 
@@ -772,28 +790,54 @@ void Viewer::ShowHex()
 						break;
 					}
 
-					/*
-						$ 03.07.2000 tran
-						- вместо 5 пробелов тут надо 3
-					*/
 					wcscat(OutStr, L"   ");
-					TextStr[TextPos++] = L' ';
+					if (VM.CodePage != CP_UTF8)
+						TextStr[TextPos++] = L' ';
 				} else {
-					char NewCh;
-					WINPORT(WideCharToMultiByte)(VM.CodePage, 0, &Ch, 1, &NewCh, 1, " ", nullptr);
+					char NewCh = (char)(unsigned char)Ch;
 					int OutStrLen = StrLength(OutStr);
 					swprintf(OutStr + OutStrLen, ARRAYSIZE(OutStr) - OutStrLen, L"%02X ",
 							(unsigned int)(unsigned char)NewCh);
 
-					if (!Ch)
-						Ch = L' ';
-
-					TextStr[TextPos++] = Ch;
+					if (VM.CodePage != CP_UTF8) {
+						WINPORT(MultiByteToWideChar)(VM.CodePage, 0, &NewCh, 1, &Ch, 1);
+						if (!Ch || iswcntrl(Ch))
+							Ch = L'.';
+						TextStr[TextPos++] = Ch;
+					}
 					LastPage = 0;
 				}
 
 				if (X == 7)
 					wcscat(OutStr, BorderLine);
+			}
+
+			if (VM.CodePage == CP_UTF8 && seq_len > 0) {
+				for (int col = 0; col < seq_len; ) {
+					int expected_len = 0;
+					if ((sequence[col] & 0x80) == 0)      expected_len = 1;
+					else if ((sequence[col] & 0xE0) == 0xC0) expected_len = 2;
+					else if ((sequence[col] & 0xF0) == 0xE0) expected_len = 3;
+					else if ((sequence[col] & 0xF8) == 0xF0) expected_len = 4;
+
+					if (expected_len == 0 || col + expected_len > seq_len) {
+						expected_len = 1; // Invalid start byte or truncated sequence
+					}
+
+					wchar_t pval[2] = {0};
+					int converted = WINPORT(MultiByteToWideChar)(CP_UTF8, MB_ERR_INVALID_CHARS, (LPCSTR)&sequence[col], expected_len, pval, 1);
+
+					wchar_t char_to_write = L'.';
+					int bytes_consumed = 1;
+
+					if (converted > 0 && pval[0] != 0 && !iswcntrl(pval[0])) {
+						char_to_write = pval[0];
+						bytes_consumed = expected_len;
+					}
+
+					TextStr[TextPos++] = char_to_write;
+					col += bytes_consumed;
+				}
 			}
 		}
 
@@ -884,14 +928,225 @@ void Viewer::SetStatusMode(int Mode)
 	ShowStatusLine = Mode;
 }
 
+static bool IsAnsiEscapeColoringArgsChar(wchar_t Ch)
+{
+	return (Ch == L':' || Ch == L';' || (Ch >= '0' && Ch <= '9'));
+}
+
+size_t Viewer::SkipZeroWidthSubsequence(const wchar_t *buf, size_t index, size_t length)
+{
+	size_t saved_index;
+	do {
+		saved_index = index;
+		while (index < length && (CharClasses::IsXxxfix(buf[index]) || buf[index] == '\r' || buf[index] == '\n')) {
+			++index;
+		}
+		if (VM.Processed) {
+			while (index + 2 < length && buf[index] == L'\e' && buf[index + 1] == L'[' ) {
+				index+= 2;
+				for (bool stop = false; !stop && index < length; ++index) {
+					stop = !IsAnsiEscapeColoringArgsChar(buf[index]);
+				}
+			}
+		}
+	} while (saved_index != index);
+	return index;
+}
+
+namespace
+{
+constexpr size_t MaxLinkWrapChars = MAX_VIEWLINE * 2;
+constexpr size_t MaxLinkWrapLines = 8;
+}
+
+void Viewer::UpdateWrapFlags()
+{
+	const int lineCount = std::max(0, Y2 - Y1 + 1);
+	for (int i = 0; i < lineCount; ++i) {
+		auto &line = Strings[i];
+		line.ContinuesFromPrev = (i > 0) ? Strings[i - 1].WrapsToNext : false;
+	}
+}
+
+void Viewer::CollectVisibleLinks()
+{
+	for (auto& l : LineLinks)
+		l.clear();
+
+	const int previousFocusId = FocusedLinkId;
+	PageLinks.clear();
+
+	if (VM.Hex || LineLinks.empty()) {
+		FocusedLinkId = -1;
+		return;
+	}
+
+	struct VisibleChar {
+		int line;
+		int cellStart;
+		int cellEnd;
+	};
+
+	const int lineCount = static_cast<int>(LineLinks.size());
+	std::vector<bool> processed(lineCount, false);
+
+	for (int base = 0; base < lineCount; ++base) {
+		if (processed[base])
+			continue;
+
+		std::wstring visible;
+		std::vector<VisibleChar> map;
+		visible.reserve(MAX_VIEWLINE);
+		map.reserve(MAX_VIEWLINE);
+
+		int line = base;
+		size_t wrapped = 0;
+
+		while (line < lineCount &&
+		       wrapped < MaxLinkWrapLines &&
+		       visible.size() < MaxLinkWrapChars) {
+
+			processed[line] = true;
+
+			const wchar_t* chars = Strings[line].Chars();
+			const size_t len = wcslen(chars);
+			int cellPos = 0;
+
+			for (size_t i = 0; i < len && visible.size() < MaxLinkWrapChars; ) {
+				size_t next = LinkHighlighter::SkipVisibleControlSequence(chars, len, i);
+				if (next != i) {
+					i = next;
+					continue;
+				}
+
+				wchar_t ch = chars[i++];
+				int width =
+					CharClasses::IsFullWidth(ch) ? 2 :
+					CharClasses::IsXxxfix(ch)    ? 0 : 1;
+
+				visible.push_back(ch);
+				map.push_back({ line, cellPos, cellPos + width });
+				cellPos += width;
+			}
+
+			++wrapped;
+			if (!Strings[line].WrapsToNext)
+				break;
+
+			++line;
+		}
+
+		if (visible.empty())
+			continue;
+
+		std::vector<LinkHighlighter::LinkRange> ranges;
+		LinkHighlighter::DetectLinks(visible.c_str(), visible.size(), ranges);
+		if (ranges.empty())
+			continue;
+
+		for (const auto& r : ranges) {
+			const size_t start = static_cast<size_t>(std::max(0, r.startChar));
+			const size_t end   = start + static_cast<size_t>(std::max(0, r.lengthChars));
+
+			if (start >= end || end > map.size())
+				continue;
+
+			std::wstring link = visible.substr(start, end - start);
+			if (link.empty())
+				continue;
+
+			const int linkId = static_cast<int>(PageLinks.size());
+			PageLinks.push_back(std::move(link));
+
+			for (size_t i = start; i < end; ) {
+				const auto& c = map[i];
+				int cellStart = c.cellStart;
+				int cellEnd   = c.cellEnd;
+				const int ln  = c.line;
+
+				size_t j = i + 1;
+				while (j < end && map[j].line == ln) {
+					cellEnd = std::max(cellEnd, map[j].cellEnd);
+					++j;
+				}
+
+				if (cellEnd > cellStart)
+					LineLinks[ln].push_back({ cellStart, cellEnd, linkId });
+
+				i = j;
+			}
+		}
+	}
+
+	if (PageLinks.empty()) {
+		FocusedLinkId = -1;
+		return;
+	}
+
+	if (previousFocusId >= 0)
+		FocusedLinkId = std::min(previousFocusId,
+			static_cast<int>(PageLinks.size()) - 1);
+	else
+		FocusedLinkId = -1;
+}
+
+bool Viewer::SetFocusedLink(int linkId)
+{
+	if (linkId < 0 || linkId >= static_cast<int>(PageLinks.size()))
+		return false;
+
+	if (FocusedLinkId == linkId)
+		return false;
+
+	FocusedLinkId = linkId;
+	return true;
+}
+
+bool Viewer::FocusNextLink(bool forward)
+{
+	if (PageLinks.empty())
+		return false;
+
+	const int total = static_cast<int>(PageLinks.size());
+	int current = FocusedLinkId;
+
+	if (current < 0 || current >= total)
+		current = forward ? -1 : 0;
+
+	if (forward)
+		current = (current + 1) % total;
+	else
+		current = (current - 1 + total) % total;
+
+	return SetFocusedLink(current);
+}
+
+bool Viewer::LaunchLinkById(int linkId)
+{
+	if (linkId < 0 || linkId >= static_cast<int>(PageLinks.size()))
+		return false;
+
+	const auto &text = PageLinks[linkId];
+	if (text.empty())
+		return false;
+
+	std::wstring cleaned = LinkHighlighter::StripVisibleControlSequences(text.c_str(), text.size());
+	if (cleaned.empty())
+		return false;
+
+	return LinkHighlighter::Launch(cleaned.c_str(), cleaned.size());
+}
+
 void Viewer::ReadString(ViewerString &rString, int MaxSize, int StrSize)
 {
 	WCHAR Ch, Ch2;
-	int64_t OutPtr;
+	int64_t OutPtr, visual_length;
 	bool bSelStartFound = false, bSelEndFound = false;
 	rString.bSelection = false;
+	rString.WrapsToNext = false;
+	rString.ContinuesFromPrev = false;
 	AdjustWidth();
-	OutPtr = 0;
+	OutPtr = visual_length = 0;
 	rString.SetChar(0, 0);
 
 	if (VM.Hex) {
@@ -926,15 +1181,42 @@ void Viewer::ReadString(ViewerString &rString, int MaxSize, int StrSize)
 			if (OutPtr >= StrSize - 16)
 				break;
 
+			do { // attach zero-length sequences at the string ending (if any)
+				int64_t SavePosEsc = vtell();
+				if (!vgetc(Ch)) {
+					break;
+				}
+				if (CharClasses::IsSuffix(Ch)) {
+					rString.SetChar(size_t(OutPtr++), Ch);
+					rString.SetChar(size_t(OutPtr), 0);
+				} else if (VM.Processed && Ch == L'\e' && vgetc(Ch2) && Ch2 == L'[') {
+					// in processed mode coloring escape sequences are invisible and thus dont affect length
+					// however they must be part of string, even if located after its wrap-caused end
+					rString.SetChar(size_t(OutPtr++), Ch);
+					rString.SetChar(size_t(OutPtr++), Ch2);
+					while (vgetc(Ch) && OutPtr < StrSize - 16) {
+						rString.SetChar(size_t(OutPtr++), Ch);
+						if (!IsAnsiEscapeColoringArgsChar(Ch)) {
+							break;
+						}
+					}
+					rString.SetChar(size_t(OutPtr), 0);
+				} else {
+					vseek(SavePosEsc, SEEK_SET);
+					break;
+				}
+			} while (OutPtr < StrSize - 16);
+
 			/*
 				$ 12.07.2000 SVS
 				! Wrap - трехпозиционный
 			*/
-			if (VM.Wrap && OutPtr > XX2 - X1) {
+			if (VM.Wrap && visual_length > XX2 - X1) {
 				/*
 					$ 11.07.2000 tran
 					+ warp are now WORD-WRAP
 				*/
+				rString.WrapsToNext = true;
 				int64_t SavePos = vtell();
 				WCHAR TmpChar = 0;
 
@@ -1024,11 +1306,13 @@ void Viewer::ReadString(ViewerString &rString, int MaxSize, int StrSize)
 			if (CRSkipped) {
 				CRSkipped = false;
 				rString.SetChar(size_t(OutPtr++), L'\r');
+				visual_length++;
 			}
 
 			if (Ch == L'\t') {
 				do {
 					rString.SetChar(size_t(OutPtr++), L' ');
+					visual_length++;
 				} while ((OutPtr % ViOpt.TabSize) && ((int)OutPtr < (MAX_VIEWLINE - 1)));
 
 				if (VM.Wrap && OutPtr > XX2 - X1)
@@ -1044,7 +1328,7 @@ void Viewer::ReadString(ViewerString &rString, int MaxSize, int StrSize)
 			if (Ch == L'\r') {
 				CRSkipped = true;
 
-				if (OutPtr >= XX2 - X1) {
+				if (visual_length >= XX2 - X1) {
 					int64_t SavePos = vtell();
 					WCHAR nextCh = 0;
 
@@ -1063,6 +1347,7 @@ void Viewer::ReadString(ViewerString &rString, int MaxSize, int StrSize)
 				Ch = L' ';
 
 			rString.SetChar(size_t(OutPtr++), Ch);
+			visual_length += CharClasses::IsFullWidth(Ch) ? 2 : CharClasses::IsXxxfix(Ch) ? 0 : 1;
 			rString.SetChar(size_t(OutPtr), 0);
 
 			if (SelectSize > 0 && (SelectPos + SelectSize) == vtell()) {
@@ -1429,13 +1714,12 @@ int Viewer::ProcessKey(FarKey Key)
 					break;
 			}
 
-			//VM.CodePage = VM.CodePage == WINPORT(GetOEMCP)() ? WINPORT(GetACP)() : WINPORT(GetOEMCP)();
 			if (VM.CodePage == CP_UTF8)
 				VM.CodePage = WINPORT(GetACP)();
 			else if (VM.CodePage == WINPORT(GetACP)() )
 				VM.CodePage = WINPORT(GetOEMCP)();
 			else // if (VM.CodePage == WINPORT(GetOEMCP)() )
-				VM.CodePage = VM.Hex ? WINPORT(GetACP)() : CP_UTF8; // STUB - для hex UTF8/UTF32 сейчас не работает
+				VM.CodePage = CP_UTF8;
 
 			ChangeViewKeyBar();
 			Show();
@@ -1679,6 +1963,29 @@ int Viewer::ProcessKey(FarKey Key)
 			//			LastSelPos=FilePos;
 			return TRUE;
 		}
+		case KEY_TAB:
+		case KEY_NUMPAD5: {
+			if (!VM.Hex && ViOpt.ClickableURLs) {
+				if (FocusNextLink(true))
+					Show();
+				return TRUE;
+			}
+			break;
+		}
+		case KEY_SHIFTTAB: {
+			if (!VM.Hex && ViOpt.ClickableURLs) {
+				if (FocusNextLink(false))
+					Show();
+				return TRUE;
+			}
+			break;
+		}
+		case KEY_ENTER:
+		case KEY_NUMENTER: {
+			if (!VM.Hex && ViOpt.ClickableURLs && FocusedLinkId >= 0 && LaunchLinkById(FocusedLinkId))
+				return TRUE;
+			break;
+		}
 		case KEY_CTRLLEFT:
 		case KEY_CTRLNUMPAD4: {
 			if (ViewFile.Opened()) {
@@ -1875,6 +2182,15 @@ int Viewer::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
 			&& (MouseEvent->dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) != 0) {
 		WINPORT(BeginConsoleAdhocQuickEdit)();
 		return TRUE;
+	}
+
+	if (ViOpt.ClickableURLs && ((MouseEvent->dwEventFlags == 0) || (MouseEvent->dwEventFlags == DOUBLE_CLICK))
+			&& (MouseEvent->dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)
+			&& (MouseEvent->dwControlKeyState
+							& (SHIFT_PRESSED | LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED | LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED))
+					== 0) {
+		if (HandleLinkClick(MouseX, MouseY))
+			return TRUE;
 	}
 
 	/*
@@ -2135,6 +2451,7 @@ void Viewer::Up()
 		}
 
 		for (int PrevSublineLength = 0, CurLineStart = I = 0;; ++I) {
+			I = SkipZeroWidthSubsequence(Buf, I, WrapBufSize);
 			if (I == WrapBufSize) {
 				int distance = CalcCodeUnitsDistance(VM.CodePage, &Buf[CurLineStart], &Buf[WrapBufSize]);
 				FilePosShiftLeft((distance > 0) ? distance : 1);
@@ -2161,18 +2478,17 @@ int Viewer::CalcStrSize(const wchar_t *Str, int Length)
 {
 	int Size, I;
 
-	for (Size = 0, I = 0; I < Length; I++)
-		switch (Str[I]) {
-			case L'\t':
-				Size+= ViOpt.TabSize - (Size % ViOpt.TabSize);
-				break;
-			case L'\n':
-			case L'\r':
-				break;
-			default:
-				Size++;
-				break;
+	for (Size = 0, I = 0;; I++) {
+		I = SkipZeroWidthSubsequence(Str, I, Length);
+		if (I >= Length) {
+			break;
 		}
+		if (Str[I] == L'\t') {
+			Size+= ViOpt.TabSize - (Size % ViOpt.TabSize);
+		} else {
+			Size++;
+		}
+	}
 
 	return (Size);
 }
@@ -2212,12 +2528,13 @@ void Viewer::ChangeViewKeyBar()
 		else
 			ViewKeyBar->Change(Msg::ViewF4, 3);
 
+
 		if (VM.CodePage == CP_UTF8)
 			ViewKeyBar->Change(Msg::ViewF8, 7);
 		else if (VM.CodePage == WINPORT(GetACP)())
 			ViewKeyBar->Change(Msg::ViewF8DOS, 7);
 		else
-			ViewKeyBar->Change(VM.Hex ? Msg::ViewF8 : Msg::ViewF8UTF8, 7); // STUB - для hex UTF8/UTF32 сейчас не работает
+			ViewKeyBar->Change(Msg::ViewF8UTF8, 7);
 
 		if (VM.Processed)
 			ViewKeyBar->Change(Msg::ViewF5Raw, 4);
@@ -2255,6 +2572,30 @@ enum SEARCHDLG
 LONG_PTR WINAPI ViewerSearchDlgProc(HANDLE hDlg, int Msg, int Param1, LONG_PTR Param2)
 {
 	switch (Msg) {
+		case DN_CLOSE:
+			if (Param1 >= 0) {
+				int Pos = SendDlgMessage(hDlg, DM_SHOWITEM, SD_EDIT_TEXT, -1) ? SD_EDIT_TEXT : SD_EDIT_HEX;
+				const wchar_t *Txt = (const wchar_t*)SendDlgMessage(hDlg, DM_GETCONSTTEXTPTR, Pos, 0);
+				bool IsEmpty;
+				if (Pos == SD_EDIT_TEXT)
+					IsEmpty = (*Txt == 0);
+				else {
+					IsEmpty = true;
+					for (; *Txt; Txt++) {
+						if (*Txt == ' ')
+							continue;
+						if (IsHexDigit(*Txt))
+							IsEmpty = false;
+						break;
+					}
+				}
+				if (IsEmpty) {
+					SendDlgMessage(hDlg, DM_SETFOCUS, Pos, 0);
+					Message(MSG_WARNING, 1, Msg::ViewSearchTitle, Msg::EditEmptySearchField, Msg::Ok);
+					return FALSE;
+				}
+			}
+			break;
 		case DN_INITDIALOG: {
 			SendDlgMessage(hDlg, DM_SDSETVISIBILITY,
 					SendDlgMessage(hDlg, DM_GETCHECK, SD_RADIO_HEX, 0) == BSTATE_CHECKED, 0);
@@ -2527,7 +2868,8 @@ void Viewer::Search(int Next, int FirstChar)
 		Match = false;
 
 		if (SearchWChars > 0 && (!ReverseSearch || LastSelPos >= 0)) {
-			wchar_t Buf[16384];
+			const int buf_size = 16384;
+			std::vector<wchar_t> Buf(buf_size);
 
 			int ReadSize;
 			wakeful W;
@@ -2544,14 +2886,14 @@ void Viewer::Search(int Next, int FirstChar)
 				// if (CurPos<0)
 				//	CurPos=0;
 				// vseek(CurPos,SEEK_SET);
-				int BufSize = ARRAYSIZE(Buf);
+				int BufSize = buf_size;
 				int64_t CurPos = vtell();
 				if (ReverseSearch) {
 					/*
 						$ 01.08.2000 KM
 						Изменёно вычисление CurPos с учётом Whole words
 					*/
-					CurPos-= ARRAYSIZE(Buf) - SearchCodeUnits - !!WholeWords;
+					CurPos-= buf_size - SearchCodeUnits - !!WholeWords;
 					if (CurPos < 0) {
 						BufSize+= (int)CurPos;
 						CurPos = 0;
@@ -2559,7 +2901,7 @@ void Viewer::Search(int Next, int FirstChar)
 					vseek(CurPos, SEEK_SET);
 				}
 
-				if ((ReadSize = vread(Buf, BufSize, SearchHex != 0)) <= 0)
+				if ((ReadSize = vread(Buf.data(), BufSize, SearchHex != 0)) <= 0)
 					break;
 
 				DWORD CurTime = WINPORT(GetTickCount)();
@@ -2635,7 +2977,7 @@ void Viewer::Search(int Next, int FirstChar)
 							Match = CheckBufMatchesCaseSensitive(SearchWChars, &Buf[I], strSearchStr.CPtr());
 						}
 						if (Match) {
-							MatchPos = CurPos + CalcCodeUnitsDistance(VM.CodePage, Buf, Buf + I);
+							MatchPos = CurPos + CalcCodeUnitsDistance(VM.CodePage, Buf.data(), Buf.data() + I);
 							break;
 						}
 					}
@@ -3128,15 +3470,16 @@ void Viewer::GoTo(int ShowDlg, int64_t Offset, DWORD Flags)
 void Viewer::AdjustFilePos()
 {
 	if (!VM.Hex) {
-		wchar_t Buf[4096];
-		int64_t StartLinePos = -1, GotoLinePos = FilePos - (int64_t)sizeof(Buf) / sizeof(wchar_t);
+		const int buf_size = 4096;
+		std::vector<wchar_t> Buf(buf_size);
+		int64_t StartLinePos = -1, GotoLinePos = FilePos - (int64_t)buf_size;
 
 		if (GotoLinePos < 0)
 			GotoLinePos = 0;
 
 		vseek(GotoLinePos, SEEK_SET);
-		int ReadSize = (int)Min((int64_t)ARRAYSIZE(Buf), (int64_t)(FilePos - GotoLinePos));
-		ReadSize = vread(Buf, ReadSize);
+		int ReadSize = (int)Min((int64_t)buf_size, (int64_t)(FilePos - GotoLinePos));
+		ReadSize = vread(Buf.data(), ReadSize);
 
 		for (int I = ReadSize - 1; I >= 0; I--)
 			if (Buf[I] == (wchar_t)CRSym) {
@@ -3214,15 +3557,16 @@ void Viewer::SelectText(const int64_t &MatchPos, const int64_t &SearchLength, co
 	if (!ViewFile.Opened())
 		return;
 
-	wchar_t Buf[MAX_VIEWLINE];
-	int64_t StartLinePos = -1, SearchLinePos = MatchPos - sizeof(Buf) / sizeof(wchar_t);
+	const int buf_size = MAX_VIEWLINE;
+	std::vector<wchar_t> Buf(buf_size);
+	int64_t StartLinePos = -1, SearchLinePos = MatchPos - buf_size;
 
 	if (SearchLinePos < 0)
 		SearchLinePos = 0;
 
 	vseek(SearchLinePos, SEEK_SET);
-	int ReadSize = (int)Min((int64_t)ARRAYSIZE(Buf), (int64_t)(MatchPos - SearchLinePos));
-	ReadSize = vread(Buf, ReadSize);
+	int ReadSize = (int)Min((int64_t)buf_size, (int64_t)(MatchPos - SearchLinePos));
+	ReadSize = vread(Buf.data(), ReadSize);
 
 	for (int I = ReadSize - 1; I >= 0; I--)
 		if (Buf[I] == (wchar_t)CRSym) {
@@ -3281,6 +3625,99 @@ void Viewer::SelectText(const int64_t &MatchPos, const int64_t &SearchLength, co
 		Show();
 		AdjustSelPosition = FALSE;
 	}
+}
+
+
+bool Viewer::HandleLinkClick(int mouseX, int mouseY)
+{
+	if (VM.Hex || LineLinks.empty())
+		return false;
+
+	if (mouseY < Y1 || mouseY > Y2 || mouseX < X1 || mouseX > XX2)
+		return false;
+
+	const int line = mouseY - Y1;
+	if (line < 0 || line >= static_cast<int>(LineLinks.size()))
+		return false;
+
+	const auto& links = LineLinks[line];
+	if (links.empty())
+		return false;
+
+	const int cellPos =
+		static_cast<int>(LeftPos) + (mouseX - X1);
+
+	if (cellPos < static_cast<int>(LeftPos) ||
+	    cellPos >= static_cast<int>(LeftPos) + Width)
+		return false;
+
+	for (const auto& info : links) {
+		if (cellPos < info.cellStart || cellPos >= info.cellEnd)
+			continue;
+
+		if (info.linkId < 0)
+			return false;
+
+		const bool focusChanged = SetFocusedLink(info.linkId);
+		const bool launched     = LaunchLinkById(info.linkId);
+
+		if (focusChanged)
+			Show();
+
+		return launched;
+	}
+
+	return false;
+}
+
+void Viewer::UnderlineLinks(int screenY, const std::vector<VisibleLinkInfo> &storage)
+{
+	if (storage.empty())
+		return;
+
+	for (const auto &info : storage) {
+		if (info.cellStart < info.cellEnd)
+			ApplyUnderlineSegment(info.cellStart, info.cellEnd, screenY,
+					FocusedLinkId >= 0 && FocusedLinkId == info.linkId);
+	}
+}
+
+void Viewer::ApplyUnderlineSegment(int segmentStart, int segmentEnd, int screenY, bool focused)
+{
+	if (segmentStart >= segmentEnd)
+		return;
+
+	int visibleStart = std::max(segmentStart, static_cast<int>(LeftPos));
+	int visibleEnd = std::min(segmentEnd, static_cast<int>(LeftPos + Width));
+
+	if (visibleEnd <= visibleStart)
+		return;
+
+	int startX = X1 + (visibleStart - static_cast<int>(LeftPos));
+	int endX = startX + (visibleEnd - visibleStart) - 1;
+
+	startX = std::clamp(startX, X1, XX2);
+	endX = std::clamp(endX, X1, XX2);
+
+	if (startX > endX)
+		return;
+
+	const int segmentLength = endX - startX + 1;
+	std::vector<CHAR_INFO> buffer(segmentLength);
+	GetText(startX, screenY, endX, screenY, buffer.data(), segmentLength * (int)sizeof(CHAR_INFO));
+
+	bool changed = false;
+
+	for (auto &cell : buffer) {
+		DWORD64 newAttr = LinkHighlighter::ApplyLinkColor(cell.Attributes | COMMON_LVB_UNDERSCORE, focused);
+		if (newAttr != cell.Attributes) {
+			cell.Attributes = newAttr;
+			changed = true;
+		}
+	}
+
+	if (changed)
+		PutText(startX, screenY, endX, screenY, buffer.data());
 }
 
 int Viewer::ViewerControl(int Command, void *Param)
@@ -3490,13 +3927,6 @@ int Viewer::ViewerControl(int Command, void *Param)
 
 int Viewer::ProcessHexMode(int newMode, bool isRedraw)
 {
-	// BUGBUG
-	// До тех пор, пока не будет реализован адекватный hex-просмотр в UTF8 - будем смотреть в OEM.
-	// Ибо сейчас это не просмотр, а генератор однотипных унылых багрепортов.
-	if (VM.CodePage == CP_UTF8 && newMode) {
-		VM.CodePage = WINPORT(GetACP)();
-	}
-
 	int oldHex = VM.Hex;
 	VM.Hex = newMode & 1;
 

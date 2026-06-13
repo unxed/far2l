@@ -72,6 +72,7 @@ int PreMouseEventFlags = 0, MouseEventFlags = 0;
 // только что был ввод Alt-Цифира?
 int ReturnAltValue = 0;
 bool BracketedPasteMode = false;
+FARString GPastedText;
 
 /* end Глобальные переменные */
 
@@ -440,18 +441,34 @@ unsigned int WINAPI InputRecordToKey(const INPUT_RECORD *r)
 	return KEY_NONE;
 }
 
+
 DWORD IsMouseButtonPressed()
 {
-	INPUT_RECORD rec;
-
-	if (PeekInputRecord(&rec)) {
+	std::vector<INPUT_RECORD> recs;
+	for (;;) { // read input records, restore at the end ones that are not related to mouse and noop
+		auto &rec = recs.emplace_back();
+		if (!PeekInputRecord(&rec)) {
+			recs.pop_back();
+			break;
+		}
 		GetInputRecord(&rec);
+		if (rec.EventType == MOUSE_EVENT || rec.EventType == NOOP_EVENT) {
+			recs.pop_back(); // forget mouse and noop events
+		}
 	}
 	// IsMouseButtonPressed used within loops, so lets sleep to avoid CPU hogging in that loops
 	// it would be nicer to sleep inside of that loops instead, but keep to original code for now
-	WINPORT(WaitConsoleInput)(NULL, 10);
+	if (!recs.empty()) {
+		for (const auto &rec : recs) {
+			Console.WriteInput(rec);
+		}
+		usleep(10000);
+	} else {
+		WINPORT(WaitConsoleInput)(NULL, 10);
+	}
 	return MouseButtonState;
 }
+
 
 static DWORD KeyMsClick2ButtonState(DWORD Key, DWORD &Event)
 {
@@ -624,6 +641,24 @@ static DWORD GetInputRecordInner(INPUT_RECORD *rec, bool ExcludeMacro, bool Proc
 				Console.ReadInput(pinp);
 				continue;
 			}
+			if (rec->EventType == KEY_EVENT && BracketedPasteMode) {
+				Console.ReadInput(*rec);
+				if (rec->Event.KeyEvent.bKeyDown) {
+					WCHAR wc = rec->Event.KeyEvent.uChar.UnicodeChar;
+					if (wc)
+						GPastedText += wc;
+					else if (rec->Event.KeyEvent.wVirtualKeyCode == VK_RETURN)
+						GPastedText += L'\n';
+					else if (rec->Event.KeyEvent.wVirtualKeyCode == VK_TAB)
+						GPastedText += L'\t';
+				}
+				if (!GPastedText.IsEmpty()) {
+					memset(rec, 0, sizeof(*rec));
+					rec->EventType = NOOP_EVENT; // Fake key event
+					return KEY_OP_PLAINTEXT;
+				}
+				continue;
+			}
 
 			// // _SVS(INPUT_RECORD_DumpBuffer());
 #if 0
@@ -677,7 +712,15 @@ static DWORD GetInputRecordInner(INPUT_RECORD *rec, bool ExcludeMacro, bool Proc
 		}
 
 		ScrBuf.Flush();
-		WINPORT(WaitConsoleInput)(NULL, 160);
+
+		static DWORD sLastIdleWaitConsoleInput = 0;
+		DWORD WaitConsoleInputTmout = (sLastIdleWaitConsoleInput < 5) ? 10 : 160;
+//		fprintf(stderr, " WaitConsoleInputTmout=%u\n", WaitConsoleInputTmout);
+		if (WINPORT(WaitConsoleInput)(NULL, WaitConsoleInputTmout)) {
+			sLastIdleWaitConsoleInput = 0;
+		} else {
+			++sLastIdleWaitConsoleInput;
+		}
 
 		// Позволяет избежать ситуации блокирования мыши
 		if (Opt.Mouse)	// А нужно ли это условие???
@@ -768,7 +811,48 @@ static DWORD GetInputRecordInner(INPUT_RECORD *rec, bool ExcludeMacro, bool Proc
 
 	if (rec->EventType == BRACKETED_PASTE_EVENT) {
 		Console.ReadInput(*rec);
-		BracketedPasteMode = (rec->Event.BracketedPaste.bStartPaste != FALSE);
+		bool start = (rec->Event.BracketedPaste.bStartPaste != FALSE);
+		BracketedPasteMode = start;
+
+		if (start) {
+			GPastedText.Clear();
+			INPUT_RECORD tmprec;
+			while (true) {
+				// Wait briefly for input to avoid busy looping, but assume stream is fast
+				if (!WINPORT(WaitConsoleInput)(NULL, 100))
+					break;
+
+				if (!Console.PeekInput(tmprec))
+					break;
+
+				if (tmprec.EventType == BRACKETED_PASTE_EVENT) {
+					Console.ReadInput(tmprec);
+					if (!tmprec.Event.BracketedPaste.bStartPaste) {
+						BracketedPasteMode = false;
+						break;
+					}
+				} else if (tmprec.EventType == KEY_EVENT) {
+					Console.ReadInput(tmprec);
+					if (tmprec.Event.KeyEvent.bKeyDown) {
+						WCHAR wc = tmprec.Event.KeyEvent.uChar.UnicodeChar;
+						if (wc)
+							GPastedText += wc;
+						else if (tmprec.Event.KeyEvent.wVirtualKeyCode == VK_RETURN)
+							GPastedText += L'\n';
+						else if (tmprec.Event.KeyEvent.wVirtualKeyCode == VK_TAB)
+							GPastedText += L'\t';
+					}
+				} else {
+					Console.ReadInput(tmprec); // Consume other events to avoid blocking
+				}
+			}
+
+			if (!GPastedText.IsEmpty()) {
+				memset(rec, 0, sizeof(*rec));
+				rec->EventType = NOOP_EVENT; // Fake key event
+				return KEY_OP_PLAINTEXT;
+			}
+		}
 		return KEY_NONE;
 	}
 
@@ -1364,7 +1448,6 @@ int WriteInput(wchar_t Key, DWORD Flags)
 {
 	if (Flags & (SKEY_VK_KEYS | SKEY_IDLE)) {
 		INPUT_RECORD Rec;
-		DWORD WriteCount;
 
 		if (Flags & SKEY_IDLE) {
 			Rec.EventType = FOCUS_EVENT;
@@ -1384,7 +1467,7 @@ int WriteInput(wchar_t Key, DWORD Flags)
 			Rec.Event.KeyEvent.dwControlKeyState = 0;
 		}
 
-		return Console.WriteInput(Rec, 1, WriteCount);
+		return Console.WriteInput(Rec);
 	} else if (KeyQueue) {
 		return KeyQueue->Put(((DWORD)Key) | (Flags & SKEY_NOTMACROS ? 0x80000000 : 0));
 	} else

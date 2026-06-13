@@ -88,7 +88,7 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE} Version: ${VERSION}")
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
       set(CMAKE_INSTALL_PREFIX "/usr/local")
-   elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+   elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD|NetBSD")
       set(CMAKE_INSTALL_PREFIX "/usr/local")
    else()
       set(CMAKE_INSTALL_PREFIX "/usr")
@@ -103,6 +103,9 @@ endif()
 
 if (NOT DEFINED USEWX)
     set(USEWX "YES")
+endif()
+if (NOT DEFINED USESDL)
+    set(USESDL "NO")
 endif()
 
 if (NOT DEFINED UNRAR)
@@ -203,10 +206,15 @@ include_directories(utils/include)
 add_subdirectory (WinPort)
 add_subdirectory (utils)
 add_subdirectory (far2l)
+add_subdirectory (themes)
 
 if (NOT ${USEWX})
-    message(STATUS "Building without GUI/wxWidgets backend due to USEWX=${USEWX}")
-else()
+    message(STATUS "Building without wxWidgets GUI backend due to USEWX=${USEWX}")
+endif()
+if (NOT ${USESDL})
+    message(STATUS "Building without SDL GUI backend due to USESDL=${USESDL}")
+endif()
+if (${USEWX})
     message(STATUS "Building with GUI/wxWidgets backend")
     if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
         if (DEFINED wxWidgets_CONFIG_EXECUTABLE)
@@ -254,6 +262,10 @@ else()
 
     add_subdirectory(WinPort/src/Backend/WX)
 endif()
+if (${USESDL})
+    message(STATUS "Building with GUI/SDL backend")
+    add_subdirectory(WinPort/src/Backend/SDL)
+endif()
 
 if (NOT DEFINED TTYX)
     find_package(X11)
@@ -291,6 +303,16 @@ else()
     message(STATUS "${ColorRed}AUTOWRAP plugin disabled due to AUTOWRAP=${AUTOWRAP}${ColorNormal}")
     install(CODE "
         execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/autowrap/plug/autowrap.far-plug-wide)
+        " COMPONENT system)
+endif()
+
+if (NOT DEFINED TRUNCATE OR TRUNCATE)
+    message(STATUS "TRUNCATE plugin enabled")
+    add_subdirectory (truncate)
+else()
+    message(STATUS "${ColorRed}TRUNCATE plugin disabled due to TRUNCATE=${TRUNCATE}${ColorNormal}")
+    install(CODE "
+        execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/truncate/plug/truncate.far-plug-wide)
         " COMPONENT system)
 endif()
 
@@ -341,6 +363,16 @@ else()
     message(STATUS "${ColorRed}EDITCASE plugin disabled due to EDITCASE=${EDITCASE}${ColorNormal}")
     install(CODE "
         execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/editcase/plug/editcase.far-plug-wide)
+        " COMPONENT system)
+endif()
+
+if (NOT DEFINED GITGUTTER OR GITGUTTER)
+    message(STATUS "GITGUTTER plugin enabled")
+    add_subdirectory (gitgutter)
+else()
+    message(STATUS "${ColorRed}GITGUTTER plugin disabled due to GITGUTTER=${GITGUTTER}${ColorNormal}")
+    install(CODE "
+        execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/gitgutter/plug/gitgutter.far-plug-wide)
         " COMPONENT system)
 endif()
 
@@ -549,6 +581,46 @@ else()
         " COMPONENT system)
 endif()
 
+if (NOT DEFINED IMAGEVIEWER OR IMAGEVIEWER)
+    message(STATUS "IMAGEVIEWER plugin enabled")
+    add_subdirectory (ImageViewer)
+else()
+    message(STATUS "${ColorRed}IMAGEVIEWER plugin disabled due to IMAGEVIEWER=${IMAGEVIEWER}${ColorNormal}")
+    install(CODE "
+        execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/ImageViewer/ImageViewer.far-plug-wide)
+        " COMPONENT system)
+endif()
+
+if (NOT DEFINED EDSORT OR EDSORT)
+    message(STATUS "EDSORT plugin enabled")
+    add_subdirectory (edsort)
+else()
+    message(STATUS "${ColorRed}EDSORT plugin disabled due to EDSORT=${EDSORT}${ColorNormal}")
+    install(CODE "
+        execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/edsort/plug/edsort.far-plug-wide)
+        " COMPONENT system)
+endif()
+
+if (NOT DEFINED MEMO OR MEMO)
+    message(STATUS "MEMO plugin enabled")
+    add_subdirectory (memo)
+else()
+    message(STATUS "${ColorRed}MEMO plugin disabled due to MEMO=${MEMO}${ColorNormal}")
+    install(CODE "
+        execute_process(COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/memo/plug/memo.far-plug-wide)
+        " COMPONENT system)
+endif()
+
+if (NOT DEFINED ADB OR ADB)
+    message(STATUS "ADB plugin enabled")
+    add_subdirectory (adb)
+else()
+    message(STATUS "${ColorRed}ADB plugin disabled due to ADB=${ADB}${ColorNormal}")
+    install(CODE "
+        execute_process(COMMAND rm -f ${CMAKE_INSTALL_PREFIX}/lib/far2l/Plugins/adb/plug/adb.far-plug-wide)
+        " COMPONENT system)
+endif()
+
 ##############################
 # common install directives
 
@@ -569,10 +641,12 @@ install(PROGRAMS "${INSTALL_DIR}/${EXECUTABLE_NAME}" DESTINATION "bin" RENAME fa
 install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "lib/far2l" USE_SOURCE_PERMISSIONS COMPONENT base FILES_MATCHING
     PATTERN "colorer/base" EXCLUDE
     PATTERN "far2l_gui.so"
+    PATTERN "far2l_sdl.so"
     PATTERN "far2l_ttyx.broker"
     PATTERN "plug/*.far-plug-*"
     PATTERN "plug/*.broker"
     PATTERN "python/plugins" EXCLUDE
+    PATTERN "themes" EXCLUDE
 )
 
 install(DIRECTORY "${INSTALL_DIR}/" DESTINATION "share/far2l" USE_SOURCE_PERMISSIONS COMPONENT base FILES_MATCHING

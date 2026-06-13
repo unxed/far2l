@@ -47,6 +47,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "interf.hpp"
 #include <crc64.h>
 #include "FileMasksProcessor.hpp"
+#include "cmdline.hpp"
+#include "ctrlobj.hpp"
 
 static uint64_t RegKey2ID(const FARString &str)
 {
@@ -61,7 +63,7 @@ History::History(enumHISTORYTYPE TypeHistory, size_t HistoryCount, const std::st
 	EnableAdd(true),
 	KeepSelectedPos(false),
 	SaveType(SaveType),
-	RemoveDups(1),
+	RemoveDups(HISTORY_REMOVE_DUPS_CASE_SENSITIVE),
 	TypeHistory(TypeHistory),
 	HistoryCount(HistoryCount),
 	EnableSave(EnableSave),
@@ -134,18 +136,22 @@ void History::AddToHistoryLocal(const wchar_t *Str, const wchar_t *Extra, const 
 		AddRecord.strExtra = Extra;
 	}
 
-	if (RemoveDups && Opt.HistoryRemoveDupsRule)		// удалять дубликаты?
+	if (RemoveDups != HISTORY_REMOVE_DUPS_DISABLED && Opt.HistoryRemoveDupsRule != HISTORY_REMOVE_DUPS_NEVER)		// удалять дубликаты?
 	{
 		for (HistoryRecord *HistoryItem = HistoryList.First(); HistoryItem;
 				HistoryItem = HistoryList.Next(HistoryItem)) {
 			if (EqualType(AddRecord.Type, HistoryItem->Type)) {
-				if ((RemoveDups == 1 && !StrCmp(AddRecord.strName, HistoryItem->strName)
-							 && (Opt.HistoryRemoveDupsRule<2 || !StrCmp(AddRecord.strExtra, HistoryItem->strExtra)))
-						|| (RemoveDups == 2 && !StrCmpI(AddRecord.strName, HistoryItem->strName)
-							&& (Opt.HistoryRemoveDupsRule<2 || !StrCmpI(AddRecord.strExtra, HistoryItem->strExtra)))) {
+				const bool case_sensitive = (RemoveDups == HISTORY_REMOVE_DUPS_CASE_SENSITIVE);
+				auto cmp = [case_sensitive](const FARString &a, const FARString &b) {
+					return case_sensitive ? !StrCmp(a, b) : !StrCmpI(a, b);
+				};
+				const bool names_equal = cmp(AddRecord.strName, HistoryItem->strName);
+				const bool extra_required = (Opt.HistoryRemoveDupsRule == HISTORY_REMOVE_DUPS_BY_NAME_EXTRA);
+				const bool extra_equal = !extra_required || cmp(AddRecord.strExtra, HistoryItem->strExtra);
+				if (names_equal && extra_equal) {
 					AddRecord.Lock = HistoryItem->Lock;
 					HistoryItem = HistoryList.Delete(HistoryItem);
-					// break; // not stop loop because after HistoryRemoveDupsRule==0 or ==2 history may has dups
+					// break; // don't stop loop because after HistoryRemoveDupsRule==HISTORY_REMOVE_DUPS_NEVER or ==HISTORY_REMOVE_DUPS_BY_NAME_EXTRA history can contain dups
 				}
 			}
 		}
@@ -380,7 +386,7 @@ int History::Select(const wchar_t *Title, const wchar_t *HelpTopic, FARString &s
 	VMenu HistoryMenu(Title, nullptr, 0, Height);
 	HistoryMenu.SetFlags(VMENU_SHOWAMPERSAND | VMENU_WRAPMODE);
 
-	HistoryMenu.SetHelp(HelpTopic ? HelpTopic : L"HistoryCmd");	
+	HistoryMenu.SetHelp(HelpTopic ? HelpTopic : L"HistoryCmd");
 
 	HistoryMenu.SetPosition(-1, -1, 0, 0);
 	if (Opt.AutoHighlightHistory)
@@ -1038,6 +1044,27 @@ bool History::GetAllSimilar(VMenu &HistoryMenu, const wchar_t *Str)
 {
 	SyncChanges();
 	int Length = StrLength(Str);
+	if (TypeHistory == HISTORYTYPE_CMD && Opt.HistoryRemoveDupsRule != HISTORY_REMOVE_DUPS_BY_NAME) {
+		//suggesting commands executed from current directory before others
+		FARString strCurDir;
+		CtrlObject->CmdLine->GetCurDir(strCurDir);
+
+		for (HistoryRecord *HistoryItem = HistoryList.Last(); HistoryItem;
+				HistoryItem = HistoryList.Prev(HistoryItem)) {
+			if (!HistoryItem->strExtra.IsEmpty() && HistoryItem->strExtra == strCurDir
+					&& !StrCmpNI(Str, HistoryItem->strName, Length) && StrCmp(Str, HistoryItem->strName)
+					&& (IsAllowedForHistory(HistoryItem->strName.CPtr()))
+					&& HistoryMenu.FindItem(0, HistoryItem->strName.CPtr(), LIFIND_EXACTMATCH | LIFIND_KEEPAMPERSAND) < 0) {
+				HistoryMenu.AddItem(HistoryItem->strName);
+			}
+		}
+		if (HistoryMenu.GetItemCount()) {
+			MenuItemEx item{};
+			item.Flags = LIF_SEPARATOR;
+			HistoryMenu.AddItem(&item);
+		}
+
+	}
 	for (HistoryRecord *HistoryItem = HistoryList.Last(); HistoryItem;
 			HistoryItem = HistoryList.Prev(HistoryItem)) {
 		if (!StrCmpNI(Str, HistoryItem->strName, Length) && StrCmp(Str, HistoryItem->strName)
@@ -1049,7 +1076,7 @@ bool History::GetAllSimilar(VMenu &HistoryMenu, const wchar_t *Str)
 	return false;
 }
 
-void History::SetAddMode(bool EnableAdd, int RemoveDups, bool KeepSelectedPos)
+void History::SetAddMode(bool EnableAdd, HistoryRemoveDupsMode RemoveDups, bool KeepSelectedPos)
 {
 	History::EnableAdd = EnableAdd;
 	History::RemoveDups = RemoveDups;

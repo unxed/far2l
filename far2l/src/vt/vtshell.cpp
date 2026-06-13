@@ -202,6 +202,8 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 				unsetenv("COLORTERM");
 		}
 
+		setenv("TERM_PROGRAM", "far2l", 1);
+
 		if (!askpass_app.empty()) {
 			setenv("SUDO_ASKPASS", askpass_app.c_str(), 1);
 		}
@@ -240,11 +242,21 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 	void UpdateTerminalSize(int fd_term)
 	{
 		CONSOLE_SCREEN_BUFFER_INFO csbi = { };
-		if (WINPORT(GetConsoleScreenBufferInfo)(ConsoleHandle(), &csbi )
+		HANDLE con = ConsoleHandle();
+		if (WINPORT(GetConsoleScreenBufferInfo)(con, &csbi )
 					&& csbi.dwSize.X && csbi.dwSize.Y) {
-			fprintf(stderr, "UpdateTerminalSize: %u x %u\n", csbi.dwSize.X, csbi.dwSize.Y);
 			struct winsize ws = {(unsigned short)csbi.dwSize.Y,
 				(unsigned short)csbi.dwSize.X, 0, 0};
+
+			WinportGraphicsInfo wgi{};
+			if (WINPORT(GetConsoleImageCaps)(con, sizeof(wgi), &wgi)) {
+				ws.ws_xpixel = std::min(16384, int(ws.ws_col) * wgi.PixPerCell.X);
+				ws.ws_ypixel = std::min(16384, int(ws.ws_row) * wgi.PixPerCell.Y);
+			}
+
+			fprintf(stderr, "UpdateTerminalSize: %u x %u cells, %d x %d pixels\n",
+				csbi.dwSize.X, csbi.dwSize.Y, ws.ws_xpixel, ws.ws_ypixel);
+
 			if (ioctl( fd_term, TIOCSWINSZ, &ws )==-1)
 				perror("VT: ioctl(TIOCSWINSZ)");
 		}
@@ -534,7 +546,6 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 
 		DeliverPendingWindowInfo();
 		InterThreadCall<int>(std::bind(sShowConsoleLog, kind));
-
 		if (!_slavename.empty())
 			UpdateTerminalSize(_fd_out);
 		if (_far2l_exts)
@@ -586,6 +597,30 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 	virtual void OnWin32InputMode(bool enabled)
 	{
 		_win32_input_mode_expected = enabled;
+	}
+	virtual int OnModeQuery(int mode, bool is_dec)
+	{
+		if (is_dec) {
+			switch (mode) {
+				case 1:    return 2; // Cursor keys mode (Reset in far2l)
+				case 7:    {
+					DWORD mode = 0;
+					WINPORT(GetConsoleMode)(ConsoleHandle(), &mode);
+					return (mode & ENABLE_WRAP_AT_EOL_OUTPUT) ? 1 : 2;
+				}
+				case 1000: return (_mouse_mode & MODE_VT200_MOUSE) ? 1 : 2;
+				case 1002: return (_mouse_mode & MODE_BTN_EVENT_MOUSE) ? 1 : 2;
+				case 1003: return (_mouse_mode & MODE_ANY_EVENT_MOUSE) ? 1 : 2;
+				case 1004: return _focus_change_expected ? 1 : 2;
+				case 1006: return (_mouse_mode & MODE_SGR_EXT_MOUSE) ? 1 : 2;
+				case 1049: return _alternate_mode ? 1 : 2;
+				case 2004: return _bracketed_paste_expected ? 1 : 2;
+				case 9001: return _win32_input_mode_expected ? 1 : 2;
+				default:   return 0; // Not recognized
+			}
+		}
+		// ANSI modes
+		return (mode == 3) ? (_vta.IsCRM() ? 1 : 2) : 0;
 	}
 
 	virtual void SetKittyFlags(int flags)
@@ -865,6 +900,11 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 			if (spec)
 				return spec;
 		}
+		// For plain text characters (VK==0) there is no terminal-level key-release
+		// representation. Writing the same raw char on UP would double every character
+		// in bracketed paste and in any mode that forwards key-up events (win32/kitty).
+		if (!KeyEvent.bKeyDown)
+			return std::string();
 
 		wchar_t wz[3] = {KeyEvent.uChar.UnicodeChar, 0};
 		if (_slavename.empty() && wz[0] == '\r') //pipes fallback
@@ -1115,6 +1155,18 @@ class VTShell : VTOutputReader::IProcessor, VTInputReader::IProcessor, IVTShell
 		}
 
 		ExecuteCommandEnd();
+		if (_vta.HasImages() && !_console_kill_requested && _exit_code == 0) {
+			// some apps like chafa just 'prints' image and exit successfully
+			// we're not keeping images with terminale history - so it will go away due to terminal reset
+			// so let user see masterpiece before it will be disappear forever
+			const auto *msg = L"Close by any key of: [SPACE | ENTER | ESCAPE | 'C']";
+			DWORD dw;
+			WINPORT(WriteConsole)(NULL, msg, wcslen(msg), &dw, NULL );
+			WORD keys[] = {VK_RETURN, VK_ESCAPE, VK_SPACE, 'C'};
+			while (!WINPORT(CheckForKeyPress)(NULL, keys, ARRAYSIZE(keys), CFKP_KEEP_OTHER_EVENTS | CFKP_KEEP_MOUSE_EVENTS)) {
+				WINPORT(WaitConsoleInput)(NULL, 1000);
+			}
+		}
 
 		CheckLeaderAlive();
 

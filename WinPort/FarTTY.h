@@ -86,6 +86,15 @@ All integer values are in little-endian format.
 */
 #define FARTTY_INTERACT_GET_COLOR_PALETTE         'p'
 
+/** Various operations for graphical image rendering, see also FARTTY_INTERACT_IMAGE_*
+ In:
+  char (FARTTY_INTERACT_IMAGE_* subcommand)
+  ..subcommands-specific
+ Out:
+  ..subcommands-specific
+*/
+#define FARTTY_INTERACT_IMAGE                     'i'
+
 
 /** Declares that client supports specified extra features, so server _may_ change its hehaviour accordingly if it also supports some of them
  In:
@@ -139,6 +148,7 @@ Glossary:
   only following predefined values are used by far2l in reality:
    1  - CF_TEXT - text encoded as UTF8
    13 - CF_UNICODETEXT - text encoded as UTF32 (deprecated in recent releases in favor of CF_TEXT)
+   15 - CF_HTML - HTML text
    Also far2l dynamically registers some own data formats to copy-paste vertical text blocks etc.
     At same moment of time clipboard may contain several different formats, thus allowing data to be
     represented in different forms. Also CF_TEXT/CF_UNICODETEXT transparently transcoded if needed.
@@ -224,6 +234,54 @@ Glossary:
   uint32_t (0 - failure, nonzero value - registered format ID)
 */
 #define FARTTY_INTERACT_CLIP_REGISTER_FORMAT       'r'
+
+/** Request imaging capabilities.
+ In:
+  N/A
+ Out:
+  uint64_t (0 - not available, nonzero value - see WP_IMGCAP_*)
+  uint16_t (character cell width in pixels)
+  uint16_t (character cell height in pixels)
+*/
+#define FARTTY_INTERACT_IMAGE_CAPS                 'c'
+
+/** Upload and display new image or add part to existing image.
+ In:
+  string (image identity)
+  uint64_t (flags: see WP_IMG_*)
+  uint16_t (character cell of image Left or -1 to leave it unchanged OR initially set to current cursor position)
+  uint16_t (character cell of image Top or -1 to leave it unchanged OR initially set to current cursor position)
+  uint16_t (character cell of image Right or -1 to leave it unchanged OR initially set to image pixels width OR extra pixel offset if WP_IMG_PIXEL_OFFSET flag specified)
+  uint16_t (character cell of image Bottom or -1 to leave it unchanged OR initially set to image pixels height OR extra pixel offset if WP_IMG_PIXEL_OFFSET flag specified)
+  uint32_t (image width pixels for RGB/RGBA and encoded data size for PNG/JPG)
+  uint32_t (image height pixels for RGB/RGBA and 1 for PNG/JPG)
+  data of size according to specified width/height (RGB: width * height * 3, RGBA: width * height * 4, PNG/JPG: width)
+ Out:
+  uint8_t (0 - failure, 1 - image loaded and displayed)
+*/
+#define FARTTY_INTERACT_IMAGE_SET                  's'
+
+/** Remove previously set image.
+ In:
+  string (image identity)
+ Out:
+  uint8_t (0 - failure, 1 - value - image removed)
+*/
+#define FARTTY_INTERACT_IMAGE_DEL                  'd'
+
+/** Simple transformation (moving, rotating, mirroring) of previously set image.
+ In:
+  string (image identity)
+  uint16_t (character cell of image Left OR -1 to leave it unchanged)
+  uint16_t (character cell of image Top OR -1 to leave it unchanged)
+  uint16_t (character cell of image Right OR -1 to leave it unchanged OR extra pixel offset if WP_IMG_PIXEL_OFFSET flag was specified before)
+  uint16_t (character cell of image Bottom OR -1 to leave it unchanged OR extra pixel offset if WP_IMG_PIXEL_OFFSET flag was specified before)
+  uint16_t (combination of WP_IMGTF_* flags representing image transformation(s) requested)
+ Out:
+  uint8_t (0 - failure, 1 - image transformed)
+*/
+#define FARTTY_INTERACT_IMAGE_TRANSFORM            't'
+
 
 ///////////////////////
 

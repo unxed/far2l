@@ -5,11 +5,14 @@
 #include "TTYInputSequenceParser.h"
 #include "Backend.h"
 
+// uncomment line below to enable self-contradiction check and some extra logging on startup
+// #define TTY_DEBUG
+
 //See:
 // http://www.manmrk.net/tutorials/ISPF/XE/xehelp/html/HID00000579.htm
 // http://www.leonerd.org.uk/hacks/fixterms/
 
-#if 0 // change to 1 to enable self-contradiction check on startup
+#ifdef TTY_DEBUG
 
 template <typename Last> static void AssertNoConflictsBetween(const Last &last) { }
 
@@ -52,7 +55,9 @@ void TTYInputSequenceParser::AddStr(WORD vk, DWORD control_keys, const char *fmt
 	int r = vsnprintf (&tmp[0], sizeof(tmp), fmt, va);
 	va_end(va);
 
+#ifdef TTY_DEBUG
 	fprintf(stderr, "TTYInputSequenceParser::AddStr(0x%x, 0x%x, '%s'): '%s' r=%d\n", vk, control_keys, fmt, tmp, r);
+#endif
 
 	TTYInputKey k = {vk, control_keys};
 	switch (r) {
@@ -301,6 +306,24 @@ void TTYInputSequenceParser::ParseAPC(const char *s, size_t l)
 	} else if (strncmp(s, "far2l", 5) == 0) {
 		_tmp_stk_ser.FromBase64(s + 5, l - 5);
 		_handler->OnFar2lReply(_tmp_stk_ser);
+
+	} else if (*s == 'G') {
+		_handler->OnKittyGraphicsResponse(std::string(s + 1, l - 1));
+	}
+}
+
+void TTYInputSequenceParser::ParseDCS(const char *s, size_t l)
+{
+	if (l >= 4 && s[0] == '1' && s[1] == '$' && s[2] == 'r' && s[l - 1] == 'q') {
+		unsigned int shape = 0;
+		for (size_t i = 3; i < l - 1; ++i) {
+			if (s[i] >= '0' && s[i] <= '9') {
+				shape = shape * 10 + (s[i] - '0');
+			} else if (s[i] != ' ') {
+				break;
+			}
+		}
+		_handler->OnCursorShape(shape);
 	}
 }
 
@@ -320,6 +343,7 @@ size_t TTYInputSequenceParser::ParseEscapeSequence(const char *s, size_t l)
 	}
 
 	if (l > 2 && s[0] == '[' && s[2] == 'n') {
+		_handler->OnStatusResponse(s[1]);
 		return 3;
 	}
 
@@ -329,8 +353,26 @@ size_t TTYInputSequenceParser::ParseEscapeSequence(const char *s, size_t l)
 				ParseAPC(s + 1, i - 1);
 				return i + 1;
 			}
+			if (s[i] == '\e' && i + 1 < l && s[i + 1] == '\\' ) {
+				ParseAPC(s + 1, i - 1);
+				return i + 2;
+			}
 		}
-		return 0;
+		return TTY_PARSED_WANTMORE;
+	}
+
+	if (l > 0 && s[0] == 'P') {
+		for (size_t i = 1; i < l; ++i) {
+			if (s[i] == '\x07') {
+				ParseDCS(s + 1, i - 1);
+				return i + 1;
+			}
+			if (s[i] == '\e' && i + 1 < l && s[i + 1] == '\\' ) {
+				ParseDCS(s + 1, i - 1);
+				return i + 2;
+			}
+		}
+		return TTY_PARSED_WANTMORE;
 	}
 
 	if (l > 4 && s[0] == '[' && s[1] == '2' && s[2] == '0' && (s[3] == '0' || s[3] == '1') && s[4] == '~') {
@@ -356,6 +398,17 @@ size_t TTYInputSequenceParser::ParseEscapeSequence(const char *s, size_t l)
 		}
 	}
 
+	if (l > 5 && s[0] == '[' && s[1] == '6' && s[2] == ';') { // Response to ESC [ 16 t
+		unsigned int h=0, w=0;
+		if (sscanf(s, "[6;%u;%ut", &h, &w) == 2) {
+			_handler->OnGetCellSize(w, h);
+			// find 't'
+			for (size_t i = 3; i < l; ++i) {
+				if (s[i] == 't') return i + 1;
+			}
+		}
+	}
+
 	if (l > 5 && s[0] == ']' && s[1] == '1' && s[2] == '3' && s[3] == '3' && s[4] == '7' && s[5] == ';') {
 		r = TryParseAsITerm2EscapeSequence(s, l);
 		if (r != TTY_PARSED_BADSEQUENCE) {
@@ -368,15 +421,13 @@ size_t TTYInputSequenceParser::ParseEscapeSequence(const char *s, size_t l)
 		return r;
 	}
 
-	//win32-input-mode must be checked before kitty
 	if (l > 1 && s[0] == '[') {
+		//win32-input-mode must be checked before kitty
 		r = TryParseAsWinTermEscapeSequence(s, l);
 		if (r != TTY_PARSED_BADSEQUENCE) {
 			return r;
 		}
-	}
 
-	if (l > 1 && s[0] == '[') {
 		r = TryParseAsKittyEscapeSequence(s, l);
 		if (r != TTY_PARSED_BADSEQUENCE) {
 			return r;
@@ -529,7 +580,8 @@ void TTYInputSequenceParser::AddPendingKeyEvent(const TTYInputKey &k)
 	ir.Event.KeyEvent.wVirtualKeyCode = k.vk;
 	ir.Event.KeyEvent.dwControlKeyState = k.control_keys | _extra_control_keys;
 	ir.Event.KeyEvent.wVirtualScanCode = WINPORT(MapVirtualKey)(k.vk,MAPVK_VK_TO_VSC);
-	_handler->OnInspectKeyEvent(ir.Event.KeyEvent);
+	if (!_bracketed_paste_mode)
+		_handler->OnInspectKeyEvent(ir.Event.KeyEvent);
 	_ir_pending.emplace_back(ir); // g_winport_con_in->Enqueue(&ir, 1);
 	ir.Event.KeyEvent.bKeyDown = FALSE;
 	_ir_pending.emplace_back(ir); // g_winport_con_in->Enqueue(&ir, 1);
@@ -688,7 +740,7 @@ void TTYInputSequenceParser::ParseWinDoubleBuffer(bool idle)
 		_win32_accumulate = true;
 		return;
 	}
-	
+
 	if (_win_double_buffer.size() > 2 && _win_double_buffer.back() >= '@' && _win_double_buffer.back() <= '~') {
 		// end of sequence, whatever is it
 		_win32_accumulate = false;

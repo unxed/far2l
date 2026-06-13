@@ -129,7 +129,7 @@ static PluginType PluginTypeByExtension(const wchar_t *lpModuleName)
 
 PluginManager::PluginManager()
 	:
-	PluginsData(nullptr), PluginsCount(0), CurPluginItem(nullptr), CurEditor(nullptr), CurViewer(nullptr)
+	PluginsData(nullptr), PluginsCount(0), CurPluginItem(nullptr), CurEditor(nullptr), CurDialogEditor(nullptr), CurViewer(nullptr)
 {}
 
 PluginManager::~PluginManager()
@@ -749,9 +749,12 @@ int PluginManager::ProcessEditorInput(INPUT_RECORD *Rec)
 
 int PluginManager::ProcessEditorEvent(int Event, void *Param)
 {
+	if (FrameManager->ManagerIsDown())  // https://github.com/shmuz/far2m/issues/98
+		return 0;
+
 	int nResult = 0;
 
-	if (CtrlObject->Plugins.CurEditor) {
+	if (CtrlObject->Plugins.CurEditor || CtrlObject->Plugins.CurDialogEditor) {
 		Plugin *pPlugin = nullptr;
 
 		for (int i = 0; i < PluginsCount; i++) {
@@ -1556,25 +1559,24 @@ struct PluginData
 
 int PluginManager::ProcessCommandLine(const wchar_t *CommandParam, Panel *Target)
 {
-	size_t PrefixLength = 0;
+	size_t PrefixLength = 0, slash_pos = 0;
+	FARString strPrefix;
 	FARString strCommand = CommandParam;
 	UnquoteExternal(strCommand);
 	RemoveLeadingSpaces(strCommand);
 
-	for (;;) {
-		wchar_t Ch = strCommand.At(PrefixLength);
+	std::wstring command(strCommand.CPtr());
+	PrefixLength = command.find(L':');
+	if (PrefixLength == std::wstring::npos)
+		return FALSE;
 
-		if (!Ch || IsSpace(Ch) || Ch == L'/' || PrefixLength > 64)
-			return FALSE;
-
-		if (Ch == L':' && PrefixLength > 0)
-			break;
-
-		PrefixLength++;
-	}
-
+	slash_pos = command.rfind(L'/',PrefixLength);
+	if (slash_pos == std::wstring::npos)
+		strPrefix = command.substr(0, PrefixLength);
+	else
+		strPrefix = command.substr(slash_pos + 1, PrefixLength - slash_pos - 1);
+	
 	LoadIfCacheAbsent();
-	FARString strPrefix(strCommand, PrefixLength);
 	FARString strPluginPrefix;
 	TPointerArray<PluginData> items;
 
@@ -1716,13 +1718,14 @@ int PluginManager::CallPlugin(DWORD SysID, int OpenFrom, void *Data, int *Ret)
 			HANDLE hNewPlugin = OpenPlugin(pPlugin, OpenFrom, (INT_PTR)Data);
 			bool process = false;
 
-			if (OpenFrom & OPEN_FROMMACRO) {
+			/*if (OpenFrom & OPEN_FROMMACRO) {
 				// <????>
 				;
 				// </????>
 			} else {
 				process = OpenFrom == OPEN_PLUGINSMENU || OpenFrom == OPEN_FILEPANEL;
-			}
+			}*/
+			process = OpenFrom & OPEN_PLUGINSMENU || OpenFrom & OPEN_FILEPANEL;
 
 			if (hNewPlugin != INVALID_HANDLE_VALUE && process) {
 				int CurFocus = CtrlObject->Cp()->ActivePanel->GetFocus();
@@ -1739,8 +1742,8 @@ int PluginManager::CallPlugin(DWORD SysID, int OpenFrom, void *Data, int *Ret)
 					Код закомментирован! Попытка исключить ненужные вызовы в CallPlugin()
 					Если что-то не так - раскомментировать!!!
 				*/
-				// NewPanel->Update(0);
-				// NewPanel->Show();
+				NewPanel->Update(0);
+				NewPanel->Show();
 			}
 
 			if (Ret) {

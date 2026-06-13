@@ -243,6 +243,11 @@ void FarAbout(PluginManager &Plugins)
 		mi.strName = fs + L"Settings Name: " + pPlugin->GetSettingsName();
 		ListAbout.AddItem(&mi); fs2copy += "\n" + mi.strName;
 
+		if (pPlugin->GetSysID() > 0) {
+			mi.strName.Format(L"%ls        SysID: 0x%08X", fs.CPtr(), pPlugin->GetSysID());
+			ListAbout.AddItem(&mi); fs2copy += "\n" + mi.strName;
+		}
+
 		int iFlags;
 		int j;
 		PluginInfo pInfo{};
@@ -339,7 +344,7 @@ void FarAbout(PluginManager &Plugins)
 			mi.strName.Format(L"%ls      CommandPrefix: \"%ls\"", fs.CPtr(), fsCommandPrefix.CPtr());
 			ListAbout.AddItem(&mi); fs2copy += "\n" + mi.strName;
 		}
-		
+
 	}
 
 	ListAbout.SetPosition(-1, -1, 0, 0);

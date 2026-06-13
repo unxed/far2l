@@ -71,6 +71,34 @@ enum
 };
 static const wchar_t *EOL_TYPE_CHARS[] = {L"", L"\r", L"\n", L"\r\n", L"\r\r\n"};
 
+bool TranslateInsertKey(FarKey &Key)
+{
+	switch (Key) {
+		case KEY_ADD:
+			Key = L'+';
+			return true;
+		case KEY_SUBTRACT:
+			Key = L'-';
+			return true;
+		case KEY_MULTIPLY:
+			Key = L'*';
+			return true;
+		case KEY_DIVIDE:
+			Key = L'/';
+			return true;
+		case KEY_DECIMAL:
+			Key = L'.';
+			return true;
+		case KEY_SHIFTSPACE:
+			Key = L' ';
+			return true;
+		case KEY_TAB:
+			return true;
+		default:
+			return Key >= L' ' && WCHAR_IS_VALID(Key);
+	}
+}
+
 #define EDMASK_ANY    L'X'		// позволяет вводить в строку ввода любой символ;
 #define EDMASK_DSS    L'#'		// позволяет вводить в строку ввода цифры, пробел и знак минуса;
 #define EDMASK_DIGIT  L'9'		// позволяет вводить в строку ввода только цифры;
@@ -127,6 +155,7 @@ Edit::Edit(ScreenObject *pOwner, Callback *aCallback, bool bAllocateData)
 		*Str = 0;
 
 	Flags.Set(FEDITLINE_EDITBEYONDEND);
+	Flags.Set(FEDITLINE_CURSORVISIBLE);
 	Color = F_LIGHTGRAY | B_BLACK;
 	SelColor = F_WHITE | B_BLACK;
 	ColorUnChanged = FarColorToReal(COL_DIALOGEDITUNCHANGED);
@@ -242,19 +271,21 @@ void Edit::DisplayObject()
 		при DropDownBox курсор выключаем
 		не знаю даже - попробовал но не очень красиво вышло
 	*/
-	if (Flags.Check(FEDITLINE_DROPDOWNBOX))
-		::SetCursorType(0, 10);
-	else {
-		if (Flags.Check(FEDITLINE_OVERTYPE)) {
-			int NewCursorSize = (Opt.CursorSize[2] ? Opt.CursorSize[2] : 99);
-			::SetCursorType(1, CursorSize == -1 ? NewCursorSize : CursorSize);
-		} else {
-			int NewCursorSize = (Opt.CursorSize[0] ? Opt.CursorSize[0] : 10);
-			::SetCursorType(1, CursorSize == -1 ? NewCursorSize : CursorSize);
+	if (Flags.Check(FEDITLINE_CURSORVISIBLE)) {
+		if (Flags.Check(FEDITLINE_DROPDOWNBOX))
+			::SetCursorType(0, 10);
+		else {
+			if (Flags.Check(FEDITLINE_OVERTYPE)) {
+				int NewCursorSize = (Opt.CursorSize[2] ? Opt.CursorSize[2] : 99);
+				::SetCursorType(1, CursorSize == -1 ? NewCursorSize : CursorSize);
+			} else {
+				int NewCursorSize = (Opt.CursorSize[0] ? Opt.CursorSize[0] : 10);
+				::SetCursorType(1, CursorSize == -1 ? NewCursorSize : CursorSize);
+			}
 		}
-	}
 
-	MoveCursor(X1 + CursorPos - LeftPos, Y1);
+		MoveCursor(X1 + CursorPos - LeftPos, Y1);
+	}
 }
 
 void Edit::SetCursorType(bool Visible, DWORD Size)
@@ -363,6 +394,8 @@ void Edit::FastShow()
 	int CellSelStart = (SelStart == -1) ? -1 : RealPosToCell(SelStart);
 	int CellSelEnd = (SelEnd < 0) ? -1 : RealPosToCell(SelEnd);
 
+	int iTrailingSpacesPos = StrSize; // for Visual show trailing spaces/tabs in dialog editlines
+
 	/*
 		$ 17.08.2000 KM
 		Если есть маска, сделаем подготовку строки, то есть
@@ -371,6 +404,12 @@ void Edit::FastShow()
 	*/
 	if (Mask && *Mask)
 		RefreshStrByMask();
+	// for Visual show trailing spaces/tabs in dialog editlines (not in masked)
+	else if (Flags.Check(FEDITLINE_PARENT_SINGLELINE | FEDITLINE_PARENT_MULTILINE)) {
+		for (iTrailingSpacesPos = StrSize; iTrailingSpacesPos > 0; iTrailingSpacesPos--)
+			if (!std::iswblank(Str[iTrailingSpacesPos-1]))
+				break;
+	}
 
 	CursorPos = CellCurPos;
 
@@ -379,7 +418,9 @@ void Edit::FastShow()
 	bool joining = false;
 	for (int i = RealLeftPos; i < StrSize && int(OutStrCells) < EditLength; ++i) {
 		auto wc = Str[i];
-		if (Flags.Check(FEDITLINE_SHOWWHITESPACE) && Flags.Check(FEDITLINE_EDITORMODE)) {
+		auto showSymbols = (Flags.Check(FEDITLINE_SHOWWHITESPACE) && Flags.Check(FEDITLINE_EDITORMODE))
+				|| i >= iTrailingSpacesPos;
+		if (showSymbols) {
 			switch(wc) {
 				case 0x0020: //space
 					wc = L'\xB7'; // ·
@@ -417,8 +458,8 @@ void Edit::FastShow()
 			for (int j = 0, S = TabSize - ((LeftPos + OutStrCells) % TabSize);
 					j < S && int(OutStrCells) < EditLength; ++j, ++OutStrCells) {
 				OutStr.emplace_back(
-						(Flags.Check(FEDITLINE_SHOWWHITESPACE) && Flags.Check(FEDITLINE_EDITORMODE) && !j)
-								? L'\x2192'
+						(showSymbols && !j)
+								? L'\x2192' // →
 								: L' ');
 			}
 		} else {
@@ -734,22 +775,9 @@ int Edit::CalcPosBwdTo(int Pos) const
 
 int Edit::ProcessKey(FarKey Key)
 {
+	TranslateInsertKey(Key);
+
 	switch (Key) {
-		case KEY_ADD:
-			Key = L'+';
-			break;
-		case KEY_SUBTRACT:
-			Key = L'-';
-			break;
-		case KEY_MULTIPLY:
-			Key = L'*';
-			break;
-		case KEY_DIVIDE:
-			Key = L'/';
-			break;
-		case KEY_DECIMAL:
-			Key = L'.';
-			break;
 		case KEY_CTRLC:
 			Key = KEY_CTRLINS;
 			break;
@@ -846,7 +874,9 @@ int Edit::ProcessKey(FarKey Key)
 		return TRUE;
 	}
 
-	if (Key != KEY_NONE && Key != KEY_IDLE && Key != KEY_SHIFTINS && Key != KEY_SHIFTNUMPAD0 && Key != KEY_CTRLINS
+	if (Flags.Check(FEDITLINE_CLEARFLAG)
+			&& Key != KEY_NONE && Key != KEY_IDLE && Key != KEY_SHIFTINS && Key != KEY_SHIFTNUMPAD0
+			&& Key != KEY_CTRLINS
 			&& ((unsigned int)Key < KEY_F1 || (unsigned int)Key > KEY_F12) && Key != KEY_ALT && Key != KEY_SHIFT
 			&& Key != KEY_CTRL && Key != KEY_RALT && Key != KEY_RCTRL && (Key < KEY_ALT_BASE || Key > KEY_ALT_BASE + 0xFFFF)
 			&& !( Key & (KEY_ALT | KEY_RALT) )
@@ -859,6 +889,17 @@ int Edit::ProcessKey(FarKey Key)
 	}
 
 	switch (Key) {
+		case KEY_CTRLA:
+			Select(0, StrSize);
+			Show();
+			return FALSE;
+
+		case KEY_CTRLU:
+			SetClearFlag(0);
+			Select(-1, 0);
+			Show();
+			return FALSE;
+
 		case KEY_SHIFTLEFT:
 		case KEY_SHIFTNUMPAD4: {
 			if (CurPos > 0) {
@@ -1082,13 +1123,24 @@ int Edit::ProcessKey(FarKey Key)
 		}
 		case KEY_OP_PLAINTEXT: {
 			if (!Flags.Check(FEDITLINE_PERSISTENTBLOCKS)) {
-				if (SelStart != -1 || Flags.Check(FEDITLINE_CLEARFLAG))		// BugZ#1053 - Неточности в $Text
+				if (SelStart != -1 || Flags.Check(FEDITLINE_CLEARFLAG))
 					RecurseProcessKey(KEY_DEL);
 			}
 
-			const wchar_t *S = eStackAsString();
+			FARString strPastedText;
+			if (!GPastedText.IsEmpty()) {
+				strPastedText = GPastedText;
+				GPastedText.Clear();
+			} else {
+				strPastedText = eStackAsString();
+			}
 
-			ProcessInsPlainText(S);
+			// For single-line edit controls, replace EOL sequences with spaces.
+			ReplaceStrings(strPastedText, L"\r\n", L" ");
+			ReplaceStrings(strPastedText, L"\r", L" ");
+			ReplaceStrings(strPastedText, L"\n", L" ");
+
+			InsertString(strPastedText);
 
 			Show();
 			return TRUE;
@@ -1400,9 +1452,6 @@ int Edit::ProcessKey(FarKey Key)
 			Show();
 			return TRUE;
 		}
-		case KEY_SHIFTSPACE:
-			Key = KEY_SPACE;
-			[[fallthrough]];
 		default: {
 			//			_D(SysLog(L"Key=0x%08X",Key));
 			if (Key == KEY_ENTER || !IS_KEY_NORMAL(Key))	// KEY_NUMENTER,KEY_IDLE,KEY_NONE covered by !IS_KEY_NORMAL
@@ -1594,6 +1643,18 @@ int Edit::GetVisualLineCount() const
 	if (!m_bWordWrapState || m_WrapBreaks.empty())
 		return 1;
 	return m_WrapBreaks.size();
+}
+
+int Edit::FindVisualLine(int Pos) const
+{
+	if (!m_bWordWrapState || m_WrapBreaks.empty())
+		return 0;
+
+	if (Pos <= 0)
+		return 0;
+
+	const auto it = std::upper_bound(m_WrapBreaks.begin(), m_WrapBreaks.end(), Pos);
+	return std::max(0, static_cast<int>(it - m_WrapBreaks.begin()) - 1);
 }
 
 void Edit::GetVisualLine(int line, int& start, int& end) const
@@ -2528,7 +2589,6 @@ void Edit::ApplyColor()
 		// Пропускаем элементы у которых начало больше конца
 		if (CurItem.StartPos > CurItem.EndPos)
 			continue;
-
 		// Отсекаем элементы заведомо не попадающие на экран
 		/*if (CurItem.StartPos - LeftPos > X2 && CurItem.EndPos - LeftPos < X1)
 			continue;*/
@@ -2572,7 +2632,7 @@ void Edit::ApplyColor()
 		TabEditorPos = Start;
 
 		// Пропускаем элементы раскраски у которых начальная позиция за экраном
-		if (Start > X2)
+		if (Start > ObjWidth - 1)
 			continue;
 
 		// Корректировка относительно табов (отключается, если присутвует флаг ECF_TAB1)
@@ -2631,16 +2691,11 @@ void Edit::ApplyColor()
 		TabPos = RealEnd;
 		TabEditorPos = End;
 
-		// Пропускаем элементы раскраски у которых конечная позиция меньше левой границы экрана
-		if (End < X1)
-			continue;
+		if (Start < 0)
+			Start = 0;
 
-		// Обрезаем раскраску элемента по экрану
-		if (Start < X1)
-			Start = X1;
-
-		if (End > X2)
-			End = X2;
+		if (End > ObjWidth - 1)
+			End = ObjWidth - 1;
 
 		// Устанавливаем длину раскрашиваемого элемента
 		Length = End - Start + 1;
@@ -2649,7 +2704,7 @@ void Edit::ApplyColor()
 			Length-= CorrectPos;
 
 		if (Length > 0) {
-			ScrBuf.ApplyColor(Start, Y1, Start + Length - 1, Y1, Attr, SelColor );
+			ScrBuf.ApplyColor(X1 + Start, Y1, X1 + Start + Length - 1, Y1, Attr, SelColor );
 					// Не раскрашиваем выделение
 //					SelColor >= COL_FIRSTPALETTECOLOR ? Palette[SelColor - COL_FIRSTPALETTECOLOR] : SelColor);
 		}

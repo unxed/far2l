@@ -17,8 +17,11 @@ set(SOURCES
     wxMain.cpp
     wxClipboardBackend.cpp
     ExclusiveHotkeys.cpp
+    wxKeyboardLedsState.cpp
     wxWinTranslations.cpp
     wxConsoleInputShim.cpp
+    wxConsoleImages.cpp
+    wxPrinterSupport.cpp
 )
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -33,10 +36,27 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     )
 endif()
 
+set(NEW_MACOS TRUE)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+#     if (CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.7" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(NEW_MACOS FALSE)
+    endif()
+endif()
+
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    find_package(wxWidgets REQUIRED core base adv)
+    if (${NEW_MACOS})
+        set(SOURCES
+            ${SOURCES}
+            Mac/printing.mm
+        )
+    endif()
+endif()
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    find_package(wxWidgets REQUIRED core base adv html richtext)
 else()
-    find_package(wxWidgets REQUIRED core base)
+    find_package(wxWidgets REQUIRED core base html richtext)
 endif()
 
 include(${wxWidgets_USE_FILE})
@@ -53,7 +73,7 @@ target_include_directories(far2l_gui PRIVATE ${wxWidgets_INCLUDE_DIRS})
 #${wxWidgets_CXX_FLAGS}
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_link_libraries(far2l_gui utils far2l "-framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL" ${wxWidgets_LIBRARIES})
+    target_link_libraries(far2l_gui utils far2l "-framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL -framework WebKit" ${wxWidgets_LIBRARIES})
 else()
     target_link_libraries(far2l_gui utils far2l ${wxWidgets_LIBRARIES})
 endif()

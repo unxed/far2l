@@ -383,14 +383,14 @@ static INT_PTR WINAPI FarAdvControlSynched(INT_PTR ModuleNumber, int Command, vo
 									char DiskLetter[4]=" :/";
 									DiskLetter[0]=(char)aem->Letter;
 									int DriveType = FAR_GetDriveType(DiskLetter,nullptr,FALSE); // здесь не определяем тип CD
-				
+
 									if(DriveType == DRIVE_USBDRIVE && RemoveUSBDrive((char)aem->Letter,aem->Flags))
 										return TRUE;
 									if(DriveType == DRIVE_SUBSTITUTE && DelSubstDrive(DiskLetter))
 										return TRUE;
 									if(IsDriveTypeCDROM(DriveType) && EjectVolume((char)aem->Letter,aem->Flags))
 										return TRUE;
-				
+
 								}
 								return FALSE;
 							*/
@@ -1285,6 +1285,7 @@ static int FarControlSynched(HANDLE hPlugin, int Command, int Param1, LONG_PTR P
 		case FCTL_SETNUMERICSORT:
 		case FCTL_SETCASESENSITIVESORT:
 		case FCTL_SETDIRECTORIESFIRST:
+		case FCTL_SETEXECUTABLESFIRST:
 		case FCTL_GETPANELFORMAT:
 		case FCTL_GETPANELHOSTFILE:
 		case FCTL_GETPANELPLUGINHANDLE:
@@ -2032,10 +2033,14 @@ void WINAPI FarText(int X, int Y, uint64_t Color, const wchar_t *Str)
 
 static int FarEditorControlSynched(int Command, void *Param)
 {
-	if (FrameManager->ManagerIsDown() || !CtrlObject->Plugins.CurEditor)
+	if (FrameManager->ManagerIsDown())
 		return 0;
 
-	return (CtrlObject->Plugins.CurEditor->EditorControl(Command, Param));
+	if (CtrlObject->Plugins.CurDialogEditor)
+		return (CtrlObject->Plugins.CurDialogEditor->EditorControl(Command, Param));
+	if (CtrlObject->Plugins.CurEditor)
+		return (CtrlObject->Plugins.CurEditor->EditorControl(Command, Param));
+	return 0;
 }
 
 int WINAPI FarEditorControl(int Command, void *Param)

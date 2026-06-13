@@ -175,7 +175,7 @@ static void UpdatePathOptions(const FARString &strDestName, bool IsActivePanel)
 			*outFolder = strDestName;
 			CutToSlash(*outFolder, true);
 			if (outFolder->IsEmpty())
-				*outFolder = L"/";
+				*outFolder = WGOOD_SLASH;
 		}
 	}
 }
@@ -407,7 +407,7 @@ int FarAppMain(int argc, char **argv)
 	// make current thread to be same as main one to avoid FARString reference-counter
 	// from cloning main strings from current one
 	OverrideInterThreadID(gMainThreadID);
- 
+
 	CharClasses::InitCharFlags();
 
 	Opt.IsUserAdmin = (geteuid() == 0);
@@ -460,7 +460,7 @@ int FarAppMain(int argc, char **argv)
 	// The name can be "far2ledit" or "editor" (when far2ledit is chosen
 	// as the default editor in Debian-based systems).
 	// See https://github.com/elfmz/far2l/pull/3022.
-	const char *argv0_lastslash = strrchr(argv[0], '/');
+	const char *argv0_lastslash = strrchr(argv[0], GOOD_SLASH);
 	bool is_far2ledit = strstr(argv0_lastslash ? argv0_lastslash + 1 : argv[0], "edit") != NULL;
 	if (is_far2ledit) {
 		Opt.OnlyEditorViewerUsed = Options::ONLY_EDITOR;
@@ -837,7 +837,7 @@ int _cdecl main(int argc, char *argv[])
 
 	{	// if CONFIG_INI is not present => first start & opt for show Help "FAR2L features - Getting Started"
 		struct stat stat_buf;
-		Opt.IsFirstStart = stat( InMyConfig(CONFIG_INI).c_str(), &stat_buf ) == -1;
+		Opt.IsFirstStart = stat( InMyConfig(CONFIG_INI, false).c_str(), &stat_buf ) == -1;
 	}
 
 	SafeMMap::SignalHandlerRegistrar smm_shr;

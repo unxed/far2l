@@ -4,6 +4,7 @@ add_subdirectory(wineguts)
 
 set(SOURCES
 src/APIClipboard.cpp
+src/APIPrinterSupport.cpp
 src/APIConsole.cpp
 src/APIFiles.cpp
 src/APIKeyboard.cpp
@@ -41,8 +42,9 @@ src/Backend/TTY/TTYInputSequenceParserExts.cpp
 src/Backend/TTY/TTYOutput.cpp
 src/Backend/TTY/TTYFar2lClipboardBackend.cpp
 src/Backend/TTY/OSC52ClipboardBackend.cpp
-src/Backend/TTY/TTYNegotiateFar2l.cpp
+src/Backend/TTY/TTYCaps.cpp
 src/Backend/TTY/TTYXGlue.cpp
+src/Backend/TTY/TTYPrinterSupport.cpp
 )
 
 if(TESTING)

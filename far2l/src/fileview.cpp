@@ -56,11 +56,12 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fileholder.hpp"
 #include "GrepFile.hpp"
 #include "exitcode.hpp"
+#include "printersupport.hpp"
 
 FileViewer::FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int DisableHistory, int DisableEdit,
 		long ViewStartPos, const wchar_t *PluginData, NamesList *ViewNamesList, int ToSaveAs, UINT aCodePage)
 	:
-	View(false, aCodePage), FullScreen(TRUE), DisableEdit(DisableEdit)
+	View(false, aCodePage), MenuBar(nullptr), FullScreen(TRUE), DisableEdit(DisableEdit)
 {
 	_OT(SysLog(L"[%p] FileViewer::FileViewer(I variant...)", this));
 	SetPosition(0, 0, ScrX, ScrY);
@@ -70,7 +71,7 @@ FileViewer::FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int Disabl
 FileViewer::FileViewer(FileHolderPtr NewFileHolder, int EnableSwitch, int DisableHistory, const wchar_t *Title,
 		int X1, int Y1, int X2, int Y2, UINT aCodePage)
 	:
-	View(false, aCodePage)
+	View(false, aCodePage), MenuBar(nullptr)
 {
 	_OT(SysLog(L"[%p] FileViewer::FileViewer(II variant...)", this));
 	DisableEdit = TRUE;
@@ -111,6 +112,7 @@ void FileViewer::Init(FileHolderPtr NewFileHolder, int EnableSwitch, int disable
 	ViewKeyBar.SetPosition(X1, Y2, X2, Y2);
 	KeyBarVisible = Opt.ViOpt.ShowKeyBar;
 	TitleBarVisible = Opt.ViOpt.ShowTitleBar;
+	MenuBarVisible = Opt.ViOpt.ShowMenuBar;
 	int OldMacroMode = CtrlObject->Macro.GetMode();
 	MacroMode = MACRO_VIEWER;
 	CtrlObject->Macro.SetMode(MACRO_VIEWER);
@@ -146,6 +148,13 @@ void FileViewer::Init(FileHolderPtr NewFileHolder, int EnableSwitch, int disable
 	ShowConsoleTitle();
 	AutoClose = false;
 	F3KeyOnly = true;
+
+	MenuBar = new ViewerMenuBar();
+	MenuBar->SetPosition(0, (TitleBarVisible ? 1 : 0), ScrX, (TitleBarVisible ? 1 : 0));
+	if (!MenuBarVisible) 
+		MenuBar->Hide0();
+	else
+		MenuBar->Show();
 
 	if (EnableSwitch) {
 		FrameManager->InsertFrame(this);
@@ -185,7 +194,8 @@ void FileViewer::InitKeyBar()
 	ViewKeyBar.ReadRegGroup(L"Viewer", Opt.strLanguage);
 	ViewKeyBar.SetAllRegGroup();
 	SetKeyBar(&ViewKeyBar);
-	View.SetPosition(X1, Y1 + (Opt.ViOpt.ShowTitleBar ? 1 : 0), X2, Y2 - (Opt.ViOpt.ShowKeyBar ? 1 : 0));
+	int gap = (Opt.ViOpt.ShowTitleBar ? 1 : 0) + (Opt.ViOpt.ShowMenuBar ? 1 : 0);
+	View.SetPosition(X1, Y1 + gap, X2, Y2 - (Opt.ViOpt.ShowKeyBar ? 1 : 0));
 	View.SetViewKeyBar(&ViewKeyBar);
 }
 
@@ -198,7 +208,13 @@ void FileViewer::Show()
 		}
 
 		SetPosition(0, 0, ScrX, ScrY - (Opt.ViOpt.ShowKeyBar ? 1 : 0));
-		View.SetPosition(0, (Opt.ViOpt.ShowTitleBar ? 1 : 0), ScrX, ScrY - (Opt.ViOpt.ShowKeyBar ? 1 : 0));
+		int gap = (Opt.ViOpt.ShowTitleBar ? 1 : 0) + (Opt.ViOpt.ShowMenuBar ? 1 : 0);
+		View.SetPosition(0, gap, ScrX, ScrY - (Opt.ViOpt.ShowKeyBar ? 1 : 0));
+
+		if (MenuBar && MenuBarVisible) {
+			MenuBar->SetPosition(0, TitleBarVisible ? 1 : 0, ScrX, TitleBarVisible ? 1 : 0);
+			MenuBar->Show();
+		}
 	}
 
 	ScreenObject::Show();
@@ -208,6 +224,7 @@ void FileViewer::Show()
 void FileViewer::DisplayObject()
 {
 	View.Show();
+	if (MenuBar && MenuBarVisible) MenuBar->DisplayObject();
 }
 
 int64_t FileViewer::VMProcess(MacroOpcode OpCode, void *vParam, int64_t iParam)
@@ -348,12 +365,16 @@ int FileViewer::ProcessKey(FarKey Key)
 			return TRUE;
 			// Печать файла с использованием плагина PrintMan
 		case KEY_ALTF5: {
+			/*
 			if (Opt.UsePrintManager && CtrlObject->Plugins.FindPlugin(SYSID_PRINTMANAGER))
 				CtrlObject->Plugins.CallPlugin(SYSID_PRINTMANAGER, OPEN_VIEWER, 0);		// printman
-
+            */
+            SendToPrinter();
 			return TRUE;
 		}
 		case KEY_F9:
+			ViewerShellOptions(0, nullptr, this);
+			return TRUE;
 		case KEY_ALTSHIFTF9:
 			// Работа с локальной копией ViewerOptions
 			ViewerOptions ViOpt;
@@ -361,17 +382,22 @@ int FileViewer::ProcessKey(FarKey Key)
 			ViOpt.AutoDetectCodePage = View.GetAutoDetectCodePage();
 			ViOpt.ShowScrollbar = View.GetShowScrollbar();
 			ViOpt.ShowArrows = View.GetShowArrows();
+			ViOpt.ClickableURLs = View.GetClickableURLs();
 			ViOpt.PersistentBlocks = View.GetPersistentBlocks();
+			ViOpt.ShowMenuBar = MenuBarVisible;
+
 			ViewerConfig(ViOpt, true);
+
 			View.SetTabSize(ViOpt.TabSize);
 			View.SetAutoDetectCodePage(ViOpt.AutoDetectCodePage);
 			View.SetShowScrollbar(ViOpt.ShowScrollbar);
 			View.SetShowArrows(ViOpt.ShowArrows);
+			View.SetClickableURLs(ViOpt.ClickableURLs);
 			View.SetPersistentBlocks(ViOpt.PersistentBlocks);
+			MenuBarVisible = ViOpt.ShowMenuBar;
 
-			ViewKeyBar.Refresh(Opt.ViOpt.ShowKeyBar);
-
-			View.Show();
+			ViewKeyBar.Refresh(ViOpt.ShowKeyBar);
+			Show();
 			return TRUE;
 		case KEY_ALTF10:
 			FrameManager->ExitMainLoop(TRUE);
@@ -445,6 +471,15 @@ void FileViewer::GrepFilterDismiss()
 int FileViewer::ProcessMouse(MOUSE_EVENT_RECORD *MouseEvent)
 {
 	F3KeyOnly = false;
+
+	if (MenuBarVisible) {
+		int pos = TitleBarVisible ? 1 : 0;
+		if (MouseEvent->dwMousePosition.Y == pos && (MouseEvent->dwButtonState & 3) && !MouseEvent->dwEventFlags) {
+			ViewerShellOptions(0, MouseEvent, this);
+			return TRUE;
+		}
+	}
+
 	if (!View.ProcessMouse(MouseEvent))
 		if (!ViewKeyBar.ProcessMouse(MouseEvent))
 			return FALSE;
@@ -468,6 +503,9 @@ void FileViewer::ShowConsoleTitle()
 FileViewer::~FileViewer()
 {
 	_OT(SysLog(L"[%p] ~FileViewer::FileViewer()", this));
+
+	if (MenuBar) delete MenuBar;
+	MenuBar = nullptr;
 }
 
 void FileViewer::OnDestroy()
@@ -526,11 +564,24 @@ void FileViewer::ShowStatus()
 		NameLength = 20;
 
 	TruncPathStr(strName, NameLength);
+	const int percent = View.LastPage ? 100 : ToPercent64(View.FilePos, View.FileSize);
 	FARString str_codepage;
 	ShortReadableCodepageName(View.VM.CodePage,str_codepage);
-	strStatus.Format(L"%-*ls %5ls %13llu %7.7ls %-4lld %ls%3d%%", NameLength, strName.CPtr(), str_codepage.CPtr(),
-			View.FileSize, Msg::ViewerStatusCol.CPtr(), View.LeftPos, Opt.ViewerEditorClock ? L"" : L" ",
-			(View.LastPage ? 100 : ToPercent64(View.FilePos, View.FileSize)));
+	FormatString status_builder;
+	status_builder << fmt::Cells() << fmt::LeftAlign() << fmt::Size(NameLength) << strName
+			<< L' '
+			<< fmt::Expand(5) << str_codepage
+			<< L' '
+			<< fmt::Expand(13) << View.FileSize
+			<< L' '
+			<< fmt::Size(7) << Msg::ViewerStatusCol
+			<< L' '
+			<< fmt::LeftAlign() << fmt::Expand(4) << View.LeftPos
+			<< L' '
+			<< (Opt.ViewerEditorClock ? L"" : L" ")
+			<< fmt::Expand(3) << percent
+			<< L'%';
+	strStatus = status_builder.strValue();
 	SetFarColor(COL_VIEWERSTATUS);
 	GotoXY(X1, Y1);
 	FS << fmt::Cells() << fmt::LeftAlign() << fmt::Size(View.Width + (View.ViOpt.ShowScrollbar ? 1 : 0))
@@ -550,6 +601,14 @@ void FileViewer::OnChangeFocus(int focus)
 	CtrlObject->Plugins.CurViewer = &View;
 	int FCurViewerID = View.ViewerID;
 	CtrlObject->Plugins.ProcessViewerEvent(focus ? VE_GOTFOCUS : VE_KILLFOCUS, &FCurViewerID);
+}
+
+void FileViewer::SetWrapModeAndType(bool Wrap, bool WordWrap)
+{
+	View.SetWrapMode(Wrap);
+	View.SetWrapType(WordWrap);
+	View.ChangeViewKeyBar();
+	View.Show();
 }
 
 void ModalViewFile(const std::string &pathname)
@@ -574,6 +633,7 @@ void ViewConsoleHistory(HANDLE con_hnd, bool modal, bool autoclose)
 	FileViewer *Viewer = new (std::nothrow) FileViewer(tfh,
 		!modal, TRUE, TRUE, -1, nullptr, nullptr, FALSE, CP_UTF8);
 	Viewer->SetDynamicallyBorn(!modal);
+	Viewer->SetWrapModeAndType(true, false);
 	Viewer->ProcessKey(KEY_END); // scroll to the end
 	if (autoclose)
 		Viewer->SetAutoClose(true);
@@ -583,3 +643,90 @@ void ViewConsoleHistory(HANDLE con_hnd, bool modal, bool autoclose)
 	if (!r || modal)
 		delete Viewer;
 }
+
+// ----------------------
+
+void FileViewer::ProcessMenuCommand(int hMenu, int vMenu, FarKey accelKey) 
+{
+	if (accelKey) {
+		ProcessKey(accelKey);
+		return;
+	}
+	else if (hMenu == MENU_VIEW_VIEW && vMenu == MENU_VIEW_VIEW_MENUBAR) {
+		MenuBarVisible = !MenuBarVisible;
+		Show();
+		return;
+	}
+	else if (hMenu == MENU_VIEW_FILE) {
+		if (vMenu == MENU_VIEW_FILE_HELP) {
+			ProcessKey(KEY_F1);
+		}
+		return;
+	}
+	else if (hMenu == MENU_VIEW_FILE && vMenu == MENU_VIEW_FILE_PRINTER) {
+		PrinterSupport ps;
+		if (ps.IsPrinterSetupDialogSupported()) {
+			ps.ShowPrinterSetupDialog();
+		}
+		return;
+	}
+}
+
+int FileViewer::MenuBarPosition() {
+	return TitleBarVisible && MenuBarVisible ? 1 : 0;
+}
+
+int FileViewer::IsOptionActive(int hMenu, int vMenu) {
+	if (hMenu != MENU_VIEW_VIEW) return FALSE;
+	switch (vMenu) {
+	case MENU_VIEW_VIEW_KEYBAR:
+		return KeyBarVisible;
+	case MENU_VIEW_VIEW_TITLEBAR:
+		return TitleBarVisible;
+	case MENU_VIEW_VIEW_MENUBAR:
+		return MenuBarVisible;
+	case MENU_VIEW_VIEW_WORDWRAP:
+		return View.VM.WordWrap;
+	case MENU_VIEW_VIEW_WRAP:
+		return View.VM.Wrap;
+	}
+	return FALSE;
+}
+
+bool FileViewer::SendToPrinter()
+{
+	if (strName.IsEmpty()) return false;
+
+	std::wstring fileName = strName.GetWide();
+
+	PrinterSupport printer;
+
+	if (!printer.IsReducedHTMLSupported()) {
+		printer.PrintRawFile(fileName.c_str());
+		return true;
+	}
+
+	FILE* fp = printer.BeginPrint();
+	if (fp) {
+		FILE* in = fopen(strName.GetMB().c_str(), "r");
+		if (in) {
+			int c;
+			while ((c = getc(in)) != EOF) {
+				switch (c) {
+					case  '<': fputs("&lt;", fp); break;
+					case  '>': fputs("&gt;", fp); break;
+					case  '&': fputs("&amp;", fp); break;
+					case '\n': fputs("<br>", fp); break;
+					default: putc(c, fp);
+				}
+			}
+			fclose(in);
+		}
+		printer.EndPrint(fp);
+	}
+
+	// unlink(tmpl);
+	return true;
+}
+
+//////////////////////////////////
